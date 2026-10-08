@@ -43,6 +43,7 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - Pen (P): Bézier paths. Click for corners, drag for curves, click the first point to close, Enter to finish.
 - Line (L) and Arrow (A), with Shift for 45° angles. Arrowheads can be arrow, open, bar or dot, at either end.
 - Shading airbrush (W): soft, blurred strokes for painting shadows and highlights over icons.
+- Eraser (X): drag over pencil, pen, line, arrow and shading strokes to rub out the parts it touches; the rest of each curve keeps its exact shape. The slider sets the eraser size. Filled shapes become outlines where they are cut.
 - Point editing: double-click any drawing to drag points and handles (Alt for sharp corners), click + to add a point, Delete to remove one, double-click a point to switch smooth/corner.
 - Shading styles: Flat, Soft 3-D, Glossy, Top-lit, Inner shadow, Rim light. They work on drawings, shapes, rectangles and ellipses.
 - Convert to path: turn rectangles, ellipses and polygon shapes into editable drawings.
@@ -128,7 +129,8 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - Real-time multi-user editing. Today you share the `.scifig` file and review through comments.
 - A live-linked PowerPoint add-in. PPTX export embeds each page as a picture.
 - Brushes can't be split into individual editable units.
-- Text on a curve, eraser and boolean shape operations.
+- Text on a curve and boolean shape operations.
+- The eraser works on drawings only, not on icons, images or brushes.
 - Two-way ANOVA and Cox regression.
 
 ## Layout

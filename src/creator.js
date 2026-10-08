@@ -2,10 +2,13 @@
 
 // ---------- Drawing options (shown while a drawing tool is active) ----------
 function syncDrawOpts() {
-  const shade = state.tool === 'airbrush';
+  const shade = state.tool === 'airbrush', erase = state.tool === 'eraser';
   $('#drawColor').value = shade ? DRAW_DEFAULTS.shadeColor : DRAW_DEFAULTS.stroke;
-  $('#drawWidth').value = shade ? DRAW_DEFAULTS.shadeSize : DRAW_DEFAULTS.strokeWidth;
-  $('#drawWidth').max = shade ? 60 : 20;
+  $('#drawColor').classList.toggle('hidden', erase);
+  $('#drawWidth').min = erase ? 2 : 0.5;
+  $('#drawWidth').max = erase ? 80 : shade ? 60 : 20;
+  $('#drawWidth').value = erase ? DRAW_DEFAULTS.eraserSize : shade ? DRAW_DEFAULTS.shadeSize : DRAW_DEFAULTS.strokeWidth;
+  $('#drawWidth').title = erase ? 'Eraser size' : 'Width';
   $('#drawFill').value = DRAW_DEFAULTS.fill;
   $('#drawFillWrap').classList.toggle('hidden', !['pencil', 'pen'].includes(state.tool));
   $('#drawHint').textContent = {
@@ -13,11 +16,12 @@ function syncDrawOpts() {
     pen: 'Click = corner · drag = curve · click first point to close · Enter to finish',
     line: 'Drag a line (Shift = 45°)', arrow: 'Drag an arrow (Shift = 45°)',
     airbrush: 'Paint soft shading over icons',
+    eraser: 'Drag over drawings, lines and shading to erase. The slider sets the eraser size.',
   }[state.tool] || '';
 }
 function setupDrawOpts() {
   $('#drawColor').addEventListener('input', (e) => { if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeColor = e.target.value; else DRAW_DEFAULTS.stroke = e.target.value; });
-  $('#drawWidth').addEventListener('input', (e) => { if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeSize = +e.target.value; else DRAW_DEFAULTS.strokeWidth = +e.target.value; });
+  $('#drawWidth').addEventListener('input', (e) => { if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeSize = +e.target.value; else if (state.tool === 'eraser') DRAW_DEFAULTS.eraserSize = +e.target.value; else DRAW_DEFAULTS.strokeWidth = +e.target.value; });
   $('#drawFill').addEventListener('input', (e) => { DRAW_DEFAULTS.fill = e.target.value; });
 }
 

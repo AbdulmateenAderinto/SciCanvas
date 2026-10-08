@@ -1,4 +1,4 @@
-// Drawing toolkit: pencil (freehand), pen (Bézier), line, arrow, airbrush shading, node editing,
+// Drawing toolkit: pencil (freehand), pen (Bézier), line, arrow, airbrush shading, eraser, node editing,
 // shading styles for filled shapes, and "convert to path".
 //
 // A path object stores nodes in a base frame of size w0 × h0: [{x, y, ix?, iy?, ox?, oy?}],
@@ -187,7 +187,7 @@ function convertToPath(o) {
 let pen = null;        // { nodes: [...] } while drawing with the pen
 let nodeEdit = null;   // { id, sel: index|null } while editing a path's nodes
 
-const DRAW_DEFAULTS = { stroke: '#222222', strokeWidth: 2.5, fill: '#9bc4f0', shadeColor: '#1f2a44', shadeSize: 18 };
+const DRAW_DEFAULTS = { stroke: '#222222', strokeWidth: 2.5, fill: '#9bc4f0', shadeColor: '#1f2a44', shadeSize: 18, eraserSize: 16 };
 
 function drawDown(e, p) {
   const z = state.zoom;
@@ -199,6 +199,12 @@ function drawDown(e, p) {
     case 'line':
     case 'arrow':
       return { mode: 'line', start: p, cur: p };
+    case 'eraser': {
+      const d = { mode: 'eraser', last: p, work: new Map() };
+      eraseAlong(d, p, p);
+      renderScene(); renderOverlay(eraserCursor(p));
+      return d;
+    }
     case 'pen': {
       if (!pen) pen = { nodes: [] };
       const first = pen.nodes[0];
@@ -238,6 +244,11 @@ function drawMove(e, p, d) {
       return;
     }
     case 'node': return nodeDragMove(e, p, d);
+    case 'eraser':
+      eraseAlong(d, d.last, p);
+      d.last = p;
+      renderScene(); renderOverlay(eraserCursor(p));
+      return;
   }
 }
 function drawUp(e, p, d) {
@@ -269,6 +280,7 @@ function drawUp(e, p, d) {
     }
     case 'pen-node': return false; // keep drawing
     case 'node': return true;
+    case 'eraser': state.sel = state.sel.filter((id) => byId(id)); return true;
   }
   return false;
 }
@@ -298,6 +310,158 @@ function finishPen(close) {
   render({ props: true });
 }
 function cancelPen() { pen = null; renderOverlay(); }
+
+// ---------- Eraser ----------
+// Drag over drawings (any path object) to rub out what the eraser touches. Each touched path keeps
+// its original geometry plus a list of surviving spans in curve-parameter space (s = segment index
+// + t); every span is rebuilt as an exact sub-curve of the original, so erasing never distorts the
+// rest of the drawing. Filled closed shapes become outlines once they are cut open.
+function eraserCursor(p) {
+  const z = state.zoom, r = DRAW_DEFAULTS.eraserSize / 2;
+  return `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="rgba(255,255,255,.35)" stroke="#3b6fd6" stroke-width="${1.2 / z}" pointer-events="none"/>`;
+}
+// The path's segments as world-space cubic control points (scale, flip and rotation applied).
+function pathWorldSegs(o) {
+  const sx = o.w / (o.w0 || o.w || 1), sy = o.h / (o.h0 || o.h || 1), c = { x: o.w / 2, y: o.h / 2 };
+  const T = (x, y) => {
+    x *= sx; y *= sy;
+    if (o.flipX) x = o.w - x;
+    if (o.flipY) y = o.h - y;
+    const r = rotPt({ x, y }, c, o.rot || 0);
+    return { x: r.x + o.x, y: r.y + o.y };
+  };
+  const ns = o.nodes, n = o.closed && ns.length > 2 ? ns.length : ns.length - 1, segs = [];
+  for (let i = 0; i < n; i++) {
+    const a = ns[i], b = ns[(i + 1) % ns.length];
+    segs.push({ p: [T(a.x, a.y), T(a.ox ?? a.x, a.oy ?? a.y), T(b.ix ?? b.x, b.iy ?? b.y), T(b.x, b.y)], line: a.ox == null && b.ix == null });
+  }
+  return segs;
+}
+function bezAt(P, t) {
+  const u = 1 - t;
+  return { x: u ** 3 * P[0].x + 3 * u * u * t * P[1].x + 3 * u * t * t * P[2].x + t ** 3 * P[3].x, y: u ** 3 * P[0].y + 3 * u * u * t * P[1].y + 3 * u * t * t * P[2].y + t ** 3 * P[3].y };
+}
+// Control points of the part of cubic P between t0 and t1 (de Casteljau, twice).
+function bezSub(P, t0, t1) {
+  const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const split = (Q, t) => {
+    const a = lerp(Q[0], Q[1], t), b = lerp(Q[1], Q[2], t), c = lerp(Q[2], Q[3], t), d = lerp(a, b, t), e = lerp(b, c, t), f = lerp(d, e, t);
+    return [[Q[0], a, d, f], [f, e, c, Q[3]]];
+  };
+  const left = t1 < 1 ? split(P, t1)[0] : P;
+  return t0 > 0 ? split(left, t0 / t1)[1] : left;
+}
+function distToSeg(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
+  const t = L ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L)) : 0;
+  return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
+}
+function eraserEntry(o) {
+  const segs = pathWorldSegs(o), xs = [], ys = [];
+  for (const sg of segs) {
+    for (const q of sg.p) { xs.push(q.x); ys.push(q.y); }
+    const len = Math.hypot(sg.p[1].x - sg.p[0].x, sg.p[1].y - sg.p[0].y) + Math.hypot(sg.p[2].x - sg.p[1].x, sg.p[2].y - sg.p[1].y) + Math.hypot(sg.p[3].x - sg.p[2].x, sg.p[3].y - sg.p[2].y);
+    sg.steps = Math.min(400, Math.max(1, Math.ceil(len / 0.75)));
+  }
+  const closed = !!o.closed && o.nodes.length > 2;
+  return { orig: deep(o), segs, closed, whole: closed, pieces: [[0, segs.length]], ids: [o.id], changed: false,
+    bb: { x: Math.min(...xs), y: Math.min(...ys), x2: Math.max(...xs), y2: Math.max(...ys) } };
+}
+// Sample parameters (and points) along span [a, b]; closed paths wrap past the last segment.
+function eraserSamples(E, a, b) {
+  const n = E.segs.length, out = [];
+  const at = (s) => { const i = Math.min(Math.floor(s), Math.floor(b - 1e-9)), sg = E.segs[((i % n) + n) % n]; return bezAt(sg.p, s - i); };
+  out.push({ s: a, q: at(a) });
+  for (let i = Math.floor(a); i < Math.ceil(b); i++) {
+    const k = E.segs[i % n].steps;
+    for (let j = 1; j <= k; j++) { const s = i + j / k; if (s > a + 1e-9 && s < b - 1e-9) out.push({ s, q: at(s) }); }
+  }
+  out.push({ s: b, q: at(b) });
+  return out;
+}
+// Cut every span of E that the capsule a→b (radius R) touches. Returns true if anything changed.
+function eraseEntry(E, a, b, R) {
+  const reach = R + (E.orig.strokeWidth ?? 2) / 2;
+  let changed = false;
+  const next = [];
+  for (const [s0, s1] of E.pieces) {
+    const smp = eraserSamples(E, s0, s1);
+    const gone = smp.map((m) => distToSeg(m.q, a, b) < reach);
+    if (!gone.includes(true)) { next.push([s0, s1]); continue; }
+    changed = true;
+    const runs = [];
+    for (let i = 0; i < smp.length; i++) {
+      if (gone[i]) continue;
+      let j = i;
+      while (j + 1 < smp.length && !gone[j + 1]) j++;
+      runs.push([i === 0 ? smp[0].s : (smp[i - 1].s + smp[i].s) / 2, j === smp.length - 1 ? smp[j].s : (smp[j].s + smp[j + 1].s) / 2]);
+      i = j;
+    }
+    // An uncut closed path is one loop: the runs touching its start and end are the same stroke.
+    if (E.whole && runs.length > 1 && runs[0][0] === s0 && runs[runs.length - 1][1] === s1) {
+      const first = runs.shift();
+      runs[runs.length - 1][1] = s1 + first[1];
+    }
+    next.push(...runs.filter(([u, v]) => v - u > 1e-6));
+  }
+  if (changed) { E.pieces = next; E.whole = false; }
+  return changed;
+}
+// World-space nodes for span [a, b] of E, reusing the original curves exactly.
+function eraserSpanNodes(E, a, b) {
+  const n = E.segs.length, nodes = [];
+  let s = a;
+  while (s < b - 1e-9) {
+    const i = Math.floor(s + 1e-9), e = Math.min(b, i + 1), sg = E.segs[i % n];
+    const c = bezSub(sg.p, Math.max(0, s - i), Math.min(1, e - i));
+    if (!nodes.length) nodes.push({ x: c[0].x, y: c[0].y });
+    if (sg.line) nodes.push({ x: c[3].x, y: c[3].y });
+    else { Object.assign(nodes[nodes.length - 1], { ox: c[1].x, oy: c[1].y }); nodes.push({ x: c[3].x, y: c[3].y, ix: c[2].x, iy: c[2].y }); }
+    s = e;
+  }
+  return nodes;
+}
+function eraserObjects(E) {
+  const o = E.orig, n = E.segs.length;
+  const filled = o.closed && o.fill && o.fill !== 'none';
+  const stroke = o.stroke && o.stroke !== 'none' ? o.stroke : filled && /^#[0-9a-f]{6}$/i.test(o.fill) ? Color.dark(o.fill, 0.35) : filled ? o.fill : '#222222';
+  const style = { ...o };
+  for (const k of ['id', 'x', 'y', 'w', 'h', 'w0', 'h0', 'rot', 'flipX', 'flipY', 'nodes', 'closed', 'fill', 'fill2', 'shade', 'headStart', 'headEnd']) delete style[k];
+  return E.pieces.map(([a, b], i) => {
+    const extra = { ...style, stroke, closed: false, fill: 'none' };
+    if (!o.closed && a === 0 && o.headStart) extra.headStart = o.headStart;
+    if (!o.closed && b === n && o.headEnd) extra.headEnd = o.headEnd;
+    if (i === 0) extra.id = o.id;
+    return makePathFromNodes(eraserSpanNodes(E, a, b), extra);
+  });
+}
+function eraseAlong(d, a, b) {
+  const R = DRAW_DEFAULTS.eraserSize / 2;
+  const box = { x: Math.min(a.x, b.x) - R, y: Math.min(a.y, b.y) - R, x2: Math.max(a.x, b.x) + R, y2: Math.max(a.y, b.y) + R };
+  const owned = new Set();
+  for (const E of d.work.values()) E.ids.forEach((id) => owned.add(id));
+  for (const o of objs()) {
+    if (o.type !== 'path' || o.hidden || o.locked || owned.has(o.id) || d.work.has(o.id) || !o.nodes || o.nodes.length < 2) continue;
+    if (groupEdit && !groupEdit.ids.has(o.id)) continue;
+    const bb = bounds(o), pad = (o.strokeWidth ?? 2) / 2;
+    if (bb.x - pad > box.x2 || bb.x + bb.w + pad < box.x || bb.y - pad > box.y2 || bb.y + bb.h + pad < box.y) continue;
+    d.work.set(o.id, eraserEntry(o));
+  }
+  for (const E of d.work.values()) {
+    if (!E.pieces.length) continue;
+    const pad = (E.orig.strokeWidth ?? 2) / 2;
+    if (E.bb.x - pad > box.x2 || E.bb.x2 + pad < box.x || E.bb.y - pad > box.y2 || E.bb.y2 + pad < box.y) continue;
+    if (!eraseEntry(E, a, b, R)) continue;
+    if (!d.checkpointed) { checkpoint(); d.checkpointed = true; }
+    if (!E.changed && E.orig.closed && E.orig.fill && E.orig.fill !== 'none' && !d.warned) { toast('Erasing a filled shape turns it into an outline'); d.warned = true; }
+    E.changed = true;
+    const list = objs(), at = list.findIndex((x) => E.ids.includes(x.id));
+    const fresh = eraserObjects(E);
+    page().objects = list.filter((x) => !E.ids.includes(x.id));
+    page().objects.splice(at < 0 ? page().objects.length : at, 0, ...fresh);
+    E.ids = fresh.map((x) => x.id);
+  }
+}
 
 // ---------- Node editing ----------
 function enterNodeEdit(o) {

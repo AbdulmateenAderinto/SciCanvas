@@ -478,15 +478,17 @@ function zorder(mode) {
 // ---------- Tools ----------
 function setTool(t, kind) {
   if (state.tool === 'pen' && t !== 'pen' && pen) finishPen(false);
+  const leavingEraser = state.tool === 'eraser' && t !== 'eraser';
   state.tool = t;
   if (kind) state.brushKind = kind;
   $$('#tools button[data-tool]').forEach((b) => b.classList.toggle('active', b.dataset.tool === t && (t !== 'brush' || b.dataset.kind === state.brushKind)));
   $('#brushShape').classList.toggle('hidden', t !== 'brush');
   $('#shapePick').classList.toggle('hidden', t !== 'shape');
-  stage.classList.toggle('draw', ['rect', 'ellipse', 'text', 'connector', 'brush', 'shape', 'badge', 'comment', 'pencil', 'pen', 'line', 'arrow', 'airbrush'].includes(t));
-  $('#drawOpts').classList.toggle('hidden', !['pencil', 'pen', 'line', 'arrow', 'airbrush'].includes(t));
+  stage.classList.toggle('draw', ['rect', 'ellipse', 'text', 'connector', 'brush', 'shape', 'badge', 'comment', 'pencil', 'pen', 'line', 'arrow', 'airbrush', 'eraser'].includes(t));
+  $('#drawOpts').classList.toggle('hidden', !['pencil', 'pen', 'line', 'arrow', 'airbrush', 'eraser'].includes(t));
   if (typeof syncDrawOpts === 'function') syncDrawOpts();
   stage.classList.toggle('pan', t === 'pan');
+  if (leavingEraser) renderOverlay(); // clear the eraser cursor
 }
 $$('#tools button[data-tool]').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool, b.dataset.kind)));
 
@@ -530,7 +532,7 @@ svg.addEventListener('pointerdown', (e) => {
     if (!hitEl || hitEl.dataset.id !== nodeEdit.id) exitNodeEdit();
     else return;
   }
-  if (['pencil', 'airbrush', 'line', 'arrow', 'pen'].includes(state.tool)) { drag = drawDown(e, p); return; }
+  if (['pencil', 'airbrush', 'line', 'arrow', 'pen', 'eraser'].includes(state.tool)) { drag = drawDown(e, p); return; }
   const handle = e.target.closest('[data-handle]');
   if (handle) {
     const h = handle.dataset.handle, o = selected()[0];
@@ -659,9 +661,13 @@ window.addEventListener('pointermove', (e) => {
 });
 function flushPointerMove() { if (pendingMove) { const ev = pendingMove; pendingMove = null; handlePointerMove(ev); } }
 function handlePointerMove(e) {
-  if (!drag) { if (pen && state.tool === 'pen') renderPenPreview(toWorld(e)); return; }
+  if (!drag) {
+    if (pen && state.tool === 'pen') renderPenPreview(toWorld(e));
+    else if (state.tool === 'eraser' && e.target.closest && e.target.closest('#stage')) renderOverlay(eraserCursor(toWorld(e)));
+    return;
+  }
   const p = toWorld(e);
-  if (['pencil', 'airbrush', 'line', 'pen-node', 'node'].includes(drag.mode)) return drawMove(e, p, drag);
+  if (['pencil', 'airbrush', 'line', 'pen-node', 'node', 'eraser'].includes(drag.mode)) return drawMove(e, p, drag);
   switch (drag.mode) {
     case 'pan':
       navigating();
@@ -761,7 +767,7 @@ window.addEventListener('pointerup', (e) => {
   drag = null;
   $('#guides').innerHTML = '';
   const p = toWorld(e);
-  if (['pencil', 'airbrush', 'line', 'pen-node', 'node'].includes(d.mode)) {
+  if (['pencil', 'airbrush', 'line', 'pen-node', 'node', 'eraser'].includes(d.mode)) {
     if (drawUp(e, p, d)) render({ props: true });
     else if (d.mode === 'pen-node') renderPenPreview(p);
     return;
@@ -908,7 +914,7 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'l') { e.preventDefault(); e.shiftKey ? setLocked(false) : setLocked(true); return; }
   if (e.shiftKey && !mod && (e.key === 'H' || e.key === 'V')) { e.preventDefault(); flipSelection(e.key === 'H' ? 'h' : 'v'); return; }
   if (mod) return;
-  const map = { v: 'select', h: 'pan', t: 'text', r: 'rect', e: 'ellipse', c: 'connector', b: 'brush', s: 'shape', n: 'badge', m: 'comment', d: 'pencil', p: 'pen', l: 'line', a: 'arrow', w: 'airbrush' };
+  const map = { v: 'select', h: 'pan', t: 'text', r: 'rect', e: 'ellipse', c: 'connector', b: 'brush', s: 'shape', n: 'badge', m: 'comment', d: 'pencil', p: 'pen', l: 'line', a: 'arrow', w: 'airbrush', x: 'eraser' };
   if (map[e.key.toLowerCase()]) setTool(map[e.key.toLowerCase()]);
 });
 window.addEventListener('keyup', (e) => { if (e.code === 'Space') { spaceDown = false; stage.classList.toggle('pan', state.tool === 'pan'); } });
