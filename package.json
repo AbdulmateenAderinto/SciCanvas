@@ -1,7 +1,7 @@
 {
   "name": "scicanvas",
   "productName": "SciCanvas",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Desktop scientific illustration, graphing and figure-assembly tool",
   "main": "main.js",
   "scripts": {
@@ -11,7 +11,8 @@
     "dist": "electron-builder --mac dmg --arm64",
     "dist:intel": "electron-builder --mac dmg --x64",
     "lint": "eslint .",
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\"",
+    "mcp": "node scripts/mcp-server.js"
   },
   "license": "MIT",
   "devDependencies": {
@@ -24,7 +25,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
     "3dmol": "^2.5.5",
-    "pptxgenjs": "^4.0.1"
+    "jszip": "^3.10.2",
+    "pptxgenjs": "^4.0.1",
+    "smiles-drawer": "^2.4.1"
   },
   "author": "SciCanvas",
   "build": {
@@ -63,6 +66,19 @@
     "dmg": {
       "title": "SciCanvas ${version}",
       "artifactName": "SciCanvas-${version}-${arch}.dmg"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": "scifig",
+        "name": "SciCanvas Figure",
+        "role": "Editor",
+        "icon": "build/icon.png"
+      },
+      {
+        "ext": "scitemplate",
+        "name": "SciCanvas Template",
+        "role": "Editor"
+      }
+    ]
   }
 }

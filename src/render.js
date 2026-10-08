@@ -5,9 +5,56 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 const FONT_STACK = {
   sans: 'Helvetica, Arial, sans-serif',
+  arial: 'Arial, Helvetica, sans-serif',
+  helvetica: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+  times: '"Times New Roman", Times, serif',
   serif: 'Georgia, "Times New Roman", serif',
+  avenir: '"Avenir Next", Avenir, Helvetica, sans-serif',
+  verdana: 'Verdana, Geneva, sans-serif',
+  trebuchet: '"Trebuchet MS", Helvetica, sans-serif',
+  gill: '"Gill Sans", "Gill Sans MT", Calibri, sans-serif',
+  futura: 'Futura, "Century Gothic", sans-serif',
+  palatino: 'Palatino, "Palatino Linotype", serif',
   mono: 'Menlo, Consolas, monospace',
+  courier: '"Courier New", Courier, monospace',
 };
+const FONT_NAMES = [['sans', 'Helvetica (default)'], ['arial', 'Arial'], ['helvetica', 'Helvetica Neue'], ['times', 'Times New Roman'], ['serif', 'Georgia'], ['palatino', 'Palatino'], ['avenir', 'Avenir Next'], ['futura', 'Futura'], ['gill', 'Gill Sans'], ['verdana', 'Verdana'], ['trebuchet', 'Trebuchet MS'], ['mono', 'Menlo (mono)'], ['courier', 'Courier New']];
+
+// Lists: prefix each line with a bullet or number (blank lines are skipped in numbering).
+function displayText(o) {
+  const text = String(o.text ?? '');
+  if (!o.list || o.list === 'none') return text;
+  let n = 0;
+  return text.split('\n').map((l) => (l.trim() ? (o.list === 'bullet' ? '•  ' : `${++n}.  `) + l : l)).join('\n');
+}
+// Size of a text object (handles lists and curved text).
+function textMetrics(o) {
+  const t = displayText(o);
+  const m = measureText(t, o.fontSize, o.family, o.bold, o.italic);
+  if (o.curve) { const g = curveGeometry(m.w, o.fontSize, o.curve); return { w: g.w, h: g.h }; }
+  return m;
+}
+// Arc that a curved label of length L sits on. curve = arc angle in degrees (+ arches up, − sags down).
+function curveGeometry(L, fs, curve) {
+  const th = Math.max(5, Math.min(359, Math.abs(curve))) * Math.PI / 180, R = L / th, up = curve > 0;
+  const a0 = -Math.PI / 2 - th / 2; // start angle for the "up" arc (top of circle)
+  const pts = [];
+  for (let i = 0; i <= 60; i++) { const a = up ? a0 + (th * i) / 60 : Math.PI / 2 + th / 2 - (th * i) / 60; pts.push([R * Math.cos(a), R * Math.sin(a)]); }
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const pad = fs * 1.1, mx = Math.min(...xs) - pad, my = Math.min(...ys) - pad;
+  const w = Math.max(...xs) - Math.min(...xs) + 2 * pad, h = Math.max(...ys) - Math.min(...ys) + 2 * pad;
+  const P = pts.map(([x, y]) => [x - mx, y - my]);
+  const large = th > Math.PI ? 1 : 0;
+  const d = `M${P[0][0]} ${P[0][1]} A${R} ${R} 0 ${large} ${up ? 1 : 0} ${P[60][0]} ${P[60][1]}`;
+  return { w, h, d };
+}
+function dashAttr(o, sw) {
+  const style = o.dashStyle || (o.dash ? 'dashed' : 'solid');
+  if (style === 'dashed') return ` stroke-dasharray="${sw * 3} ${sw * 2.4}"`;
+  if (style === 'dotted') return ` stroke-dasharray="0.01 ${sw * 2.2}" stroke-linecap="round"`;
+  if (style === 'dashdot') return ` stroke-dasharray="${sw * 4} ${sw * 2} 0.01 ${sw * 2}" stroke-linecap="round"`;
+  return '';
+}
 
 // ---------- Rich-ish text: supports ^{superscript} and _{subscript} ----------
 function parseMarkup(line) {
@@ -40,13 +87,13 @@ function measureText(text, fontSize, family, bold, italic) {
   return { w: Math.ceil(w) + 4, h: Math.ceil(lines.length * fontSize * 1.25) + 2 };
 }
 
-function textSvg(text, { fontSize = 16, color = '#222', family = 'sans', bold, italic, align = 'left', w, h, vcenter }) {
+function textSvg(text, { fontSize = 16, color = '#222', family = 'sans', bold, italic, underline, strike, align = 'left', w, h, vcenter }) {
   const lines = String(text).split('\n');
   const lh = fontSize * 1.25;
   const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
   const x = align === 'center' ? w / 2 : align === 'right' ? w - 2 : 2;
   const top = vcenter ? (h - lines.length * lh) / 2 : 0;
-  let s = `<text font-family='${FONT_STACK[family] || FONT_STACK.sans}' font-size="${fontSize}" fill="${color}"${bold ? ' font-weight="700"' : ''}${italic ? ' font-style="italic"' : ''} text-anchor="${anchor}">`;
+  let s = `<text font-family='${FONT_STACK[family] || FONT_STACK.sans}' font-size="${fontSize}" fill="${color}"${bold ? ' font-weight="700"' : ''}${italic ? ' font-style="italic"' : ''}${underline || strike ? ` text-decoration="${[underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ')}"` : ''} text-anchor="${anchor}">`;
   lines.forEach((line, i) => {
     const y = top + i * lh + fontSize;
     s += `<tspan x="${x}" y="${y}">`;
@@ -151,8 +198,9 @@ function connectorSvg(o, objects, forExport) {
     const startH = o.from.port ? 'ew'.includes(o.from.port) : Math.abs(b.x - a.x) >= Math.abs(b.y - a.y);
     const endH = o.to.port ? 'ew'.includes(o.to.port) : startH;
     let corner1, corner2;
-    if (startH && endH) { corner1 = { x: (a.x + b.x) / 2, y: a.y }; corner2 = { x: (a.x + b.x) / 2, y: b.y }; }
-    else if (!startH && !endH) { corner1 = { x: a.x, y: (a.y + b.y) / 2 }; corner2 = { x: b.x, y: (a.y + b.y) / 2 }; }
+    const bt = o.bend ?? 0.5; // where along the route the elbow turns (0 = at start, 1 = at end)
+    if (startH && endH) { const mx = a.x + (b.x - a.x) * bt; corner1 = { x: mx, y: a.y }; corner2 = { x: mx, y: b.y }; }
+    else if (!startH && !endH) { const my = a.y + (b.y - a.y) * bt; corner1 = { x: a.x, y: my }; corner2 = { x: b.x, y: my }; }
     else if (startH) { corner1 = corner2 = { x: b.x, y: a.y }; }
     else { corner1 = corner2 = { x: a.x, y: b.y }; }
     const a2 = inset(a, corner1, o.tail), b2 = inset(b, corner2, o.head);
@@ -169,7 +217,7 @@ function connectorSvg(o, objects, forExport) {
   }
   let s = '';
   if (!forExport) s += `<path d="${d}" stroke="transparent" stroke-width="${sw + 12}" fill="none"/>`;
-  s += `<path d="${d}" stroke="${color}" stroke-width="${sw}" fill="none" stroke-linecap="round"${o.dash ? ` stroke-dasharray="${sw * 3} ${sw * 2.5}"` : ''}/>`;
+  s += `<path d="${d}" stroke="${color}" stroke-width="${sw}" fill="none" stroke-linecap="round"${dashAttr(o, sw)}/>`;
   s += arrowHead(o.head, b, tanB, color, sw) + arrowHead(o.tail, a, tanA, color, sw);
   if (o.label) {
     const fs = o.labelSize || 13;
@@ -202,8 +250,25 @@ function samplePath(pts, spacing, closed) {
   return out;
 }
 
+// Flatten Bézier nodes into a polyline (brushes whose path was edited as nodes).
+function flattenNodes(ns, closed) {
+  const out = [];
+  const segs = ns.length - (closed ? 0 : 1);
+  for (let i = 0; i < segs; i++) {
+    const a = ns[i], b = ns[(i + 1) % ns.length];
+    const curved = a.ox != null || b.ix != null;
+    const steps = curved ? 16 : 1;
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps, u = 1 - t;
+      const p1 = { x: a.ox ?? a.x, y: a.oy ?? a.y }, p2 = { x: b.ix ?? b.x, y: b.iy ?? b.y };
+      out.push(curved ? { x: u ** 3 * a.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t ** 3 * b.x, y: u ** 3 * a.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t ** 3 * b.y } : { x: a.x, y: a.y });
+    }
+  }
+  if (!closed && ns.length) out.push({ x: ns[ns.length - 1].x, y: ns[ns.length - 1].y });
+  return out;
+}
 function brushSvg(o) {
-  const pts = o.pts.map(([u, v]) => ({ x: u * o.w, y: v * o.h }));
+  const pts = o.nodes ? flattenNodes(scaledNodes(o), o.closed) : o.pts.map(([u, v]) => ({ x: u * o.w, y: v * o.h }));
   const c = o.color || '#e8b45a', u = o.size || 8;
   let s = '';
   if (o.kind === 'membrane') {
@@ -246,6 +311,32 @@ function brushSvg(o) {
       const corner = (a, b) => `${p.x + p.tx * a + nx * b},${p.y + p.ty * a + ny * b}`;
       s += `<polygon points="${corner(-hw, -hh)} ${corner(hw, -hh)} ${corner(hw, hh)} ${corner(-hw, hh)}" fill="${Color.light(c, 0.45)}" stroke="${Color.dark(c)}" stroke-width="${u * 0.12}"/>`;
       s += `<ellipse cx="${p.x - nx * u * 0.8}" cy="${p.y - ny * u * 0.8}" rx="${u * 0.7}" ry="${u * 0.9}" fill="${Color.dark(c, 0.15)}" transform="rotate(${(Math.atan2(p.ty, p.tx) * 180) / Math.PI} ${p.x - nx * u * 0.8} ${p.y - ny * u * 0.8})"/>`;
+    });
+  } else if (o.kind === 'vessel') {
+    // Blood vessel: lumen between two walls lined with endothelial nuclei, with red blood cells inside.
+    const S = samplePath(pts, u * 0.6, o.closed), half = u * 2.6;
+    if (S.length > 1) {
+      const side = (k) => S.map((p) => `${p.x - p.ty * half * k},${p.y + p.tx * half * k}`);
+      s += `<polygon points="${[...side(1), ...side(-1).reverse()].join(' ')}" fill="${Color.light(c, 0.78)}"/>`;
+      for (const k of [1, -1]) s += `<polyline points="${side(k).join(' ')}" fill="none" stroke="${c}" stroke-width="${u * 0.7}" stroke-linejoin="round"/>`;
+      S.forEach((p, i) => {
+        if (i % 7 === 3) for (const k of [1, -1]) { const x = p.x - p.ty * half * k * 0.86, y = p.y + p.tx * half * k * 0.86; s += `<ellipse cx="${x}" cy="${y}" rx="${u * 0.9}" ry="${u * 0.3}" fill="${Color.dark(c, 0.3)}" transform="rotate(${(Math.atan2(p.ty, p.tx) * 180) / Math.PI} ${x} ${y})"/>`; }
+        if (i % 9 === 0) { const off = ((i * 37) % 7 - 3) / 4 * half * 0.5, x = p.x - p.ty * off, y = p.y + p.tx * off; s += `<ellipse cx="${x}" cy="${y}" rx="${u * 0.85}" ry="${u * 0.55}" fill="#d63b3b" stroke="#a52a2a" stroke-width="${u * 0.08}" transform="rotate(${(i * 23) % 180} ${x} ${y})"/>`; }
+      });
+    }
+  } else if (o.kind === 'microtubule') {
+    const S = samplePath(pts, u * 0.95, o.closed);
+    S.forEach((p, i) => {
+      for (const k of [-1, 0, 1]) {
+        const x = p.x - p.ty * k * u * 0.9, y = p.y + p.tx * k * u * 0.9;
+        s += `<circle cx="${x}" cy="${y}" r="${u * 0.46}" fill="${(i + k + 3) % 2 ? c : Color.light(c, 0.45)}" stroke="${Color.dark(c, 0.25)}" stroke-width="${u * 0.06}"/>`;
+      }
+    });
+  } else if (o.kind === 'cells') {
+    const S = samplePath(pts, u * 3.2, o.closed);
+    S.forEach((p, i) => {
+      const r = u * (1.45 + ((i * 13) % 5) / 25);
+      s += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${Color.light(c, 0.55)}" stroke="${Color.dark(c, 0.2)}" stroke-width="${u * 0.12}"/><circle cx="${p.x + u * 0.25}" cy="${p.y - u * 0.15}" r="${r * 0.42}" fill="${Color.dark(c, 0.1)}"/>`;
     });
   } else if (o.kind === 'vesicles') {
     const S = samplePath(pts, u * 2.6, o.closed);
@@ -304,6 +395,9 @@ function protocolSvg(o) {
     if (st.icon && ICON_MAP[st.icon]) {
       const vb = iconViewBox(st.icon), box = 62 * k, sc = Math.min(box / vb.w, box / vb.h);
       s += `<g transform="translate(${p.x + cw / 2 - (vb.w * sc) / 2} ${p.y + 22 * k + (box - vb.h * sc) / 2}) scale(${sc})">${iconSvgInner(st.icon)}</g>`;
+    } else if (st.icon && typeof getAsset === 'function' && getAsset(st.icon)) {
+      const a = getAsset(st.icon), box = 62 * k;
+      s += `<svg x="${p.x + cw / 2 - box / 2}" y="${p.y + 22 * k}" width="${box}" height="${box}" viewBox="${a.vb}" preserveAspectRatio="xMidYMid meet">${a.svg}</svg>`;
     }
     const lines = wrapWords(st.title, 18).slice(0, 3);
     lines.forEach((ln, j) => {
@@ -314,7 +408,8 @@ function protocolSvg(o) {
 }
 
 // ---------- Shapes ----------
-const SHAPES = [['triangle', 'Triangle'], ['diamond', 'Diamond'], ['hexagon', 'Hexagon'], ['star', 'Star'], ['arrow', 'Block arrow'], ['chevron', 'Chevron'], ['cylinder', 'Cylinder'], ['cloud', 'Cloud'], ['plus', 'Plus'], ['pill', 'Capsule']];
+const SHAPES = [['triangle', 'Triangle'], ['diamond', 'Diamond'], ['hexagon', 'Hexagon'], ['star', 'Star'], ['arrow', 'Block arrow'], ['chevron', 'Chevron'], ['cylinder', 'Cylinder'], ['cloud', 'Cloud'], ['plus', 'Plus'], ['pill', 'Capsule'], ['parallelogram', 'Parallelogram'], ['brace', 'Curly bracket'], ['sqbracket', 'Square bracket'], ['arcline', 'Arc line'], ['cycle', 'Cycle arrow (circular)']];
+const OPEN_SHAPES = new Set(['brace', 'sqbracket', 'arcline', 'cycle']);
 function shapePath(kind, w, h) {
   switch (kind) {
     case 'triangle': return `M${w / 2} 0 L${w} ${h} L0 ${h} Z`;
@@ -331,6 +426,14 @@ function shapePath(kind, w, h) {
     case 'cloud': return `M${w * 0.25} ${h * 0.85} C${w * 0.02} ${h * 0.85} ${w * 0.02} ${h * 0.45} ${w * 0.22} ${h * 0.45} C${w * 0.2} ${h * 0.1} ${w * 0.55} ${h * 0.05} ${w * 0.6} ${h * 0.3} C${w * 0.75} ${h * 0.15} ${w * 0.98} ${h * 0.3} ${w * 0.85} ${h * 0.52} C${w * 1.02} ${h * 0.6} ${w * 0.95} ${h * 0.88} ${w * 0.75} ${h * 0.85} Z`;
     case 'plus': return `M${w / 3} 0 H${(2 * w) / 3} V${h / 3} H${w} V${(2 * h) / 3} H${(2 * w) / 3} V${h} H${w / 3} V${(2 * h) / 3} H0 V${h / 3} H${w / 3} Z`;
     case 'pill': { const r = Math.min(w, h) / 2; return `M${r} 0 H${w - r} A${r} ${r} 0 0 1 ${w - r} ${h} H${r} A${r} ${r} 0 0 1 ${r} 0 Z`; }
+    case 'parallelogram': return `M${w * 0.2} 0 L${w} 0 L${w * 0.8} ${h} L0 ${h} Z`;
+    case 'brace': return `M0 ${h} Q0 ${h / 2} ${w * 0.1} ${h / 2} L${w * 0.4} ${h / 2} Q${w / 2} ${h / 2} ${w / 2} 0 Q${w / 2} ${h / 2} ${w * 0.6} ${h / 2} L${w * 0.9} ${h / 2} Q${w} ${h / 2} ${w} ${h}`;
+    case 'sqbracket': return `M0 ${h} V0 H${w} V${h}`;
+    case 'arcline': return `M0 ${h} A${w / 2} ${h} 0 0 1 ${w} ${h}`;
+    case 'cycle': {
+      const rx = w / 2, ry = h / 2, P = (deg) => { const a = (deg - 90) * Math.PI / 180; return `${rx + rx * Math.cos(a)} ${ry + ry * Math.sin(a)}`; };
+      return `M${P(0)} A${rx} ${ry} 0 1 1 ${P(300)}`;
+    }
   }
   return `M0 0 H${w} V${h} H0 Z`;
 }
@@ -378,16 +481,21 @@ function renderParts(o, objects, forExport) {
       inner = pathSvg(o);
       break;
     case 'shape': {
-      const dash = o.dash ? ` stroke-dasharray="${(o.strokeWidth || 2) * 3} ${(o.strokeWidth || 2) * 2}"` : '';
+      const dash = dashAttr(o, o.strokeWidth || 2);
       const geom = `<path d="${shapePath(o.kind, o.w, o.h)}"/>`;
-      const paint = fillPaint(o, geom);
-      inner = (paint.defs ? `<defs>${paint.defs}</defs>` : '') + `<path d="${shapePath(o.kind, o.w, o.h)}" fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}" stroke-linejoin="round"${dash}/>` + paint.overlay;
+      const paint = OPEN_SHAPES.has(o.kind) ? { fill: 'none', defs: '', overlay: '' } : fillPaint(o, geom);
+      inner = (paint.defs ? `<defs>${paint.defs}</defs>` : '') + `<path d="${shapePath(o.kind, o.w, o.h)}" fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}" stroke-linejoin="round" stroke-linecap="round"${dash}/>` + paint.overlay;
+      if (o.kind === 'cycle') { // arrowhead at the end of the 300° arc
+        const rx = o.w / 2, ry = o.h / 2, a = (-90 + 300) * Math.PI / 180, tip = { x: rx + rx * Math.cos(a), y: ry + ry * Math.sin(a) };
+        const back = { x: rx + rx * Math.cos(a - 0.2), y: ry + ry * Math.sin(a - 0.2) };
+        inner += arrowHead('arrow', tip, back, o.stroke || '#333', o.strokeWidth ?? 2);
+      }
       if (o.label) inner += textSvg(o.label, { fontSize: o.labelSize || 16, color: o.labelColor || '#222', bold: o.labelBold, w: o.w, h: o.h, align: 'center', vcenter: true });
       break;
     }
     case 'rect':
     case 'ellipse': {
-      const dash = o.dash ? ` stroke-dasharray="${(o.strokeWidth || 2) * 3} ${(o.strokeWidth || 2) * 2}"` : '';
+      const dash = dashAttr(o, o.strokeWidth || 2);
       const geom = o.type === 'rect' ? `<rect width="${o.w}" height="${o.h}" rx="${o.radius || 0}"/>` : `<ellipse cx="${o.w / 2}" cy="${o.h / 2}" rx="${o.w / 2}" ry="${o.h / 2}"/>`;
       const paint = fillPaint(o, geom);
       const common = `fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}"${dash}`;
@@ -397,7 +505,14 @@ function renderParts(o, objects, forExport) {
     }
     case 'text':
       if (o.bg) inner += `<rect x="-4" y="-2" width="${o.w + 8}" height="${o.h + 4}" rx="4" fill="${o.bg}"/>`;
-      inner += textSvg(o.text, { fontSize: o.fontSize, color: o.color, family: o.family, bold: o.bold, italic: o.italic, align: o.align, w: o.w, h: o.h });
+      if (o.curve) {
+        const t = displayText(o).replace(/\n/g, ' ');
+        const g = curveGeometry(measureText(t, o.fontSize, o.family, o.bold, o.italic).w, o.fontSize, o.curve);
+        inner += `<defs><path id="tp-${o.id}" d="${g.d}"/></defs><text font-family='${FONT_STACK[o.family] || FONT_STACK.sans}' font-size="${o.fontSize}" fill="${o.color}"${o.bold ? ' font-weight="700"' : ''}${o.italic ? ' font-style="italic"' : ''}${o.underline ? ' text-decoration="underline"' : ''}><textPath href="#tp-${o.id}" startOffset="50%" text-anchor="middle">${esc(t)}</textPath></text>`;
+      } else inner += textSvg(displayText(o), { fontSize: o.fontSize, color: o.color, family: o.family, bold: o.bold, italic: o.italic, underline: o.underline, strike: o.strike, align: o.align, w: o.w, h: o.h });
+      break;
+    case 'table':
+      inner = tableSvg(o);
       break;
     case 'image': {
       const c = o.crop;
@@ -425,7 +540,7 @@ function renderParts(o, objects, forExport) {
       break;
     }
   }
-  if (o.type !== 'connector') inner = applyEffects(o, inner);
+  if (o.type !== 'connector') inner = applyErase(o, applyEffects(o, inner));
   if (o.type !== 'connector' && o.type !== 'group' && !forExport) {
     inner = `<rect width="${o.w}" height="${o.h}" fill="transparent"/>` + inner; // hit area
   }
@@ -434,7 +549,45 @@ function renderParts(o, objects, forExport) {
 
 function renderObjectString(o, objects, forExport) {
   const { transform, inner } = renderParts(o, objects, forExport);
-  return `<g${transform ? ` transform="${transform}"` : ''}${o.opacity != null && o.opacity < 1 ? ` opacity="${o.opacity}"` : ''}>${inner}</g>`;
+  const g = `<g${transform ? ` transform="${transform}"` : ''}${o.opacity != null && o.opacity < 1 ? ` opacity="${o.opacity}"` : ''}>${inner}</g>`;
+  return forExport && o.link && /^https?:\/\//.test(o.link) ? `<a href="${esc(o.link)}" xlink:href="${esc(o.link)}" target="_blank">${g}</a>` : g;
+}
+// Partial erasing: strokes stored in the object's local box (0..1) become a luminance mask.
+function applyErase(o, inner) {
+  if (!o.erase || !o.erase.length) return inner;
+  const strokes = o.erase.map((st) => {
+    const pts = st.pts.map(([u, v]) => `${u * o.w},${v * o.h}`);
+    const r = st.r * Math.max(o.w, o.h);
+    return pts.length === 1 ? `<circle cx="${pts[0].split(',')[0]}" cy="${pts[0].split(',')[1]}" r="${r / 2}" fill="#000"/>` : `<polyline points="${pts.join(' ')}" fill="none" stroke="#000" stroke-width="${r}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }).join('');
+  return `<defs><mask id="er-${o.id}" maskUnits="userSpaceOnUse" x="${-o.w}" y="${-o.h}" width="${o.w * 3}" height="${o.h * 3}"><rect x="${-o.w}" y="${-o.h}" width="${o.w * 3}" height="${o.h * 3}" fill="#fff"/>${strokes}</mask></defs><g mask="url(#er-${o.id})">${inner}</g>`;
+}
+// Tables: rows × cols grid with optional header row, stripes, per-cell fills and column widths.
+function tableSvg(o) {
+  const R = o.rows, C = o.cols, fs = o.fontSize || 13, bw = o.borderWidth ?? 1;
+  const widths = o.colW && o.colW.length === C ? o.colW : Array(C).fill(1 / C);
+  const xs = [0]; widths.forEach((f, i) => xs.push(xs[i] + f * o.w));
+  const rh = o.h / R;
+  let s = `<rect width="${o.w}" height="${o.h}" fill="${o.fill || '#ffffff'}"/>`;
+  for (let r = 0; r < R; r++) {
+    for (let c = 0; c < C; c++) {
+      const head = o.header && r === 0;
+      const cellFill = (o.cellFill && o.cellFill[r] && o.cellFill[r][c]) || (head ? o.headerFill || '#23395d' : o.stripe && r % 2 === (o.header ? 0 : 1) ? o.stripeFill || '#f1f4f9' : null);
+      if (cellFill) s += `<rect x="${xs[c]}" y="${r * rh}" width="${xs[c + 1] - xs[c]}" height="${rh}" fill="${cellFill}"/>`;
+      const txt = (o.cells[r] && o.cells[r][c]) || '';
+      if (txt) {
+        const cw = xs[c + 1] - xs[c], align = o.align || 'center';
+        s += `<g transform="translate(${xs[c]} ${r * rh})">${textSvg(txt, { fontSize: fs, color: head ? o.headerColor || '#ffffff' : o.color || '#222', bold: head, family: o.family, w: cw, h: rh, align, vcenter: true })}</g>`;
+      }
+    }
+  }
+  if (bw > 0) {
+    let d = '';
+    for (let r = 0; r <= R; r++) d += `M0 ${r * rh}H${o.w}`;
+    for (let c = 0; c <= C; c++) d += `M${xs[c]} 0V${o.h}`;
+    s += `<path d="${d}" stroke="${o.border || '#9aa5b4'}" stroke-width="${bw}" fill="none"/>`;
+  }
+  return s;
 }
 
 function pageSvgString(page, { transparent } = {}) {

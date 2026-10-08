@@ -10,7 +10,7 @@ const Make = {
   },
   text(text, x, y, extra = {}) {
     const o = { id: uid(), type: 'text', text, x, y, rot: 0, fontSize: 16, color: '#222222', family: 'sans', align: 'left', ...extra };
-    const m = measureText(o.text, o.fontSize, o.family, o.bold, o.italic);
+    const m = textMetrics(o);
     o.w = m.w; o.h = m.h;
     return o;
   },
@@ -46,6 +46,13 @@ const Make = {
     return { id: uid(), type: 'image', src, x, y, w, h, rot: 0, ...extra };
   },
 };
+
+// Group a list of (non-connector) objects into one group object.
+function makeGroup(list, name) {
+  const x = Math.min(...list.map((o) => o.x)), y = Math.min(...list.map((o) => o.y));
+  const w = Math.max(...list.map((o) => o.x + o.w)) - x, h = Math.max(...list.map((o) => o.y + o.h)) - y;
+  return { id: uid(), type: 'group', name, x, y, w, h, w0: w, h0: h, rot: 0, children: list.map((o) => ({ ...o, x: o.x - x, y: o.y - y })) };
+}
 
 // Ellipse / arc point sets for brushes (normalised 0..1 in their box).
 const Shapes = {
@@ -182,9 +189,11 @@ const TEMPLATES = [
         const x = 100 + ci * 1100, colH = 4000, each = colH / secs.length;
         secs.forEach((s, si) => {
           const y = 540 + si * each;
-          o.push(Make.rect(x, y, 1040, each - 60, { fill: '#f6f8fb', stroke: '#c9d4e3', radius: 24, strokeWidth: 4 }));
-          o.push(Make.rect(x, y, 1040, 120, { fill: '#4a7fd6', stroke: '#4a7fd6', radius: 24, label: s, labelColor: '#ffffff', labelBold: true, labelSize: 64 }));
-          o.push(Make.text('Add text, figures and graphs here.', x + 50, y + 170, { fontSize: 44, color: '#444444' }));
+          o.push(makeGroup([
+            Make.rect(x, y, 1040, each - 60, { fill: '#f6f8fb', stroke: '#c9d4e3', radius: 24, strokeWidth: 4 }),
+            Make.rect(x, y, 1040, 120, { fill: '#4a7fd6', stroke: '#4a7fd6', radius: 24, label: s, labelColor: '#ffffff', labelBold: true, labelSize: 64 }),
+            Make.text('Add text, figures and graphs here.', x + 50, y + 170, { fontSize: 44, color: '#444444' }),
+          ], s));
         });
       });
       return { name: 'Poster', width: W, height: H, background: '#ffffff', objects: o };

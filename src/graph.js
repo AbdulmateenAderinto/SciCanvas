@@ -111,11 +111,6 @@ const Stats = {
   },
 };
 
-function fmtP(p) {
-  if (!isFinite(p)) return 'p = n/a';
-  return p < 0.0001 ? 'p < 0.0001' : `p = ${p.toPrecision(2)}`;
-}
-function stars(p) { return p < 0.0001 ? '****' : p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : 'ns'; }
 
 // ---------- More statistics ----------
 Object.assign(Stats, {
@@ -223,6 +218,12 @@ function invert(M) {
   return A.map((r) => r.slice(n));
 }
 
+function fmtP(p) {
+  if (!isFinite(p)) return 'p = n/a';
+  return p < 0.0001 ? 'p < 0.0001' : `p = ${p.toPrecision(2)}`;
+}
+function stars(p) { return p < 0.0001 ? '****' : p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : 'ns'; }
+
 // Parse pasted CSV / TSV: first row = headers. Returns numeric columns plus the raw strings.
 function parseTable(text) {
   const lines = String(text || '').trim().split(/\r?\n/).filter((l) => l.trim());
@@ -251,13 +252,21 @@ const CHART_KINDS = [['bar', 'Bar / column (mean ± error)'], ['box', 'Box plot'
 
 // Returns { svg, report } where svg renders into a w x h box and report summarises the analysis.
 function renderChart(cfg, w, h) {
-  const { headers, cols, raw } = parseTable(cfg.data || '');
+  const parsed = parseTable(cfg.data || '');
+  const { headers, cols, raw } = typeof transformTable === 'function' ? transformTable(parsed, cfg) : parsed;
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const font = 'font-family="Helvetica, Arial, sans-serif"';
   const pal = cfg.colors && cfg.colors.length ? cfg.colors : CHART_PALETTE;
   const report = [], groupLines = [];
   if (!cols.length || !cols[0].length) return { svg: `<text x="${w / 2}" y="${h / 2}" text-anchor="middle" ${font} font-size="14" fill="#888">No data</text>`, report: ['No data'] };
   if (cfg.kind === 'heatmap') return renderHeatmap(cfg, headers, cols, raw, w, h, esc, font);
+  if (typeof EXTRA_CHARTS !== 'undefined' && EXTRA_CHARTS[cfg.kind]) {
+    try {
+      const r = EXTRA_CHARTS[cfg.kind](cfg, { headers, cols, raw }, w, h, pal);
+      return { svg: `<g ${font} font-size="11" fill="#333">${r.svg}</g>`, report: r.report.filter(Boolean), suggestion: r.suggestion };
+    } catch (e) { return { svg: `<text x="${w / 2}" y="${h / 2}" text-anchor="middle" ${font} font-size="13" fill="#d64545">Can't plot this data: ${esc(e.message)}</text>`, report: ['Check the data format (see the hint above the data box).'] }; }
+  }
+  let suggestion;
 
   const anovaLine = ['bar', 'box'].includes(cfg.kind) && cols.length > 2 && cfg.test !== 'none';
   const m = { l: 62, r: 16, t: (cfg.title ? 34 : 14) + (anovaLine ? 16 : 0), b: cfg.xLabel ? 54 : 38 };
@@ -281,6 +290,11 @@ function renderChart(cfg, w, h) {
     xt = niceTicks(0, tmax); yt = [0, 0.25, 0.5, 0.75, 1];
     series.forEach((g) => { g.km = Stats.kaplanMeier(g.times, g.events); report.push(`${g.name}: n = ${g.times.length}, events = ${g.events.filter(Boolean).length}, median survival = ${g.km.median ?? 'not reached'}`); });
     if (series.length > 1 && cfg.test !== 'none') { const lr = Stats.logRank(series); report.push(`${lr.name}: χ²(${lr.df}) = ${lr.chi2.toFixed(3)}, ${fmtP(lr.p)}`); series.lr = lr; }
+    if (series.length === 2 && cfg.test !== 'none' && typeof Stats.coxUnivariate === 'function') {
+      const tt = [...series[0].times, ...series[1].times], ev = [...series[0].events, ...series[1].events], xx = [...series[0].times.map(() => 0), ...series[1].times.map(() => 1)];
+      const cx = Stats.coxUnivariate(tt, ev, xx);
+      report.push(Math.abs(cx.beta) > 10 ? `${cx.name}: not estimable — the groups are completely separated (every event in one group precedes the other's), so the hazard ratio is unbounded.` : `${cx.name}: hazard ratio ${series[1].name} vs ${series[0].name} = ${cx.hr.toPrecision(3)} (95% CI ${cx.lo.toPrecision(3)}–${cx.hi.toPrecision(3)}), ${fmtP(cx.p)}`);
+    }
   } else if (isXY) {
     const xs = cols[0];
     series = cols.slice(1).map((ys, i) => ({ name: headers[i + 1], pts: xs.map((x, k) => [x, ys[k]]).filter(([x, y]) => isFinite(x) && isFinite(y) && (!logX || x > 0)) }));
@@ -292,31 +306,28 @@ function renderChart(cfg, w, h) {
     series = cols.map((c, i) => ({ name: headers[i], g: c.filter(isFinite) }));
     const groups = series.map((s) => s.g);
     const tops = groups.map((g) => !g.length ? 0 : cfg.kind === 'box' || cfg.showPoints ? Math.max(...g) : Stats.mean(g) + (g.length > 1 ? (cfg.error === 'sem' ? Stats.sem(g) : Stats.sd(g)) : 0));
-    if (cfg.test !== 'none' && groups.every((g) => g.length > 1)) {
-      if (groups.length === 2) {
-        const test = cfg.test === 'mw' ? Stats.mannWhitney(groups[0], groups[1]) : cfg.test === 'paired' && groups[0].length === groups[1].length ? Stats.pairedT(groups[0], groups[1]) : Stats.welch(groups[0], groups[1]);
-        brackets.push({ a: 0, b: 1, p: test.p });
-        report.push(`${test.name}: ${test.t !== undefined ? `t = ${test.t.toFixed(3)}, df = ${test.df.toFixed(1)}` : `U = ${test.U}, z = ${test.z.toFixed(3)}`}, ${fmtP(test.p)}`);
-      } else if (groups.length > 2) {
-        const a = Stats.anova(groups);
-        report.push(`${a.name}: F(${a.d1}, ${a.d2}) = ${a.F.toFixed(3)}, ${fmtP(a.p)}`);
-        const pairs = [];
-        for (let i = 0; i < groups.length; i++) for (let j = i + 1; j < groups.length; j++) pairs.push([i, j, (cfg.test === 'mw' ? Stats.mannWhitney : Stats.welch)(groups[i], groups[j]).p]);
-        const adj = Stats.holm(pairs.map((p) => p[2]));
-        report.push(`Post-hoc pairwise ${cfg.test === 'mw' ? 'Mann–Whitney' : 'Welch t'} tests, Holm-adjusted:`);
-        pairs.forEach(([i, j], k) => { report.push(`  ${headers[i]} vs ${headers[j]}: adj. ${fmtP(adj[k])}`); if (adj[k] < 0.05 && cfg.posthocBrackets !== false) brackets.push({ a: i, b: j, p: adj[k] }); });
-        brackets = brackets.slice(0, 6);
-      }
+    if (typeof groupAnalysis === 'function') {
+      const an = groupAnalysis(groups, headers, cfg);
+      report.push(...an.lines); brackets = an.brackets; suggestion = an.suggestion;
     }
     yt = niceTicks(Math.min(0, ...groups.flat()), Math.max(...tops) * (1.02 + 0.1 * brackets.length));
   }
+  const yLog = cfg.yLog && ['scatter', 'line'].includes(cfg.kind);
+  if (yLog) {
+    for (const sr of series) sr.pts = (sr.pts || []).filter((p) => p[1] > 0).map((p) => [p[0], Math.log10(p[1])]);
+    const ly = series.flatMap((sr) => sr.pts.map((p) => p[1]));
+    yt = Array.from({ length: Math.ceil(Math.max(...ly)) - Math.floor(Math.min(...ly)) + 1 }, (_, i) => Math.floor(Math.min(...ly)) + i);
+    report.push('Y axis on log₁₀ scale (values ≤ 0 omitted); regression is fitted to log₁₀(y).');
+  } else if ((cfg.yMin !== '' && cfg.yMin != null && isFinite(+cfg.yMin)) || (cfg.yMax !== '' && cfg.yMax != null && isFinite(+cfg.yMax))) {
+    yt = niceTicks(cfg.yMin !== '' && cfg.yMin != null && isFinite(+cfg.yMin) ? +cfg.yMin : yt[0], cfg.yMax !== '' && cfg.yMax != null && isFinite(+cfg.yMax) ? +cfg.yMax : yt[yt.length - 1]);
+  }
   const y0 = yt[0], y1 = yt[yt.length - 1];
-  Y = (v) => m.t + ph - ((v - y0) / (y1 - y0)) * ph;
+  Y = (v) => m.t + ph - ((Math.max(y0, Math.min(y1, v)) - y0) / (y1 - y0)) * ph;
 
   out += `<g ${font} font-size="11" fill="#333">`;
   yt.forEach((v) => {
     out += `<line x1="${m.l - 5}" y1="${Y(v)}" x2="${m.l}" y2="${Y(v)}" stroke="#333"/>`;
-    out += `<text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${+v.toPrecision(6)}</text>`;
+    out += `<text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${yLog ? (v === 0 ? '1' : `10${v < 0 ? '⁻' : ''}${String(Math.abs(v)).split('').map((d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join('')}`) : +v.toPrecision(6)}</text>`;
     if (cfg.grid) out += `<line x1="${m.l}" y1="${Y(v)}" x2="${m.l + pw}" y2="${Y(v)}" stroke="#e3e6ea"/>`;
   });
   out += `<line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${m.t + ph}" stroke="#333" stroke-width="1.5"/>`;
@@ -340,10 +351,20 @@ function renderChart(cfg, w, h) {
         sr.km.censored.forEach((c) => { out += `<path d="M${X(c.t)} ${Y(c.s) - 4} V${Y(c.s) + 4}" stroke="${col}" stroke-width="1.5"/>`; });
         return;
       }
+      if (cfg.kind === 'line' && typeof Stats.auc === 'function' && sr.pts.length > 1) report.push(`${sr.name}: AUC (trapezoidal) = ${Stats.auc(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1])).toPrecision(4)}`);
       if (cfg.kind === 'line') out += `<polyline points="${sr.pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="2"/>`;
       sr.pts.forEach(([x, y]) => { out += `<circle cx="${X(x)}" cy="${Y(y)}" r="3.5" fill="${col}" stroke="#fff" stroke-width="0.8"/>`; });
-      if (cfg.kind === 'scatter' && cfg.test !== 'none' && sr.pts.length > 2) {
+      if (cfg.kind === 'scatter' && cfg.test !== 'none' && sr.pts.length > 3 && (cfg.fit === 'poly2' || cfg.fit === 'poly3')) {
+        const deg = cfg.fit === 'poly2' ? 2 : 3, pf = Stats.polyfit(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1]), deg);
+        let d = '';
+        for (let k = 0; k <= 80; k++) { const v = xa + ((xb - xa) * k) / 80; d += `${k ? 'L' : 'M'}${X(v)} ${Y(pf.f(v))} `; }
+        out += `<path d="${d}" fill="none" stroke="${col}" stroke-width="1.6" stroke-dasharray="5 3"/>`;
+        const sp = Stats.spearman(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1]));
+        report.push(`${sr.name}: degree-${deg} polynomial y = ${pf.coef.map((c, k) => `${c.toPrecision(3)}${k ? `x${k > 1 ? '^' + k : ''}` : ''}`).join(' + ')}, R² = ${pf.r2.toFixed(3)}; Spearman ρ = ${sp.rho.toFixed(3)}, ${fmtP(sp.p)}`);
+        out += `<text x="${m.l + pw - 4}" y="${m.t + 14 + si * 14}" text-anchor="end" fill="${col}">R² = ${pf.r2.toFixed(3)}</text>`;
+      } else if (cfg.kind === 'scatter' && cfg.test !== 'none' && cfg.fit !== 'none' && sr.pts.length > 2) {
         const lr = Stats.linreg(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1]));
+        if (typeof Stats.spearman === 'function') { const sp = Stats.spearman(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1])); report.push(`${sr.name}: Spearman ρ = ${sp.rho.toFixed(3)}, ${fmtP(sp.p)}`); }
         out += `<line x1="${X(xa)}" y1="${Y(lr.intercept + lr.slope * xa)}" x2="${X(xb)}" y2="${Y(lr.intercept + lr.slope * xb)}" stroke="${col}" stroke-width="1.5" stroke-dasharray="5 3"/>`;
         report.push(`${sr.name}: y = ${lr.slope.toPrecision(3)}x + ${lr.intercept.toPrecision(3)}, R² = ${lr.r2.toFixed(3)}, Pearson r = ${lr.r.toFixed(3)}, ${fmtP(lr.p)} (n = ${sr.pts.length})`);
         out += `<text x="${m.l + pw - 4}" y="${m.t + 14 + si * 14}" text-anchor="end" fill="${col}">R² = ${lr.r2.toFixed(3)}</text>`;
@@ -353,7 +374,8 @@ function renderChart(cfg, w, h) {
         let d = '';
         for (let k = 0; k <= 80; k++) { const lv = xa + ((xb - xa) * k) / 80, v = 10 ** lv, yv = Math.max(y0, Math.min(y1, fit.f(v))); d += `${k ? 'L' : 'M'}${X(v)} ${Y(yv)} `; }
         out += `<path d="${d}" fill="none" stroke="${col}" stroke-width="2"/>`;
-        report.push(`${sr.name}: 4PL fit — EC50 = ${fit.ec50.toPrecision(3)}, Hill slope = ${fit.hill.toFixed(2)}, bottom = ${fit.bottom.toPrecision(3)}, top = ${fit.top.toPrecision(3)}, R² = ${fit.r2.toFixed(3)}`);
+        const inhib = fit.f(10 ** xb) < fit.f(10 ** xa);
+        report.push(`${sr.name}: 4PL fit — ${inhib ? 'IC50' : 'EC50'} = ${fit.ec50.toPrecision(3)}, Hill slope = ${fit.hill.toFixed(2)}, bottom = ${fit.bottom.toPrecision(3)}, top = ${fit.top.toPrecision(3)}, R² = ${fit.r2.toFixed(3)}`);
         if (cfg.showEC50 !== false) out += `<line x1="${X(fit.ec50)}" y1="${m.t + ph}" x2="${X(fit.ec50)}" y2="${Y(fit.f(fit.ec50))}" stroke="${col}" stroke-dasharray="3 3"/>`;
       }
     });
@@ -396,7 +418,7 @@ function renderChart(cfg, w, h) {
   if (cfg.xLabel) out += `<text x="${m.l + pw / 2}" y="${h - 10}" text-anchor="middle" font-size="12">${esc(cfg.xLabel)}</text>`;
   if (cfg.yLabel) out += `<text transform="translate(16 ${m.t + ph / 2}) rotate(-90)" text-anchor="middle" font-size="12">${esc(cfg.yLabel)}</text>`;
   out += '</g>';
-  return { svg: out, report: [...groupLines, ...report] };
+  return { svg: out, report: [...groupLines, ...report], suggestion };
 }
 
 function renderHeatmap(cfg, headers, cols, raw, w, h, esc, font) {

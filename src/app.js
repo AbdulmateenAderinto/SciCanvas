@@ -15,7 +15,10 @@ if (!window.native) {
       }
       return out;
     },
-    packCatalog: async () => [], installPack: none, saveUserIcon: none, deleteUserIcon: none,
+    pubchemLookup: async (name) => { const r = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/IsomericSMILES,SMILES,MolecularFormula,MolecularWeight,IUPACName/JSON`); if (!r.ok) throw new Error('Not found'); const p = (await r.json()).PropertyTable.Properties[0]; return { cid: p.CID, smiles: p.IsomericSMILES || p.SMILES, formula: p.MolecularFormula, mw: p.MolecularWeight, iupac: p.IUPACName }; },
+    packCatalog: async () => [],
+    listTemplates: async () => [], saveTemplate: none, deleteTemplate: none, exportTemplate: none, importTemplate: async () => 0,
+    listVersions: async () => [], readVersion: none, watchFile() {}, onFileChanged() {}, readFile: none, pickFolder: none, listFolder: none, makeFolder: none, reveal: none, onOpenFile() {}, pendingOpen: none, installPack: none, saveUserIcon: none, deleteUserIcon: none,
     readPackIcon: async (pack, file) => (await fetch(`../assets/iconpacks/${pack}/svg/${encodeURIComponent(file)}`)).text(),
     getSettings: async () => ({ hasApiKey: false, author: '', field: '' }), saveSettings: none, copyImage: none, openPath: none, aiGenerate: none,
     onPackProgress() {},
@@ -234,7 +237,7 @@ svg.addEventListener('wheel', (e) => {
 
 // ---------- Object helpers ----------
 function postEdit(o) {
-  if (o.type === 'text') { const m = measureText(o.text, o.fontSize, o.family, o.bold, o.italic); o.w = m.w; o.h = m.h; }
+  if (o.type === 'text') { const m = textMetrics(o); o.w = m.w; o.h = m.h; }
   if (o.type === 'protocol') o.h = protocolLayout(o).h;
   if (o.type === 'path' && o.closed && (!o.fill || o.fill === 'none')) { o.fill = DRAW_DEFAULTS.fill; o.shade = o.shade || 'soft'; }
 }
@@ -483,8 +486,8 @@ function setTool(t, kind) {
   $$('#tools button[data-tool]').forEach((b) => b.classList.toggle('active', b.dataset.tool === t && (t !== 'brush' || b.dataset.kind === state.brushKind)));
   $('#brushShape').classList.toggle('hidden', t !== 'brush');
   $('#shapePick').classList.toggle('hidden', t !== 'shape');
-  stage.classList.toggle('draw', ['rect', 'ellipse', 'text', 'connector', 'brush', 'shape', 'badge', 'comment', 'pencil', 'pen', 'line', 'arrow', 'airbrush'].includes(t));
-  $('#drawOpts').classList.toggle('hidden', !['pencil', 'pen', 'line', 'arrow', 'airbrush'].includes(t));
+  stage.classList.toggle('draw', ['rect', 'ellipse', 'text', 'connector', 'brush', 'shape', 'badge', 'comment', 'pencil', 'pen', 'line', 'arrow', 'airbrush', 'eraser', 'table'].includes(t));
+  $('#drawOpts').classList.toggle('hidden', !['pencil', 'pen', 'line', 'arrow', 'airbrush', 'eraser'].includes(t));
   if (typeof syncDrawOpts === 'function') syncDrawOpts();
   stage.classList.toggle('pan', t === 'pan');
 }
@@ -530,7 +533,8 @@ svg.addEventListener('pointerdown', (e) => {
     if (!hitEl || hitEl.dataset.id !== nodeEdit.id) exitNodeEdit();
     else return;
   }
-  if (['pencil', 'airbrush', 'line', 'arrow', 'pen'].includes(state.tool)) { drag = drawDown(e, p); return; }
+  if (['pencil', 'airbrush', 'line', 'arrow', 'pen', 'eraser'].includes(state.tool)) { drag = drawDown(e, p); return; }
+  if (state.tool === 'table') { const t = Make.table(4, 3, p.x, p.y); addObjects([t]); return; }
   const handle = e.target.closest('[data-handle]');
   if (handle) {
     const h = handle.dataset.handle, o = selected()[0];
@@ -544,6 +548,7 @@ svg.addEventListener('pointerdown', (e) => {
   const hit = hitObject(e.target);
   switch (state.tool) {
     case 'select': {
+      if (hit && hit.link && (e.metaKey || e.ctrlKey) && /^https?:\/\//.test(hit.link)) { window.open(hit.link); return; }
       if (hit) {
         if (e.shiftKey) state.sel = state.sel.includes(hit.id) ? state.sel.filter((i) => i !== hit.id) : [...state.sel, hit.id];
         else if (!state.sel.includes(hit.id)) state.sel = [hit.id];
@@ -661,7 +666,7 @@ function flushPointerMove() { if (pendingMove) { const ev = pendingMove; pending
 function handlePointerMove(e) {
   if (!drag) { if (pen && state.tool === 'pen') renderPenPreview(toWorld(e)); return; }
   const p = toWorld(e);
-  if (['pencil', 'airbrush', 'line', 'pen-node', 'node'].includes(drag.mode)) return drawMove(e, p, drag);
+  if (['pencil', 'airbrush', 'line', 'pen-node', 'node', 'erase'].includes(drag.mode)) return drawMove(e, p, drag);
   switch (drag.mode) {
     case 'pan':
       navigating();
@@ -761,7 +766,7 @@ window.addEventListener('pointerup', (e) => {
   drag = null;
   $('#guides').innerHTML = '';
   const p = toWorld(e);
-  if (['pencil', 'airbrush', 'line', 'pen-node', 'node'].includes(d.mode)) {
+  if (['pencil', 'airbrush', 'line', 'pen-node', 'node', 'erase'].includes(d.mode)) {
     if (drawUp(e, p, d)) render({ props: true });
     else if (d.mode === 'pen-node') renderPenPreview(p);
     return;
@@ -826,6 +831,8 @@ svg.addEventListener('dblclick', (e) => {
   const o = hitObject(e.target);
   if (!o) return;
   if (o.type === 'path') { enterNodeEdit(o); return; }
+  if (o.type === 'table') { editTableCellAt(o, e); return; }
+  if (o.type === 'brush') { editBrushPath(o); return; }
   if (o.type === 'text') editText(o, 'text');
   else if (o.type === 'rect' || o.type === 'ellipse' || o.type === 'shape' || o.type === 'connector') editText(o, 'label');
   else if (o.type === 'group') enterGroupEdit(o);
@@ -908,6 +915,7 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'l') { e.preventDefault(); e.shiftKey ? setLocked(false) : setLocked(true); return; }
   if (e.shiftKey && !mod && (e.key === 'H' || e.key === 'V')) { e.preventDefault(); flipSelection(e.key === 'H' ? 'h' : 'v'); return; }
   if (mod) return;
+  if (e.key.toLowerCase() === 'x' && !e.shiftKey) { setTool('eraser'); return; }
   const map = { v: 'select', h: 'pan', t: 'text', r: 'rect', e: 'ellipse', c: 'connector', b: 'brush', s: 'shape', n: 'badge', m: 'comment', d: 'pencil', p: 'pen', l: 'line', a: 'arrow', w: 'airbrush' };
   if (map[e.key.toLowerCase()]) setTool(map[e.key.toLowerCase()]);
 });
@@ -1063,15 +1071,22 @@ function color(list, key) {
   const inp = el('input', { type: 'color', value: toHex(list[0][key]), oninput: (e) => setProps(list, key, e.target.value) });
   const none = el('button', { textContent: 'None', title: 'Transparent', onclick: () => setProps(list, key, 'none', { rebuild: true }) });
   wrap.append(inp);
+  if (window.EyeDropper) wrap.append(el('button', { textContent: '💧', title: 'Pick a colour from anywhere on screen', onclick: async () => { const c = await pickScreenColour(); if (c) setProps(list, key, c, { rebuild: true }); } }));
   if (['fill', 'stroke', 'bg', 'fill2', 'clipStroke'].includes(key)) wrap.append(none);
   return wrap;
 }
 function swatches(list, key) {
-  return el('div', { class: 'swatches' }, ...SWATCHES.map((c) => el('button', { class: 'swatch', style: `background:${c}`, title: c, onclick: () => setProps(list, key, c, { rebuild: true }) })));
+  return el('div', {}, el('div', { class: 'swatches' }, ...SWATCHES.map((c) => el('button', { class: 'swatch', style: `background:${c}`, title: c, onclick: () => setProps(list, key, c, { rebuild: true }) }))),
+    typeof paletteRow === 'function' ? paletteRow(list, key) : null);
 }
 function toHex(c) { return /^#[0-9a-f]{6}$/i.test(c || '') ? c : /^#[0-9a-f]{3}$/i.test(c || '') ? '#' + c.slice(1).split('').map((x) => x + x).join('') : '#ffffff'; }
 function select(list, key, options, rebuild) {
   return el('select', { onchange: (e) => setProps(list, key, e.target.value, { rebuild }) }, ...options.map(([v, l]) => el('option', { value: v, textContent: l, selected: String(list[0][key] ?? '') === String(v) })));
+}
+function lineStyle(list) {
+  const cur = list[0].dashStyle || (list[0].dash ? 'dashed' : 'solid');
+  return el('select', { onchange: (e) => { setProps(list, 'dash', false); setProps(list, 'dashStyle', e.target.value); } },
+    ...[['solid', '──── Solid'], ['dashed', '- - - Dashed'], ['dotted', '······ Dotted'], ['dashdot', '-·-·- Dash-dot']].map(([v, l]) => el('option', { value: v, textContent: l, selected: v === cur })));
 }
 function check(list, key, label) {
   return el('label', { style: 'display:flex;gap:4px;align-items:center;width:auto;color:inherit' }, el('input', { type: 'checkbox', checked: !!list[0][key], onchange: (e) => setProps(list, key, e.target.checked) }), label);
@@ -1146,18 +1161,22 @@ function renderProps() {
         row('Gradient to', color(L, 'fill2'), o.fill2 ? select(L, 'gradDir', [['v', '↓'], ['h', '→']]) : null),
         row('Stroke', color(L, 'stroke')), row('Stroke W', num(L, 'strokeWidth', 0.5, 0)),
         o.type === 'rect' ? row('Corner', num(L, 'radius', 1, 0)) : null,
-        row('', check(L, 'dash', 'Dashed outline'))));
+        row('Line style', lineStyle(L))));
       P.append(sect('Label', row('Text', textInput(L, 'label', true)), row('Size', num(L, 'labelSize', 1, 4)), row('Colour', color(L, 'labelColor')), row('', check(L, 'labelBold', 'Bold'))));
       break;
     case 'text':
       P.append(sect('Text',
         row('Content', textInput(L, 'text', true)),
         el('div', { class: 'note', textContent: 'Use ^{…} for superscript and _{…} for subscript, e.g. Ca^{2+}, CO_{2}. Double-click on canvas to edit.' }),
-        row('Font', select(L, 'family', [['sans', 'Sans-serif'], ['serif', 'Serif'], ['mono', 'Monospace']])),
+        el('div', { class: 'btnrow', style: 'margin-bottom:6px' }, btn('Ω Symbols', (e) => openSymbolPicker(e.target, o))),
+        row('Font', select(L, 'family', FONT_NAMES)),
         row('Size', num(L, 'fontSize', 1, 4)),
         row('Colour', color(L, 'color')), swatches(L, 'color'),
-        row('Style', check(L, 'bold', 'Bold'), check(L, 'italic', 'Italic')),
+        row('Style', check(L, 'bold', 'B'), check(L, 'italic', 'I'), check(L, 'underline', 'U'), check(L, 'strike', 'S̶')),
         row('Align', select(L, 'align', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])),
+        row('List', select(L, 'list', [['none', 'None'], ['bullet', '• Bullets'], ['number', '1. Numbered']])),
+        row('Curve', el('input', { type: 'range', min: -360, max: 360, step: 5, value: o.curve || 0, oninput: (e) => { const v = +e.target.value; setProps(L, 'curve', Math.abs(v) < 8 ? 0 : v); } }), btn('Straight', () => setProps(L, 'curve', 0, { rebuild: true }))),
+        el('div', { class: 'note', textContent: 'Curve bends a single-line label along an arc (±360° = full circle). To follow a drawn curve, draw it with the pen/pencil and use “Text along path”.' }),
         row('Highlight', color(L, 'bg'))));
       break;
     case 'connector':
@@ -1165,15 +1184,18 @@ function renderProps() {
         row('Meaning', select(L, 'head', [['arrow', '→ Activation / leads to'], ['bar', '⊣ Inhibition'], ['open', '⟶ Open arrow'], ['dot', '● Binding / association'], ['none', '— Line only']])),
         row('Start', select(L, 'tail', [['none', 'None'], ['arrow', 'Arrow'], ['bar', 'Bar'], ['open', 'Open'], ['dot', 'Dot']])),
         row('Path', select(L, 'style', [['straight', 'Straight'], ['curved', 'Curved'], ['elbow', 'Elbow']], true)),
+        o.style === 'elbow' ? row('Bend at', range(L, 'bend', 0.05, 0.95, 0.05)) : null,
         row('Colour', color(L, 'color')), swatches(L, 'color'),
         row('Width', num(L, 'width', 0.5, 0.5)),
-        row('', check(L, 'dash', 'Dashed (indirect / proposed)')),
+        row('Line style', lineStyle(L)),
+        el('div', { class: 'note', textContent: 'Dashed/dotted lines often mean indirect or proposed effects — say so in the legend.' }),
         row('Label', textInput(L, 'label')), row('', check(L, 'labelItalic', 'Italic label')),
         el('div', { class: 'note', textContent: 'Arrow shape alone is ambiguous — a verb label (“binds”, “phosphorylates”, “increases expression of”) states the claim. Drag the end handles onto objects to attach them.' })));
       break;
     case 'brush':
       P.append(sect('Brush',
-        row('Type', select(L, 'kind', [['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['epithelium', 'Cell layer'], ['vesicles', 'Vesicles']])),
+        row('Type', select(L, 'kind', [['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['microtubule', 'Microtubule'], ['epithelium', 'Epithelial layer'], ['cells', 'Row of cells'], ['vessel', 'Blood vessel'], ['vesicles', 'Vesicles']])),
+        btn('✎ Edit path', () => editBrushPath(o)),
         row('Colour', color(L, 'color')), swatches(L, 'color'),
         row('Unit size', range(L, 'size', 3, 24, 0.5)),
         row('', check(L, 'closed', 'Closed path'))));
@@ -1182,12 +1204,19 @@ function renderProps() {
       P.append(sect('Image',
         o.source ? el('div', { class: 'note', textContent: `Source: ${o.source}` }) : null,
         el('div', { class: 'btnrow' },
-          btn('Remove white background', async () => { checkpoint(); o.src = await removeWhite(o.src); renderScene(); toast('Background removed'); }),
+          btn('Remove white', async () => { checkpoint(); o.src = await removeWhite(o.src); renderScene(); toast('White removed'); }),
+          btn('Remove background', () => removeBackgroundSelection()),
+          btn('✦ Remove text', () => removeTextFromSelection()),
+          btn('✦ Restyle', () => restyleSelection()),
           btn('Reset size', async () => { const s = await loadImageSize(o.src); checkpoint(); const k = Math.min(1, 420 / Math.max(s.w, s.h)); o.w = s.w * k; o.h = s.h * k; o.nw = s.w; o.nh = s.h; o.crop = null; render({ props: true }); }))));
       break;
     case 'chart': {
       const rep = renderChart(o.cfg, o.w, o.h).report;
-      P.append(sect('Graph', btn('Edit data & analysis…', () => openGraphDialog(o), 'primary'), el('div', { class: 'report', style: 'margin-top:8px', textContent: rep.join('\n') })));
+      const palIn = (CHART_PALETTE.map((c, i) => (o.cfg.colors && o.cfg.colors[i]) || c)).slice(0, 6);
+      P.append(sect('Graph', btn('Edit data & analysis…', () => openGraphDialog(o), 'primary'),
+        el('div', { class: 'row', style: 'margin-top:8px' }, el('label', { textContent: 'Series colours' }), el('span', { style: 'display:flex;gap:3px;flex-wrap:wrap' }, ...palIn.map((c, i) => el('input', { type: 'color', value: c, style: 'width:28px', oninput: (e) => { checkpoint('gcol' + o.id); o.cfg.colors = [...palIn]; o.cfg.colors[i] = e.target.value; palIn[i] = e.target.value; renderScene(); } })))),
+        el('div', { class: 'btnrow' }, btn('Apply this style to all graphs', () => applyGraphStyleToAll(o))),
+        el('div', { class: 'report', style: 'margin-top:8px', textContent: rep.join('\n') })));
       break;
     }
     case 'protocol':
@@ -1196,6 +1225,9 @@ function renderProps() {
         row('Scale', range(L, 'scale', 0.5, 2, 0.05)),
         el('div', { class: 'note', textContent: 'Drag the side handles: steps re-wrap and renumber automatically.' })));
       break;
+    case 'table':
+      P.append(tableSection(o));
+      break;
     case 'group':
       P.append(sect('Group', el('div', { class: 'note', textContent: `${o.children.length} objects. Double-click to edit inside the group, or ungroup (⇧⌘G).` }),
         btn('Edit inside group', () => enterGroupEdit(o))));
@@ -1203,6 +1235,9 @@ function renderProps() {
   }
   if (canConvertToPath(o)) P.append(sect('Edit as drawing', el('div', { class: 'note', textContent: 'Turn this shape into a path whose points you can reshape.' }), btn('Convert to path', () => { checkpoint(); const i = objs().indexOf(o); objs()[i] = convertToPath(o); render({ props: true }); enterNodeEdit(objs()[i]); })));
   if (o.type !== 'connector') P.append(effectsSection(o));
+  if (o.erase && o.erase.length) P.append(sect('Erased areas', el('div', { class: 'note', textContent: `${o.erase.length} eraser stroke(s). Erasing is non-destructive.` }), btn('Restore erased areas', () => { checkpoint(); o.erase = []; render({ props: true }); })));
+  P.append(sect('Link', row('URL', el('input', { type: 'text', value: o.link || '', placeholder: 'https://doi.org/…', oninput: (e) => setProps(L, 'link', e.target.value.trim()) })),
+    el('div', { class: 'note', textContent: 'Clickable in exported PDF and SVG files. ⌘-click the object to open it.' })));
   if (o.type === 'image') P.append(cropSection(o));
   P.append(alignSection(sel));
   P.append(arrangeSection(sel));
@@ -1219,14 +1254,22 @@ function pathSection(o) {
     row('Width', num(L, 'strokeWidth', 0.5, 0)),
     o.blur ? row('Softness', range(L, 'blur', 0, 30, 0.5)) : null,
     o.blur || o.strokeOpacity != null ? row('Strength', range(L, 'strokeOpacity', 0.05, 1, 0.05)) : null,
-    row('', check(L, 'closed', 'Closed shape'), check(L, 'dash', 'Dashed')),
+    row('', check(L, 'closed', 'Closed shape')),
+    row('Line style', lineStyle(L)),
     o.closed ? row('Fill', color(L, 'fill')) : null,
     o.closed ? swatches(L, 'fill') : null,
     o.closed ? row('Shading', select(L, 'shade', SHADES)) : null,
     o.closed ? row('Gradient to', color(L, 'fill2')) : null,
     !o.closed ? row('End', select(L, 'headEnd', heads)) : null,
     !o.closed ? row('Start', select(L, 'headStart', heads)) : null,
-    !o.closed ? row('Line caps', select(L, 'cap', [['round', 'Round'], ['butt', 'Flat'], ['square', 'Square']])) : null);
+    !o.closed ? row('Line caps', select(L, 'cap', [['round', 'Round'], ['butt', 'Flat'], ['square', 'Square']])) : null,
+    el('h3', { textContent: 'Text along path', style: 'margin-top:12px' }),
+    row('Text', textInput(L, 'pathText')),
+    o.pathText ? row('Size', num(L, 'pathTextSize', 1, 4)) : null,
+    o.pathText ? row('Colour', color(L, 'pathTextColor')) : null,
+    o.pathText ? row('Position', range(L, 'pathTextOffset', 0, 100, 1)) : null,
+    o.pathText ? row('Side', select(L, 'pathTextSide', [['above', 'Above the line'], ['below', 'Below the line']]), check(L, 'pathTextBold', 'Bold')) : null,
+    o.pathText ? el('div', { class: 'note', textContent: 'Set Stroke to None to show only the curved label.' }) : null);
 }
 function iconColourSection(o) {
   const L = [o], native = !!ICON_MAP[o.iconId], a = native ? null : getAsset(o.iconId);
@@ -1239,6 +1282,7 @@ function iconColourSection(o) {
     el('div', { class: 'btnrow' },
       btn('Replace icon…', () => { replaceTarget = o.id; renderLibraryBanner(); $('#search').focus(); }),
       btn(getFavs().includes(o.iconId) ? '★ Favourite' : '☆ Favourite', () => { toggleFav(o.iconId); renderProps(); renderLibrary(); })),
+    el('div', { class: 'btnrow', style: 'margin-top:6px' }, btn('✦ Restyle', () => restyleSelection()), btn('✦ Edit with AI', () => editWithAI()), btn('✦ Remove text', () => removeTextFromSelection())),
     a && a.pack !== 'upload' ? el('div', { class: 'note', style: 'margin-top:6px', textContent: `${a.name} — ${a.author} · ${LICENSE_NAMES[a.license] || a.license}${needsAttribution(a.license) ? ' (attribution required — see File › Credits)' : ''}` }) : null,
     el('div', { class: 'note', textContent: 'Use colour consistently: the same entity should keep the same colour across panels.' }));
 }
@@ -1354,7 +1398,10 @@ async function trimTransparent(src, pad = 6) {
 // ---------- Files ----------
 function confirmDiscard() { return !state.dirty || confirm('You have unsaved changes. Discard them?'); }
 function loadDoc(doc, filePath) {
+  delete doc.thumb;
   state.doc = doc;
+  if (filePath && window.native.watchFile) window.native.watchFile(filePath);
+  if (typeof hideChangedBanner === 'function') hideChangedBanner();
   if (!doc.uploads) doc.uploads = [];
   if (!doc.assets) doc.assets = {};
   if (groupEdit) groupEdit = null;
@@ -1363,14 +1410,20 @@ function loadDoc(doc, filePath) {
   updateTitle(); renderUploads();
   render({ props: true, pages: true });
   zoomFit();
+  if (state.doc.aiDraft && typeof applyAiDraft === 'function') applyAiDraft();
 }
 async function save(saveAs) {
-  const target = await window.native.saveFigure({ path: state.filePath, content: JSON.stringify(state.doc), saveAs });
+  let thumb = '';
+  try { const p0 = state.doc.pages[0]; thumb = await rasterize(p0, Math.min(1, 320 / Math.max(p0.width, p0.height)), { mime: 'image/jpeg' }); } catch { /* no thumbnail */ }
+  const { thumb: _old, ...rest } = state.doc;
+  const target = await window.native.saveFigure({ path: state.filePath, content: JSON.stringify({ thumb, ...rest }), saveAs });
   if (target) { state.filePath = target; state.dirty = false; updateTitle(); toast('Saved'); addRecent(target); }
 }
 
 async function runCommand(cmd) {
   if (typeof ARRANGE_COMMANDS !== 'undefined' && ARRANGE_COMMANDS[cmd]) { if (!isTyping()) ARRANGE_COMMANDS[cmd](); return; }
+  if (typeof AI_COMMANDS !== 'undefined' && AI_COMMANDS[cmd]) { AI_COMMANDS[cmd](); return; }
+  if (typeof FILE_COMMANDS !== 'undefined' && FILE_COMMANDS[cmd]) { FILE_COMMANDS[cmd](); return; }
   // Let native editing commands work inside text fields.
   if (isTyping() && ['undo', 'redo', 'selectAll'].includes(cmd)) return document.execCommand(cmd);
   if (isTyping() && ['duplicate', 'group', 'ungroup'].includes(cmd)) return;
@@ -1407,6 +1460,18 @@ async function runCommand(cmd) {
     case 'templates': openTemplatesDialog(); break;
     case 'ai': openAIDialog(); break;
     case 'aiIcon': openAIIconDialog(); break;
+    case 'selectSameIcon': selectMatching('icon'); break;
+    case 'selectSameType': selectMatching('type'); break;
+    case 'selectSameColour': selectMatching('colour'); break;
+    case 'visionNormal': setVision('normal'); break;
+    case 'visionGray': setVision('gray'); break;
+    case 'visionDeut': setVision('deut'); break;
+    case 'visionProt': setVision('prot'); break;
+    case 'visionTrit': setVision('trit'); break;
+    case 'insertTable': { const c = viewCenter(); addObjects([Make.table(4, 3, c.x - 165, c.y - 68)]); break; }
+    case 'insertLogo': insertBrandLogo(); break;
+    case 'brandFont': applyBrandFont(); break;
+    case 'eraserTool': setTool('eraser'); break;
     case 'saveIcon': saveSelectionAsIcon(); break;
     case 'libraries': openLibrariesDialog(); break;
     case 'settings': openSettingsDialog(); break;
@@ -1436,12 +1501,18 @@ function startPresent() {
 function showSlide() {
   const p = state.doc.pages[presentIndex];
   const k = Math.min(window.innerWidth / p.width, window.innerHeight / p.height) * 0.96;
-  $('#presentStage').innerHTML = pageSvgString(p).replace('<svg ', `<svg style="width:${p.width * k}px;height:${p.height * k}px" `);
+  const notesH = showNotes && p.notes ? 120 : 0;
+  const k2 = Math.min(window.innerWidth / p.width, (window.innerHeight - notesH) / p.height) * 0.96;
+  $('#presentStage').innerHTML = pageSvgString(p).replace('<svg ', `<svg style="width:${p.width * k2}px;height:${p.height * k2}px" `)
+    + (notesH ? `<div class="pnotes">${esc(p.notes)}</div>` : '');
+  $('#presentHint').textContent = `${presentIndex + 1} / ${state.doc.pages.length} · ← → to navigate · N for speaker notes · Esc to exit`;
 }
+let showNotes = false;
 function presentKey(e) {
   if (e.key === 'Escape') { $('#present').classList.add('hidden'); if (document.fullscreenElement) document.exitFullscreen(); return; }
   if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) presentIndex = Math.min(presentIndex + 1, state.doc.pages.length - 1);
   if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) presentIndex = Math.max(presentIndex - 1, 0);
+  if (e.key.toLowerCase() === 'n') showNotes = !showNotes;
   showSlide();
 }
 $('#present').addEventListener('click', () => { presentIndex = Math.min(presentIndex + 1, state.doc.pages.length - 1); showSlide(); });
