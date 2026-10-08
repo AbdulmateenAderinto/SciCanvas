@@ -200,3 +200,55 @@ table.credits td, table.credits th { text-align: left; border-bottom: 1px solid 
 .layer.hid .lname, .layer.hid .kind { opacity: .4; text-decoration: line-through; }
 .layer.drop-above { border-top: 2px solid var(--accent); }
 .layer.drop-below { border-bottom: 2px solid var(--accent); }
+
+/* ---- v0.5 ---- */
+.swatches .swsep { width: 1px; background: var(--border); margin: 0 2px; }
+.swatches .addsw { background: #fff; color: var(--muted); font-size: 13px; line-height: 14px; }
+#visionChip { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 7; background: #1f2933; color: #fff; border-radius: 16px; padding: 4px 6px 4px 12px; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+#visionChip button { background: transparent; border: none; color: #fff; padding: 0 6px; }
+#pop { position: fixed; z-index: 400; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(20,30,50,.18); padding: 8px; width: 290px; max-height: 70vh; overflow: auto; }
+.symgrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin: 2px 0 8px; }
+.symgrid button { padding: 3px 0; font-size: 14px; border: 1px solid transparent; background: none; }
+.symgrid button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.tgrid { display: grid; gap: 2px; max-height: 50vh; overflow: auto; }
+.tgrid input { font-size: 12px; padding: 5px; border-radius: 3px; min-width: 0; }
+.tgrid input.tsel { outline: 2px solid var(--accent); }
+
+/* ---- v0.5 AI ---- */
+.searchrow { display: flex; gap: 4px; margin-bottom: 8px; }
+.searchrow #search { margin-bottom: 0; flex: 1; }
+#smartBtn { padding: 4px 9px; background: linear-gradient(90deg, #6d4fd6, #3b6fd6); color: #fff; border: none; }
+#smartNote { margin: -4px 0 8px; color: #6d4fd6; }
+button.aimenu { display: block; width: 100%; text-align: left; border: none; background: none; padding: 7px 8px; border-radius: 6px; }
+button.aimenu:hover { background: var(--accent-soft); }
+button.aimenu b { display: block; font-size: 13px; }
+button.aimenu span { color: var(--muted); font-size: 11.5px; }
+.steps { display: flex; gap: 6px; margin-bottom: 12px; }
+.steps span { padding: 4px 10px; border-radius: 12px; background: #f1f3f6; color: var(--muted); font-size: 12px; }
+.steps span.on { background: var(--accent); color: #fff; }
+.steps span.done { background: var(--accent-soft); color: var(--accent); }
+.qblock { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chips button { border-radius: 14px; padding: 4px 10px; }
+.chips button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.sketch-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.sketch { border: 2px solid var(--border); border-radius: 8px; height: 190px; padding: 6px 6px 22px; position: relative; cursor: pointer; background: #fff; }
+.sketch.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sketch .cap { position: absolute; bottom: 4px; left: 8px; right: 8px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.markup { position: relative; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.markup canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+
+/* ---- v0.5 files ---- */
+#changedBanner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 9; background: #fff4e5; border: 1px solid #f0c27a; color: #6b4300; border-radius: 10px; padding: 8px 10px; display: flex; gap: 8px; align-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.12); max-width: 80%; }
+.crumbs a { color: var(--accent); cursor: pointer; }
+.tpl.folder .thumb { background: #fdf6e3; }
+.sorter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-height: 64vh; overflow: auto; }
+.scard { border: 1px solid var(--border); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: #fff; cursor: grab; }
+.scard.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.scard.dropping { border-color: #e8743b; border-style: dashed; }
+.scard .srow { display: flex; gap: 6px; align-items: center; }
+.scard .srow input { flex: 1; }
+.sthumb { height: 130px; background: #f3f5f8; border-radius: 6px; padding: 4px; }
+.scard textarea { font-family: inherit; font-size: 12px; width: 100%; }
+.pnotes { color: #ddd; font-size: 16px; max-width: 90vw; margin: 10px auto 0; white-space: pre-wrap; text-align: left; max-height: 110px; overflow: auto; }
+#presentStage { display: flex; flex-direction: column; align-items: center; }

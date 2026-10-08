@@ -2,10 +2,11 @@
 
 // ---------- Drawing options (shown while a drawing tool is active) ----------
 function syncDrawOpts() {
-  const shade = state.tool === 'airbrush';
+  const shade = state.tool === 'airbrush', er = state.tool === 'eraser';
   $('#drawColor').value = shade ? DRAW_DEFAULTS.shadeColor : DRAW_DEFAULTS.stroke;
-  $('#drawWidth').value = shade ? DRAW_DEFAULTS.shadeSize : DRAW_DEFAULTS.strokeWidth;
-  $('#drawWidth').max = shade ? 60 : 20;
+  $('#drawColor').classList.toggle('hidden', er);
+  $('#drawWidth').max = shade || er ? 80 : 20;
+  $('#drawWidth').value = er ? DRAW_DEFAULTS.eraserSize : shade ? DRAW_DEFAULTS.shadeSize : DRAW_DEFAULTS.strokeWidth;
   $('#drawFill').value = DRAW_DEFAULTS.fill;
   $('#drawFillWrap').classList.toggle('hidden', !['pencil', 'pen'].includes(state.tool));
   $('#drawHint').textContent = {
@@ -13,11 +14,12 @@ function syncDrawOpts() {
     pen: 'Click = corner · drag = curve · click first point to close · Enter to finish',
     line: 'Drag a line (Shift = 45°)', arrow: 'Drag an arrow (Shift = 45°)',
     airbrush: 'Paint soft shading over icons',
+    eraser: 'Erase parts of the selected object (non-destructive — restore any time in Properties)',
   }[state.tool] || '';
 }
 function setupDrawOpts() {
   $('#drawColor').addEventListener('input', (e) => { if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeColor = e.target.value; else DRAW_DEFAULTS.stroke = e.target.value; });
-  $('#drawWidth').addEventListener('input', (e) => { if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeSize = +e.target.value; else DRAW_DEFAULTS.strokeWidth = +e.target.value; });
+  $('#drawWidth').addEventListener('input', (e) => { if (state.tool === 'eraser') DRAW_DEFAULTS.eraserSize = +e.target.value; else if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeSize = +e.target.value; else DRAW_DEFAULTS.strokeWidth = +e.target.value; });
   $('#drawFill').addEventListener('input', (e) => { DRAW_DEFAULTS.fill = e.target.value; });
 }
 

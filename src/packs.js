@@ -212,6 +212,7 @@ function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
   const boost = new Set(FIELD_CATS[field] || []);
   const native = ICONS.map((i) => ({ native: true, id: i.id, key: i.id, name: i.name, category: i.cat, hay: `${i.name} ${i.tags} ${i.cat}`.toLowerCase(), license: 'built-in' }));
   let all = [...native, ...Packs.all];
+  if (cat === 'Suggested' && typeof suggestedIcons === 'function') { const sug = suggestedIcons(limit); return { total: sug.length, items: sug }; }
   if (cat === '★ Favorites') { const fav = getFavs(); all = all.filter((i) => fav.includes(i.key)); }
   else if (cat === 'Recent') { const rec = getRecentIcons(); all = rec.map((k) => all.find((i) => i.key === k)).filter(Boolean); }
   else if (cat !== 'All') all = all.filter((i) => i.category === cat);

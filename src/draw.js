@@ -127,7 +127,7 @@ function pathSvg(o) {
   const d = nodesToD(ns, o.closed);
   const sw = o.strokeWidth ?? 2;
   const stroke = o.stroke && o.stroke !== 'none' ? o.stroke : 'none';
-  const dash = o.dash ? ` stroke-dasharray="${sw * 3} ${sw * 2.2}"` : '';
+  const dash = dashAttr(o, sw);
   const geom = `<path d="${d}"/>`;
   const paint = o.closed ? fillPaint(o, geom) : { fill: 'none', defs: '', overlay: '' };
   let defs = paint.defs, body = '';
@@ -143,6 +143,10 @@ function pathSvg(o) {
   }
   body += `<path d="${dd}" fill="${paint.fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="${o.cap || 'round'}" stroke-linejoin="round"${dash}${o.strokeOpacity != null ? ` stroke-opacity="${o.strokeOpacity}"` : ''}${o.blur ? ` filter="url(#bl-${o.id})"` : ''}/>`;
   body += paint.overlay;
+  if (o.pathText) { // label that follows the drawn curve
+    defs += `<path id="ptx-${o.id}" d="${d}"/>`;
+    body += `<text font-family='${FONT_STACK[o.pathTextFamily] || FONT_STACK.sans}' font-size="${o.pathTextSize || 16}" fill="${o.pathTextColor || '#222'}"${o.pathTextBold ? ' font-weight="700"' : ''} dy="${o.pathTextSide === 'below' ? (o.pathTextSize || 16) * 0.95 + sw / 2 : -(sw / 2 + 3)}"><textPath href="#ptx-${o.id}" startOffset="${o.pathTextOffset ?? 50}%" text-anchor="middle">${esc(o.pathText)}</textPath></text>`;
+  }
   if (!o.closed && ns.length >= 2 && stroke !== 'none') {
     const last = ns[ns.length - 1], prevE = last.ix != null ? { x: last.ix, y: last.iy } : ns[ns.length - 2];
     const first = ns[0], nextS = first.ox != null ? { x: first.ox, y: first.oy } : ns[1];
@@ -187,7 +191,7 @@ function convertToPath(o) {
 let pen = null;        // { nodes: [...] } while drawing with the pen
 let nodeEdit = null;   // { id, sel: index|null } while editing a path's nodes
 
-const DRAW_DEFAULTS = { stroke: '#222222', strokeWidth: 2.5, fill: '#9bc4f0', shadeColor: '#1f2a44', shadeSize: 18 };
+const DRAW_DEFAULTS = { stroke: '#222222', strokeWidth: 2.5, fill: '#9bc4f0', shadeColor: '#1f2a44', shadeSize: 18, eraserSize: 18 };
 
 function drawDown(e, p) {
   const z = state.zoom;
@@ -196,6 +200,8 @@ function drawDown(e, p) {
       return { mode: 'pencil', pts: [p], start: p };
     case 'airbrush':
       return { mode: 'airbrush', pts: [p], start: p };
+    case 'eraser':
+      return eraserDown(e, p);
     case 'line':
     case 'arrow':
       return { mode: 'line', start: p, cur: p };
@@ -238,6 +244,7 @@ function drawMove(e, p, d) {
       return;
     }
     case 'node': return nodeDragMove(e, p, d);
+    case 'erase': return eraserMove(e, p, d);
   }
 }
 function drawUp(e, p, d) {
@@ -269,6 +276,7 @@ function drawUp(e, p, d) {
     }
     case 'pen-node': return false; // keep drawing
     case 'node': return true;
+    case 'erase': return eraserUp();
   }
   return false;
 }

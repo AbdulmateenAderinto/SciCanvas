@@ -58,6 +58,7 @@ function buildMenu() {
         { label: 'New Figure', accelerator: 'CmdOrCtrl+N', click: send('new') },
         { label: 'Home / Recent…', accelerator: 'CmdOrCtrl+Shift+H', click: send('home') },
         { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: send('open') },
+        { label: 'Version History…', click: send('versions') },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: send('save') },
         { label: 'Save As…', accelerator: 'CmdOrCtrl+Shift+S', click: send('saveAs') },
         { type: 'separator' },
@@ -79,6 +80,7 @@ function buildMenu() {
         { label: 'Duplicate', accelerator: 'CmdOrCtrl+D', click: send('duplicate') },
         { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: send('selectAll') },
         { label: 'Copy as Image', accelerator: 'CmdOrCtrl+Shift+C', click: send('copyImage') },
+        { label: 'Select Matching', submenu: [{ label: 'Same Icon', click: send('selectSameIcon') }, { label: 'Same Type', click: send('selectSameType') }, { label: 'Same Colour', click: send('selectSameColour') }] },
       ],
     },
     {
@@ -89,13 +91,33 @@ function buildMenu() {
         { label: 'Chemical Structure…', click: send('chem') },
         { label: 'Protein Structure (PDB)…', click: send('pdb') },
         { label: 'Template…', click: send('templates') },
-        { label: 'Generate with AI…', accelerator: 'CmdOrCtrl+K', click: send('ai') },
+        { label: 'Save Page as Template…', click: send('saveTemplate') },
         { label: 'Numbered Badge', click: send('badgeTool') },
+        { label: 'Table', click: send('insertTable') },
+        { label: 'Brand Logo', click: send('insertLogo') },
         { label: 'Comment', click: send('commentTool') },
         { type: 'separator' },
-        { label: 'Create Icon with AI…', click: send('aiIcon') },
         { label: 'Save Selection as Icon…', click: send('saveIcon') },
         { label: 'Icon Libraries…', click: send('libraries') },
+      ],
+    },
+    {
+      label: 'AI',
+      submenu: [
+        { label: 'Plan a Figure (guided)…', accelerator: 'Shift+CmdOrCtrl+K', click: send('aiPlan') },
+        { label: 'Generate Editable Figure…', accelerator: 'CmdOrCtrl+K', click: send('ai') },
+        { label: 'Protocol from Methods…', click: send('aiProtocol') },
+        { label: 'Timeline…', click: send('aiTimeline') },
+        { label: 'Flowchart…', click: send('aiFlowchart') },
+        { label: 'Create Icon…', click: send('aiIcon') },
+        { type: 'separator' },
+        { label: 'Restyle Selection…', click: send('aiRestyle') },
+        { label: 'Edit Selection with AI…', click: send('aiEdit') },
+        { label: 'Remove Text from Image', click: send('aiRemoveText') },
+        { label: 'Remove Image Background', click: send('removeBg') },
+        { type: 'separator' },
+        { label: 'Suggest Title & Legend…', click: send('aiNarrate') },
+        { label: 'Smart Icon Search', click: send('aiSmartSearch') },
       ],
     },
     {
@@ -113,6 +135,8 @@ function buildMenu() {
         ] },
         { label: 'Distribute', submenu: [{ label: 'Horizontally', click: send('distH') }, { label: 'Vertically', click: send('distV') }] },
         { label: 'Match Size', submenu: [{ label: 'Width', click: send('matchW') }, { label: 'Height', click: send('matchH') }, { label: 'Width and Height', click: send('matchSize') }] },
+        { label: 'Arrange as Figure Panels (A, B, C…)', click: send('panelLayout') },
+        { label: 'Arrange as Poster Columns…', click: send('posterLayout') },
         { label: 'Flip Horizontally', accelerator: 'Shift+H', click: send('flipH') },
         { label: 'Flip Vertically', accelerator: 'Shift+V', click: send('flipV') },
         { type: 'separator' },
@@ -141,6 +165,16 @@ function buildMenu() {
         { label: 'Toggle Smart Alignment', click: send('toggleSnap') },
         { label: 'Snap to Grid', click: send('toggleSnapGrid') },
         { type: 'separator' },
+        { label: 'Colour Preview', submenu: [
+          { label: 'Normal', click: send('visionNormal') },
+          { label: 'Grayscale (check contrast & legibility)', click: send('visionGray') },
+          { type: 'separator' },
+          { label: 'Deuteranopia (red–green)', click: send('visionDeut') },
+          { label: 'Protanopia (red–green)', click: send('visionProt') },
+          { label: 'Tritanopia (blue–yellow)', click: send('visionTrit') },
+        ] },
+        { type: 'separator' },
+        { label: 'Slide Sorter & Speaker Notes…', click: send('slideSorter') },
         { label: 'Present Slides', accelerator: 'CmdOrCtrl+Enter', click: send('present') },
         { type: 'separator' },
         { label: 'Help', accelerator: 'F1', click: send('help') },
@@ -159,6 +193,7 @@ ipcMain.handle('open-figure', async () => {
   const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || win, { filters: FIG_FILTER, properties: ['openFile'] });
   if (r.canceled || !r.filePaths[0]) return null;
   app.addRecentDocument(r.filePaths[0]);
+  watchFile(r.filePaths[0]);
   return { path: r.filePaths[0], content: fs.readFileSync(r.filePaths[0], 'utf8') };
 });
 
@@ -170,7 +205,115 @@ ipcMain.handle('save-figure', async (_e, { path: p, content, saveAs }) => {
     target = r.filePath;
   }
   fs.writeFileSync(target, content, 'utf8');
+  saveVersion(target, content);
+  watchFile(target);
   return target;
+});
+
+// ---------- Version history (last 50 saves per file, kept in the app's data folder) ----------
+const crypto = require('crypto');
+const versionsDir = (file) => path.join(app.getPath('userData'), 'versions', crypto.createHash('sha1').update(path.resolve(file)).digest('hex').slice(0, 16));
+function saveVersion(file, content) {
+  try {
+    const dir = versionsDir(file);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'source.txt'), path.resolve(file));
+    fs.writeFileSync(path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}.scifig`), content);
+    const old = fs.readdirSync(dir).filter((f) => f.endsWith('.scifig')).sort();
+    for (const f of old.slice(0, Math.max(0, old.length - 50))) fs.unlinkSync(path.join(dir, f));
+  } catch { /* history is best-effort */ }
+}
+const readThumb = (file) => { // the thumbnail is stored first in the JSON, so the head of the file is enough
+  try { const fd = fs.openSync(file, 'r'), buf = Buffer.alloc(240000), n = fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd); const m = buf.toString('utf8', 0, n).match(/^\{"thumb":"(data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+)"/); return m ? m[1] : ''; } catch { return ''; }
+};
+ipcMain.handle('list-versions', (_e, file) => {
+  if (typeof file !== 'string') return [];
+  const dir = versionsDir(file);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.scifig')).sort().reverse().map((f) => {
+    const full = path.join(dir, f);
+    return { id: f, time: fs.statSync(full).mtimeMs, size: fs.statSync(full).size, thumb: readThumb(full) };
+  });
+});
+ipcMain.handle('read-version', (_e, { file, id }) => {
+  if (typeof id !== 'string' || id.includes('/') || id.includes('..')) throw new Error('Bad version id');
+  return fs.readFileSync(path.join(versionsDir(file), id), 'utf8');
+});
+
+// ---------- Watch the open file for changes made by someone else (shared Dropbox / Drive / iCloud folders) ----------
+let watched = null;
+function watchFile(file) {
+  try {
+    if (watched && watched.file === file) { watched.mtime = fs.statSync(file).mtimeMs; return; }
+    if (watched) watched.w.close();
+    const w = fs.watch(file, () => {
+      setTimeout(() => {
+        try {
+          const m = fs.statSync(file).mtimeMs;
+          if (watched && watched.file === file && m > watched.mtime + 500) { watched.mtime = m; const target = BrowserWindow.getFocusedWindow() || win; if (target) target.webContents.send('file-changed', file); }
+        } catch { /* file moved */ }
+      }, 400);
+    });
+    watched = { file, w, mtime: fs.statSync(file).mtimeMs };
+  } catch { watched = null; }
+}
+ipcMain.on('watch-file', (_e, file) => { if (typeof file === 'string' && file.endsWith('.scifig') && fs.existsSync(file)) watchFile(file); });
+ipcMain.handle('read-file', (_e, file) => { if (typeof file !== 'string' || !file.endsWith('.scifig')) throw new Error('Not a figure file'); return fs.readFileSync(file, 'utf8'); });
+
+// ---------- Folder gallery ----------
+ipcMain.handle('pick-folder', async () => {
+  const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || win, { properties: ['openDirectory', 'createDirectory'] });
+  return r.canceled ? null : r.filePaths[0];
+});
+ipcMain.handle('list-folder', (_e, dir) => {
+  if (typeof dir !== 'string' || !fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new Error('Folder not found');
+  const out = { dir, folders: [], files: [] };
+  for (const name of fs.readdirSync(dir)) {
+    if (name.startsWith('.')) continue;
+    const full = path.join(dir, name);
+    let st; try { st = fs.statSync(full); } catch { continue; }
+    if (st.isDirectory()) out.folders.push({ name, path: full });
+    else if (name.endsWith('.scifig')) out.files.push({ name: name.replace(/\.scifig$/, ''), path: full, time: st.mtimeMs, thumb: readThumb(full) });
+  }
+  out.folders.sort((a, b) => a.name.localeCompare(b.name));
+  out.files.sort((a, b) => b.time - a.time);
+  return out;
+});
+ipcMain.handle('make-folder', (_e, { dir, name }) => {
+  if (typeof name !== 'string' || !name.trim() || /[\/:]/.test(name)) throw new Error('Invalid folder name');
+  const full = path.join(dir, name.trim());
+  fs.mkdirSync(full);
+  return full;
+});
+ipcMain.handle('reveal', (_e, p) => { if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p); });
+
+// ---------- User templates ----------
+const templatesDir = () => path.join(app.getPath('userData'), 'templates');
+ipcMain.handle('list-templates', () => {
+  const dir = templatesDir();
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => { try { return { file: f, ...JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')) }; } catch { return null; } }).filter(Boolean);
+});
+ipcMain.handle('save-template', (_e, tpl) => {
+  fs.mkdirSync(templatesDir(), { recursive: true });
+  const file = `tpl-${Date.now().toString(36)}.json`;
+  fs.writeFileSync(path.join(templatesDir(), file), JSON.stringify(tpl));
+  return file;
+});
+ipcMain.handle('delete-template', (_e, file) => { if (typeof file === 'string' && /^tpl-[a-z0-9]+\.json$/.test(file)) fs.rmSync(path.join(templatesDir(), file), { force: true }); return true; });
+ipcMain.handle('export-template', async (_e, tpl) => {
+  const r = await dialog.showSaveDialog(BrowserWindow.getFocusedWindow() || win, { defaultPath: `${(tpl.name || 'template').replace(/[^\w -]+/g, '')}.scitemplate`, filters: [{ name: 'SciCanvas Template', extensions: ['scitemplate'] }] });
+  if (r.canceled || !r.filePath) return null;
+  fs.writeFileSync(r.filePath, JSON.stringify(tpl));
+  return r.filePath;
+});
+ipcMain.handle('import-template', async () => {
+  const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || win, { filters: [{ name: 'SciCanvas Template', extensions: ['scitemplate'] }], properties: ['openFile', 'multiSelections'] });
+  if (r.canceled) return 0;
+  fs.mkdirSync(templatesDir(), { recursive: true });
+  let n = 0;
+  for (const f of r.filePaths) { try { const t = JSON.parse(fs.readFileSync(f, 'utf8')); if (t && t.page) { fs.writeFileSync(path.join(templatesDir(), `tpl-${Date.now().toString(36)}${n}.json`), JSON.stringify(t)); n++; } } catch { /* skip */ } }
+  return n;
 });
 
 ipcMain.handle('pick-images', async () => {
@@ -288,6 +431,15 @@ ipcMain.handle('read-pack-icon', (_e, { pack, file }) => {
   if (!d || typeof file !== 'string' || file.includes('/') || file.includes('..')) throw new Error('Bad icon reference');
   return fs.readFileSync(path.join(d, 'svg', file), 'utf8');
 });
+// PubChem compound lookup by name → SMILES + basic properties (for vector structure drawing).
+ipcMain.handle('pubchem-lookup', async (_e, name) => {
+  if (typeof name !== 'string' || !name.trim() || name.length > 200) throw new Error('Enter a compound name');
+  const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name.trim())}/property/IsomericSMILES,SMILES,MolecularFormula,MolecularWeight,IUPACName/JSON`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(res.status === 404 ? `No compound called “${name}” in PubChem` : `PubChem error ${res.status}`);
+  const p = (await res.json()).PropertyTable.Properties[0];
+  return { cid: p.CID, smiles: p.IsomericSMILES || p.SMILES, formula: p.MolecularFormula, mw: p.MolecularWeight, iupac: p.IUPACName };
+});
 ipcMain.handle('pack-catalog', () => catalog());
 ipcMain.handle('gpu-status', () => app.getGPUFeatureStatus());
 
@@ -399,6 +551,20 @@ ipcMain.handle('ai-generate', async (_e, { system, prompt, image, schema }) => {
     if (err instanceof Anthropic.APIError) throw new Error(`API error ${err.status}: ${err.message}`);
     throw err;
   }
+});
+
+// Double-clicking a .scifig file (macOS "open-file"; Windows/Linux pass it on the command line).
+let pendingOpen = process.argv.find((a) => a.endsWith('.scifig')) || null;
+app.on('open-file', (e, file) => {
+  e.preventDefault();
+  if (win && !win.isDestroyed()) { app.addRecentDocument(file); watchFile(file); win.webContents.send('open-file', { path: file, content: fs.readFileSync(file, 'utf8') }); }
+  else pendingOpen = file;
+});
+ipcMain.handle('pending-open', () => {
+  if (!pendingOpen || !fs.existsSync(pendingOpen)) return null;
+  const file = pendingOpen; pendingOpen = null;
+  watchFile(file);
+  return { path: file, content: fs.readFileSync(file, 'utf8') };
 });
 
 app.whenReady().then(createWindow);

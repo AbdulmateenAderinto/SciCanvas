@@ -12,7 +12,10 @@ function renderLibrary() {
   const cats = allCategories();
   if (sel.options.length !== cats.length + 1) sel.innerHTML = '<option value="">Category…</option>' + cats.map((c) => `<option>${esc(c)}</option>`).join('');
   sel.value = cats.includes(activeCat) ? activeCat : '';
-  const { total, items } = searchIcons(q, { cat: activeCat, limit: libLimit, field: appSettings.field });
+  const smart = activeCat === 'All' && typeof smartResults === 'function' ? smartResults(q) : null;
+  $('#smartNote').classList.toggle('hidden', !smart);
+  if (smart) $('#smartNote').textContent = `✦ Smart search: ${smart.terms.join(' · ')}`;
+  const { total, items } = smart || searchIcons(q, { cat: activeCat, limit: libLimit, field: appSettings.field });
   const favs = new Set(getFavs());
   $('#icongrid').innerHTML = items.map((it) => {
     let pic;
@@ -207,7 +210,7 @@ async function addRecent(path) {
   const name = path.split(/[\\/]/).pop().replace(/\.scifig$/, '');
   lsSet('scicanvas:recent', [{ path, name, thumb, time: Date.now() }, ...lsGet('scicanvas:recent', []).filter((r) => r.path !== path)].slice(0, 18));
 }
-function openHomeDialog() {
+async function openHomeDialog() {
   const recent = lsGet('scicanvas:recent', []);
   const start = (fn) => () => { if (!confirmDiscard()) return; closeModal(); fn(); };
   const kinds = [
@@ -232,7 +235,9 @@ function openHomeDialog() {
     el('h3', { class: 'dlg-sub', textContent: 'Create new' }),
     el('div', { class: 'newgrid' }, ...kinds.map(([t, d, fn]) => el('div', { class: 'newcard', onclick: start(fn) }, el('b', { textContent: t }), el('span', { textContent: d })))),
     el('h3', { class: 'dlg-sub', textContent: 'Recent figures' }),
-    recent.length ? grid : el('div', { class: 'note', textContent: 'Figures you save or open will appear here.' })));
+    recent.length ? grid : el('div', { class: 'note', textContent: 'Figures you save or open will appear here.' }),
+    el('h3', { class: 'dlg-sub', textContent: 'Figures folder' }),
+    await folderSection(openFigurePath)));
 }
 
 // ---------- Settings ----------
@@ -253,6 +258,7 @@ async function openSettingsDialog() {
     field_('Your name', author),
     field_('Research field', field),
     el('div', { class: 'note', style: 'margin:-2px 0 12px 84px' }, 'Used to rank library search results toward your field.'),
+    brandKitSection(),
     el('h3', { class: 'dlg-sub', textContent: 'AI figure drafting' }),
     field_('API key', key),
     el('div', { class: 'note', style: 'margin:0 0 8px 84px' }, 'An Anthropic API key (console.anthropic.com). It is encrypted with your system keychain and only sent to Anthropic when you generate a figure. Usage is billed to your account.'),
@@ -364,7 +370,9 @@ async function aiToObjects(result) {
     let o = null;
     switch (e.kind) {
       case 'icon': {
-        const best = bestIconFor(e.icon || e.text || 'cell');
+        // "@key:<iconId>" keeps an icon that is already in the figure (used by Edit-with-AI).
+        const keep = String(e.icon || '').startsWith('@key:') ? e.icon.slice(5) : null;
+        const best = keep && (ICON_MAP[keep] || getAsset(keep)) ? { key: keep, native: !!ICON_MAP[keep] } : bestIconFor(e.icon || e.text || 'cell');
         if (!best) break;
         if (!best.native) { try { await ensurePackAsset(best); } catch { break; } }
         const ar = iconAspect(best.key);
@@ -491,6 +499,10 @@ function insertObjectsGrouped(list, replace) {
   setupRulers();
   setupDrawOpts();
   setupContextBar();
+  setupFiles();
+  $('#aiMenuBtn').addEventListener('click', (e) => showAIMenu(e.currentTarget));
+  $('#smartBtn').addEventListener('click', () => smartSearch());
+  $('#search').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) smartSearch(); });
   setupContextMenu();
   $$('[data-rtab]').forEach((t) => t.addEventListener('click', () => {
     $$('[data-rtab]').forEach((x) => x.classList.toggle('active', x === t));
@@ -512,5 +524,6 @@ function insertObjectsGrouped(list, replace) {
     }
   } catch { /* ignore */ }
   if (!restored) loadDoc(newDoc());
+  await openPendingFile();
   requestAnimationFrame(zoomFit);
 })();

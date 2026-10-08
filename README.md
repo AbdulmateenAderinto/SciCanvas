@@ -124,6 +124,30 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 **Home**
 - New-figure types and recent files with thumbnails.
 
+
+## New in v0.4
+
+**Drawing & text**: eraser (X, non-destructive), eyedropper, figure palette + brand kit (colours, font, logo), grayscale and colour-blindness previews (View › Colour Preview), select matching (same icon / type / colour), tables (Excel paste, cell colours, column widths), brackets, braces, arc and cycle arrows, parallelogram, dotted / dash-dot lines, vessel / microtubule / cell-row brushes, editable brush paths, curved & circular text, text along a drawn path, bullet / numbered lists, underline / strikethrough, symbol picker, 13 fonts, hyperlinks (clickable in PDF / SVG), "For you" icon suggestions.
+
+**Graphs**: grouped bar + two-way ANOVA, violin, dot plot (mean / median), pie / donut, 96-/384-well plate heatmap, growth curves (AUC, doubling time), standard-curve interpolation (linear / 4PL, ELISA), logistic regression, polynomial fits, Spearman, Kruskal–Wallis, Wilcoxon signed-rank, repeated-measures ANOVA, Cox regression, Shapiro–Wilk normality with an automatic test recommendation, outlier sensitivity analysis, 95% CI error bars, transforms (log, % of control, z-score…), axis ranges and log Y, CSV / Excel (.xlsx) / GraphPad Prism (.pzfx) import, style matching across graphs, and Arrange › Figure Panels (A, B, C…).
+
+**Chemistry & proteins**: vector 2D structures from a name (PubChem) or SMILES — including reaction SMILES — with themes, bond and label sizes, recolourable atoms; PDB / mmCIF file upload, outline style, ligands, 90° rotation.
+
+**AI** (needs an Anthropic API key in Settings): guided planner (questions → 4 grayscale sketches → mark-up → colour draft), protocol from methods text, timeline, flowchart, restyle in 9 styles, edit selection with an instruction, remove text, smart (natural-language) icon search, suggested title / legend / alt text. Non-AI background removal by edge colour.
+
+**Files & teams**: Home › figures folder (works in Dropbox / iCloud / Drive / OneDrive for sharing), version history (last 50 saves), alert + reload when a shared file is changed by someone else, template categories, save / share / import your own templates (.scitemplate), slide sorter with speaker notes (presenter: N; exported to PowerPoint), poster auto-layout (Arrange › Poster Columns), double-click .scifig files to open.
+
+**AI connector (MCP)**: lets assistants like Claude Desktop search SciCanvas icons and templates and create editable drafts that open in SciCanvas. Add this to Claude Desktop's config (Settings › Developer › Edit Config) and restart it:
+
+```json
+{ "mcpServers": { "scicanvas": { "command": "node", "args": ["/Users/<you>/SciCanvas/scripts/mcp-server.js"] } } }
+```
+
+Drafts are saved to `~/Documents/SciCanvas Drafts/`.
+
+### Not possible without a cloud service
+Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-ins with live-linked figures, publication licences, and BioRender's proprietary artwork and templates.
+
 ## Not built (yet)
 - Real-time multi-user editing. Today you share the `.scifig` file and review through comments.
 - A live-linked PowerPoint add-in. PPTX export embeds each page as a picture.
@@ -138,6 +162,11 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - `scripts/setup-electron.sh`: finishes the Electron install when npm blocks it
 - `src/draw.js`: pencil, pen, line/arrow, airbrush, point editing, shading, connector ports
 - `src/arrange.js`: smart guides, arrange commands, context bar, right-click menu, layers panel
+- `src/more.js`: eraser, eyedropper, palettes & brand kit, colour-vision previews, tables, symbols, panel layout
+- `src/graph2.js`: extended statistics, new chart types, data import
+- `src/ai.js`: AI planner, generators, restyle / edit / remove text, smart search, narration
+- `src/files.js`: folder gallery, version history, change detection, templates, slide sorter, poster layout
+- `scripts/mcp-server.js`: AI connector (Model Context Protocol server)
 - `src/creator.js`: drawing options, My icons, AI icon generation, library manager
 - `src/icons.js`: built-in icons
 - `src/packs.js`: icon packs, SVG sanitising, colour layers and tint, search, credits

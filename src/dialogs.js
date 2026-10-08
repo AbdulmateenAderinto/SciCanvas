@@ -20,52 +20,103 @@ const field = (label, input) => el('div', { class: 'row' }, el('label', { textCo
 
 // ---------- Graphing ----------
 function openGraphDialog(existing) {
-  const cfg = existing ? deep(existing.cfg) : { kind: 'bar', data: SAMPLE_DATA.bar, title: '', xLabel: '', yLabel: 'Measurement', error: 'sd', showPoints: true, test: 'welch', pStyle: 'stars', grid: false };
+  const cfg = existing ? deep(existing.cfg) : { kind: 'bar', data: SAMPLE_DATA.bar, title: '', xLabel: '', yLabel: 'Measurement', error: 'sd', showPoints: true, test: 'auto', pStyle: 'stars', grid: false };
   const W = existing ? existing.w : 380, H = existing ? existing.h : 300;
   const preview = el('div', { class: 'preview' });
   const report = el('div', { class: 'report', style: 'margin-top:10px' });
+  const GROUP = ['bar', 'box', 'violin', 'dotplot'];
+  const HINTS = {
+    bar: 'One column per group (first row = group names).', box: 'One column per group.', violin: 'One column per group.', dotplot: 'One column per group.',
+    scatter: 'First column = X, then one column per series.', line: 'First column = X, then one column per series.',
+    dose: 'First column = dose (> 0, log scale), then one response column per compound. 4-parameter logistic fit → EC50 / IC50.',
+    survival: 'Columns: time, event (1 = event, 0 = censored), group. One row per subject.',
+    heatmap: 'First column = row labels, first row = column labels, then values.',
+    groupedbar: 'Long format, one row per measurement: Factor A, Factor B, Value. Runs a two-way ANOVA.',
+    pie: 'Two columns: label, value.', plate: 'First column = row letters (A–H), header = column numbers (1–12), then values.',
+    growth: 'First column = time; replicate columns share the same series name (e.g. Control, Control, Control, Drug, Drug, Drug).',
+    standard: 'Conc, Signal[, Sample]. Leave Conc blank for unknowns — they are interpolated from the standard curve.',
+    logistic: 'Two columns: X, outcome (0 or 1).',
+  };
+  const show = (elx, on) => elx.classList.toggle('hidden', !on);
+  const useSuggested = btn('Use suggested test', () => { if (lastSuggestion) { cfg.test = lastSuggestion; testSel.value = cfg.test; update(); } });
+  let lastSuggestion = null;
   const update = () => {
     const r = renderChart(cfg, W, H);
     preview.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:380px">${r.svg}</svg>`;
     report.textContent = r.report.join('\n');
-    errRow.classList.toggle('hidden', cfg.kind !== 'bar');
-    ptsRow.classList.toggle('hidden', cfg.kind !== 'bar' && cfg.kind !== 'box');
-    heatRow.classList.toggle('hidden', cfg.kind !== 'heatmap');
-    testRow.classList.toggle('hidden', cfg.kind === 'heatmap' || cfg.kind === 'line' || cfg.kind === 'dose');
-    hint.textContent = 'Paste CSV or tab-separated data (e.g. from Excel). ' + HINTS[cfg.kind];
+    lastSuggestion = r.suggestion;
+    const k = cfg.kind, axes = !['pie', 'plate', 'heatmap'].includes(k);
+    show(errRow, ['bar', 'dotplot', 'groupedbar', 'growth'].includes(k));
+    show(ptsRow, ['bar', 'box', 'violin', 'groupedbar'].includes(k));
+    show(centerRow, k === 'dotplot');
+    show(testRow, GROUP.includes(k));
+    show(statsRow, ['scatter', 'survival', 'groupedbar'].includes(k));
+    show(fitRow, k === 'scatter');
+    show(stdFitRow, k === 'standard');
+    show(heatRow, k === 'heatmap' || k === 'plate');
+    show(donutRow, k === 'pie');
+    show(bandRow, k === 'growth');
+    show(transformRow, !['pie', 'plate', 'heatmap', 'survival', 'standard', 'logistic'].includes(k));
+    show(axisRow, axes && !['survival', 'logistic'].includes(k));
+    show(logRow, ['scatter', 'line'].includes(k));
+    show(pRow, GROUP.includes(k));
+    show(useSuggested, GROUP.includes(k) && lastSuggestion && cfg.test !== 'auto' && cfg.test !== lastSuggestion);
+    hint.textContent = 'Paste CSV or tab-separated data (e.g. from Excel), or import a file. ' + (HINTS[k] || '');
   };
-  const bind = (key, input, prop = 'value') => { input[prop] = cfg[key]; input.addEventListener(prop === 'checked' ? 'change' : 'input', () => { cfg[key] = input[prop]; update(); }); return input; };
+  const bind = (key, input, prop = 'value') => { if (cfg[key] != null || input.tagName !== 'SELECT') input[prop] = cfg[key] ?? (prop === 'checked' ? false : ''); input.addEventListener(prop === 'checked' ? 'change' : 'input', () => { cfg[key] = input[prop]; update(); }); return input; };
   const opts = (pairs) => pairs.map(([v, l]) => el('option', { value: v, textContent: l }));
+  const cb = (key, label) => el('label', { style: 'width:auto;color:inherit' }, bind(key, el('input', { type: 'checkbox' }), 'checked'), ' ' + label);
   const data = bind('data', el('textarea', { rows: 10, spellcheck: false }));
   const kind = bind('kind', el('select', {}, ...opts(CHART_KINDS)));
   const hint = el('div', { class: 'note', style: 'margin:4px 0 6px' });
-  const HINTS = {
-    bar: 'One column per group (first row = group names).', box: 'One column per group (first row = group names).',
-    scatter: 'First column = X, then one column per series.', line: 'First column = X, then one column per series.',
-    dose: 'First column = dose (> 0, plotted on log scale), then one response column per compound. Fits a 4-parameter logistic curve and reports EC50.',
-    survival: 'Columns: time, event (1 = event, 0 = censored), group. One row per subject. Censored subjects are shown as ticks.',
-    heatmap: 'First column = row labels, first row = column labels, then values.',
-  };
-  const errRow = field('Error bars', bind('error', el('select', {}, ...opts([['sd', 'SD'], ['sem', 'SEM']]))));
-  const ptsRow = field('', el('label', { style: 'width:auto;color:inherit' }, bind('showPoints', el('input', { type: 'checkbox' }), 'checked'), ' Show individual points'));
-  const testRow = field('Analysis', bind('test', el('select', {}, ...opts([['welch', "Welch's t / ANOVA + Holm post-hoc"], ['paired', 'Paired t-test (2 groups)'], ['mw', 'Mann–Whitney U (+ Holm)'], ['none', 'None']]))));
-  const heatRow = el('div', {}, field('Colours', bind('scheme', el('select', {}, ...opts([['sequential', 'Sequential (blue)'], ['diverging', 'Diverging (blue–red)']])))),
-    field('', el('label', { style: 'width:auto;color:inherit' }, bind('showValues', el('input', { type: 'checkbox' }), 'checked'), ' Show values')));
+  const errRow = field('Error bars', bind('error', el('select', {}, ...opts([['sd', 'SD'], ['sem', 'SEM'], ['ci95', '95% CI']]))));
+  const ptsRow = field('', cb('showPoints', 'Show individual points'));
+  const centerRow = field('Centre line', bind('center', el('select', {}, ...opts([['mean', 'Mean ± error'], ['median', 'Median + IQR']]))));
+  const testSel = bind('test', el('select', {}, ...opts([['auto', 'Automatic (recommended test)'], ['welch', "Welch's t / ANOVA (parametric)"], ['mw', 'Mann–Whitney / Kruskal–Wallis (non-parametric)'], ['paired', 'Paired t / repeated-measures ANOVA'], ['wilcoxon', 'Wilcoxon signed-rank (paired, non-parametric)'], ['none', 'None']])));
+  const testRow = el('div', {}, field('Analysis', testSel), el('div', { style: 'margin-left:84px' }, useSuggested));
+  const statsRow = field('', el('label', { style: 'width:auto;color:inherit' }, (() => { const c = el('input', { type: 'checkbox', checked: cfg.test !== 'none' }); c.addEventListener('change', () => { cfg.test = c.checked ? 'auto' : 'none'; update(); }); return c; })(), ' Run statistics'));
+  const fitRow = field('Fit', bind('fit', el('select', {}, ...opts([['linear', 'Linear'], ['poly2', 'Quadratic (degree 2)'], ['poly3', 'Cubic (degree 3)'], ['none', 'None']]))));
+  const stdFitRow = field('Curve', bind('fit', el('select', {}, ...opts([['linear', 'Linear'], ['4pl', '4-parameter logistic (ELISA)']]))));
+  const heatRow = el('div', {}, field('Colours', bind('scheme', el('select', {}, ...opts([['sequential', 'Sequential (blue)'], ['diverging', 'Diverging (blue–red)']])))), field('', cb('showValues', 'Show values')));
+  const donutRow = field('', cb('donut', 'Donut'));
+  const bandRow = field('', (() => { const c = el('input', { type: 'checkbox', checked: cfg.band !== false }); c.addEventListener('change', () => { cfg.band = c.checked; update(); }); return el('label', { style: 'width:auto;color:inherit' }, c, ' Shaded error band'); })());
+  const transformRow = field('Transform', bind('transform', el('select', {}, ...opts(TRANSFORMS))));
+  const axisRow = field('Y range', el('span', { style: 'display:flex;gap:4px;align-items:center' }, bind('yMin', el('input', { type: 'number', placeholder: 'auto', style: 'width:70px' })), '–', bind('yMax', el('input', { type: 'number', placeholder: 'auto', style: 'width:70px' }))));
+  const logRow = field('', cb('yLog', 'Log₁₀ Y axis'));
+  const pRow = field('Show p as', bind('pStyle', el('select', {}, ...opts([['stars', 'Asterisks'], ['value', 'Exact p-value']]))));
+  const fileIn = el('input', { type: 'file', accept: '.csv,.tsv,.txt,.xlsx,.pzfx', style: 'display:none', onchange: async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      let text = await importDataFile(f);
+      const wide = GROUP.includes(cfg.kind) ? tidyToWide(text) : null;
+      if (wide) text = wide;
+      cfg.data = text; data.value = text; update();
+      toast(`Imported ${f.name}${wide ? ' (long format converted to one column per group)' : ''}`);
+    } catch (err) { toast('Import failed: ' + err.message, 4000); }
+    fileIn.value = '';
+  } });
+  const syncText = () => body.querySelectorAll('input[type=text]').forEach((i) => { const k = { Title: 'title', 'X label': 'xLabel', 'Y label': 'yLabel' }[i.closest('.row')?.querySelector('label')?.textContent]; if (k) i.value = cfg[k] || ''; });
   const body = el('div', {},
     el('div', { class: 'dlg-cols' },
       el('div', {},
         field('Chart', kind),
         hint,
         data,
-        el('div', { class: 'btnrow', style: 'margin:6px 0 10px' }, btn('Load example', () => { cfg.data = SAMPLE_DATA[cfg.kind]; data.value = cfg.data; if (cfg.kind === 'survival') { cfg.yLabel = 'Survival probability'; cfg.xLabel = 'Time (days)'; } if (cfg.kind === 'dose') { cfg.yLabel = 'Response (%)'; cfg.xLabel = 'Dose (µM)'; } body.querySelectorAll('input[type=text]').forEach((i) => { const k = { Title: 'title', 'X label': 'xLabel', 'Y label': 'yLabel' }[i.closest('.row')?.querySelector('label')?.textContent]; if (k) i.value = cfg[k] || ''; }); update(); })),
+        el('div', { class: 'btnrow', style: 'margin:6px 0 10px' },
+          btn('Load example', () => {
+            cfg.data = SAMPLE_DATA[cfg.kind]; data.value = cfg.data;
+            const L = { survival: ['Time (days)', 'Survival probability'], dose: ['Dose (µM)', 'Response (%)'], growth: ['Time (h)', 'OD600'], standard: ['Concentration (pg/mL)', 'OD450'], logistic: ['Dose', 'P(response)'], groupedbar: ['', 'Value'] }[cfg.kind];
+            if (L) { cfg.xLabel = L[0]; cfg.yLabel = L[1]; }
+            syncText(); update();
+          }),
+          btn('Import file…', () => fileIn.click()), fileIn,
+          btn('Long → wide', () => { const wide = tidyToWide(cfg.data); if (wide) { cfg.data = wide; data.value = wide; update(); } else toast('Needs two columns: group label, value'); })),
         field('Title', bind('title', el('input', { type: 'text' }))),
         field('X label', bind('xLabel', el('input', { type: 'text' }))),
         field('Y label', bind('yLabel', el('input', { type: 'text' }))),
-        errRow, ptsRow,
-        testRow,
-        heatRow,
-        field('Show p as', bind('pStyle', el('select', {}, ...opts([['stars', 'Asterisks'], ['value', 'Exact p-value']])))),
-        field('', el('label', { style: 'width:auto;color:inherit' }, bind('grid', el('input', { type: 'checkbox' }), 'checked'), ' Gridlines'))),
+        errRow, ptsRow, centerRow, testRow, statsRow, fitRow, stdFitRow, heatRow, donutRow, bandRow, transformRow, axisRow, logRow, pRow,
+        field('', cb('grid', 'Gridlines'))),
       el('div', {}, preview, report,
         el('div', { class: 'note', style: 'margin-top:8px' }, 'The software cannot tell from a table which observations are independent, paired, or technical vs biological replicates — choose the test to match your design. Outlier flags are prompts to investigate, not reasons to exclude.'))),
     el('div', { class: 'actions' }, btn('Cancel', closeModal), btn(existing ? 'Update graph' : 'Insert graph', () => {
@@ -75,6 +126,17 @@ function openGraphDialog(existing) {
     }, 'primary')));
   openModal('Graph', body);
   update();
+}
+
+// Copy one graph's look (colours, error bars, points, gridlines, p-value style) to every graph in the figure.
+function applyGraphStyleToAll(src) {
+  const keys = ['colors', 'grid', 'error', 'showPoints', 'pStyle', 'center', 'scheme', 'band'];
+  checkpoint();
+  let n = 0;
+  const walk = (o) => { if (o.type === 'chart' && o !== src) { for (const k of keys) if (src.cfg[k] !== undefined) o.cfg[k] = src.cfg[k]; n++; } if (o.children) o.children.forEach(walk); };
+  state.doc.pages.forEach((p) => p.objects.forEach(walk));
+  render({ props: true });
+  toast(`Style applied to ${n} other graph${n === 1 ? '' : 's'}`);
 }
 
 // ---------- Protocol (smart template) ----------
@@ -113,43 +175,82 @@ function openProtocolDialog(existing) {
   update();
 }
 
-// ---------- Chemistry (PubChem) ----------
+// ---------- Chemistry: vector structures (SmilesDrawer) from a name (PubChem) or SMILES ----------
+const CHEM_THEMES = [['light', 'Standard (coloured heteroatoms)'], ['oldschool', 'Black & white'], ['github', 'Muted'], ['solarized', 'Solarized'], ['gruvbox', 'Gruvbox'], ['carbon', 'Carbon'], ['cyberpunk', 'Cyberpunk'], ['matrix', 'Matrix'], ['dark', 'Dark background']];
 function openChemDialog() {
-  let dataUrl = null;
-  const q = el('input', { type: 'text', placeholder: 'e.g. caffeine, imatinib, or CC(=O)OC1=CC=CC=C1C(=O)O', style: 'flex:1' });
+  let current = null; // { svgText, smiles, info }
+  const q = el('input', { type: 'text', placeholder: 'e.g. caffeine, imatinib, ATP — or a SMILES string / reaction (A.B>>C)', style: 'flex:1' });
   const mode = el('select', {}, el('option', { value: 'name', textContent: 'Name' }), el('option', { value: 'smiles', textContent: 'SMILES' }));
-  const strip = el('input', { type: 'checkbox', checked: true });
-  const preview = el('div', { class: 'preview', style: 'min-height:320px' }, el('span', { class: 'note', textContent: 'Search PubChem by name or SMILES' }));
-  const insertBtn = btn('Insert structure', async () => {
-    if (!dataUrl) return;
-    const src = strip.checked ? await trimTransparent(await removeWhite(dataUrl)) : dataUrl;
-    await addImage(src, null, { source: `PubChem: ${q.value.trim()}` }, 260);
+  const theme = el('select', {}, ...CHEM_THEMES.map(([v, l]) => el('option', { value: v, textContent: l })));
+  const bond = el('input', { type: 'range', min: 0.6, max: 3, step: 0.1, value: 1.4 });
+  const fsz = el('input', { type: 'range', min: 6, max: 16, step: 0.5, value: 10 });
+  const carbons = el('input', { type: 'checkbox' }), hyd = el('input', { type: 'checkbox', checked: true }), label = el('input', { type: 'checkbox', checked: true });
+  const preview = el('div', { class: 'preview', style: 'min-height:320px;padding:12px' }, el('span', { class: 'note', textContent: 'Search PubChem by name, or paste a SMILES string.' }));
+  const info = el('div', { class: 'note', style: 'margin-top:6px;user-select:text' });
+  const insertBtn = btn('Insert editable structure', async () => {
+    if (!current) return;
+    const key = addSvgAsset(current.name, current.svgText);
+    const a = getAsset(key); a.source = `PubChem / SMILES: ${current.smiles}`;
+    const c = viewCenter(), ar = a.vw / a.vh, size = 240, w = ar >= 1 ? size : size * ar, h = ar >= 1 ? size / ar : size;
+    const objsNew = [{ id: uid(), type: 'icon', iconId: key, x: c.x - w / 2, y: c.y - h / 2, w, h, rot: 0, name: current.name }];
+    if (label.checked && current.label) { const t = Make.text(current.label, 0, c.y + h / 2 + 8, { fontSize: 14, align: 'center' }); t.x = c.x - t.w / 2; objsNew.push(t); }
+    addObjects(objsNew);
     closeModal();
   }, 'primary');
-  insertBtn.disabled = true;
+  const imgBtn = btn('Insert PubChem image instead', async () => {
+    if (!current) return;
+    const base = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound';
+    const url = current.cid ? `${base}/cid/${current.cid}/PNG?image_size=500x500` : `${base}/smiles/PNG?smiles=${encodeURIComponent(current.smiles)}&image_size=500x500`;
+    try { const d = await window.native.fetchImage(url); await addImage(await trimTransparent(await removeWhite(d)), null, { source: `PubChem: ${current.name}` }, 260); closeModal(); }
+    catch { toast('PubChem has no image for this structure'); }
+  });
+  [insertBtn, imgBtn].forEach((b) => (b.disabled = true));
+  const draw = () => {
+    if (!current) return;
+    const sd = new SmilesDrawer.SmiDrawer({ bondThickness: +bond.value, fontSizeLarge: +fsz.value, fontSizeSmall: +fsz.value * 0.7, terminalCarbons: carbons.checked, explicitHydrogens: hyd.checked, padding: 10 });
+    sd.draw(current.smiles, 'svg', theme.value, (svgEl) => {
+      // Drop only the page background (a direct child rect), never the white rect inside the label mask.
+      if (theme.value !== 'dark') [...svgEl.children].forEach((r) => { if (r.tagName.toLowerCase() === 'rect' && /^(#fff|#ffffff|white)$/i.test(r.getAttribute('fill') || r.style.fill || '')) r.remove(); });
+      svgEl.style.background = theme.value === 'dark' ? '#141414' : '';
+      current.svgText = new XMLSerializer().serializeToString(svgEl);
+      preview.innerHTML = '';
+      const shown = svgEl.cloneNode(true);
+      shown.removeAttribute('width'); shown.removeAttribute('height'); shown.style.maxWidth = '100%'; shown.style.maxHeight = '360px';
+      preview.append(shown);
+      [insertBtn, imgBtn].forEach((b) => (b.disabled = false));
+    }, (err) => { preview.innerHTML = `<span class="note">Couldn't draw that SMILES: ${esc(err.message || String(err))}</span>`; insertBtn.disabled = true; });
+  };
   const go = async () => {
     const v = q.value.trim();
     if (!v) return;
-    preview.innerHTML = '<span class="note">Fetching from PubChem…</span>';
-    const base = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound';
-    const url = mode.value === 'name' ? `${base}/name/${encodeURIComponent(v)}/PNG?image_size=500x500` : `${base}/smiles/PNG?smiles=${encodeURIComponent(v)}&image_size=500x500`;
+    preview.innerHTML = '<span class="note">Looking up…</span>'; info.textContent = '';
     try {
-      dataUrl = await window.native.fetchImage(url);
-      preview.innerHTML = '';
-      preview.append(el('img', { src: dataUrl }));
-      insertBtn.disabled = false;
+      if (mode.value === 'name') {
+        const r = await window.native.pubchemLookup(v);
+        current = { name: v, smiles: r.smiles, cid: r.cid, label: v.replace(/^./, (c) => c.toUpperCase()) };
+        info.textContent = `${r.formula} · MW ${r.mw} · ${r.iupac || ''} · PubChem CID ${r.cid} · SMILES ${r.smiles}`;
+      } else {
+        current = { name: v.includes('>') ? 'Reaction' : 'Structure', smiles: v, label: '' };
+        info.textContent = v.includes('>') ? 'Reaction SMILES: reactants >> products (agents between the > signs).' : '';
+      }
+      draw();
     } catch (err) {
-      dataUrl = null; insertBtn.disabled = true;
-      preview.innerHTML = `<span class="note">No structure found for “${esc(v)}”. Check the spelling or try a SMILES string.</span>`;
+      current = null; [insertBtn, imgBtn].forEach((b) => (b.disabled = true));
+      preview.innerHTML = `<span class="note">${esc(err.message.replace(/^Error invoking remote method[^:]*: (Error: )?/, ''))}</span>`;
     }
   };
   q.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+  [theme, bond, fsz, carbons, hyd].forEach((i) => i.addEventListener('input', draw));
+  const chk = (c, t) => el('label', { style: 'width:auto;color:inherit;display:flex;gap:4px;align-items:center' }, c, t);
   openModal('Chemical structure', el('div', {},
     el('div', { class: 'row' }, mode, q, btn('Search', go)),
-    preview,
-    el('div', { class: 'row', style: 'margin-top:8px' }, el('label', { style: 'width:auto;color:inherit' }, strip, ' Make white background transparent')),
-    el('div', { class: 'note' }, '2D depiction rendered by PubChem (NCBI). Stereochemistry only appears if it is encoded in the name/SMILES you supply. For reactions, insert each compound and connect them with arrows.'),
-    el('div', { class: 'actions' }, btn('Cancel', closeModal), insertBtn)));
+    el('div', { class: 'dlg-cols', style: 'grid-template-columns:1fr 250px' },
+      el('div', {}, preview, info),
+      el('div', {},
+        field_('Theme', theme), field_('Bonds', bond), field_('Labels', fsz),
+        el('div', { class: 'row' }, chk(carbons, 'Show all carbons')), el('div', { class: 'row' }, chk(hyd, 'Explicit hydrogens')), el('div', { class: 'row' }, chk(label, 'Add name label')),
+        el('div', { class: 'note' }, 'Inserted as editable vector art: recolour atoms in Colour layers, resize, rotate and flip like any icon. Stereochemistry appears only if encoded in the SMILES. Not a full ChemDraw replacement — no atom-by-atom editing.'))),
+    el('div', { class: 'actions' }, btn('Cancel', closeModal), imgBtn, insertBtn)));
   setTimeout(() => q.focus(), 50);
 }
 
@@ -161,6 +262,15 @@ function openPdbDialog() {
   const colorSel = el('select', {}, ...[['spectrum', 'Rainbow (N→C)'], ['chain', 'By chain'], ['ss', 'Secondary structure'], ['element', 'By element'], ['single', 'Single colour']].map(([v, l]) => el('option', { value: v, textContent: l })));
   const single = el('input', { type: 'color', value: '#4a7fd6' });
   const box = el('div', { id: 'mol3d' });
+  const outline = el('input', { type: 'checkbox' }), ligands = el('input', { type: 'checkbox', checked: true });
+  const fileIn = el('input', { type: 'file', accept: '.pdb,.ent,.cif,.mmcif,.pqr', style: 'display:none', onchange: async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const fmt = /\.(cif|mmcif)$/i.test(f.name) ? 'cif' : 'pdb';
+    await showModel(await f.text(), fmt, f.name.replace(/\.[^.]+$/, ''));
+    msg.textContent = `${f.name} loaded from your computer.`;
+    fileIn.value = '';
+  } });
   const msg = el('div', { class: 'note', style: 'margin-top:6px', textContent: 'Drag to rotate, scroll to zoom, right-drag to pan. The snapshot you insert matches the view.' });
   const has3D = typeof $3Dmol !== 'undefined';
 
@@ -174,8 +284,21 @@ function openPdbDialog() {
       viewer.setStyle({}, { cartoon: colorSpec });
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.75, ...(c === 'single' ? { color: single.value } : { colorscheme: c === 'chain' ? 'chain' : 'whiteCarbon' }) });
     } else viewer.setStyle({ hetflag: false }, { [s]: colorSpec });
+    if (s !== 'surface') viewer.setStyle({ hetflag: true, not: { resn: ['HOH', 'WAT'] } }, ligands.checked ? { stick: { colorscheme: 'greenCarbon', radius: 0.22 } } : {});
+    try { viewer.setViewStyle(outline.checked ? { style: 'outline', color: 'black', width: 0.04 } : { style: 'none' }); } catch { /* older 3Dmol */ }
     viewer.render();
   };
+  async function showModel(text, fmt, label) {
+    if (!has3D) { toast('3D viewer unavailable'); return; }
+    if (!viewer) viewer = $3Dmol.createViewer(box, { backgroundColor: 'white', backgroundAlpha: 0, antialias: true });
+    viewer.clear();
+    viewer.addModel(text, fmt);
+    loadedId = label;
+    applyStyle();
+    viewer.zoomTo();
+    viewer.render();
+    insertBtn.disabled = false;
+  }
   const load = async () => {
     const v = id.value.trim().toUpperCase();
     if (!/^[0-9][A-Z0-9]{3}$/.test(v)) { msg.textContent = 'PDB IDs are 4 characters starting with a digit, e.g. 1CRN.'; return; }
@@ -212,44 +335,24 @@ function openPdbDialog() {
     closeModal();
   }, 'primary');
   insertBtn.disabled = true;
-  [styleSel, colorSel, single].forEach((i) => i.addEventListener('input', applyStyle));
+  [styleSel, colorSel, single, outline, ligands].forEach((i) => i.addEventListener('input', applyStyle));
+  const turn = (deg, axis) => () => { if (viewer) { viewer.rotate(deg, axis); viewer.render(); } };
   id.addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
   onModalClose = () => { try { viewer && viewer.clear(); } catch { /* ignore */ } };
   openModal('Protein structure (PDB)', el('div', {},
-    el('div', { class: 'row' }, id, btn('Load', load), el('span', { style: 'flex:1' }), styleSel, colorSel, single),
+    el('div', { class: 'row' }, id, btn('Load', load), btn('Open file…', () => fileIn.click()), fileIn, el('span', { style: 'flex:1' }), styleSel, colorSel, single),
     box, msg,
+    el('div', { class: 'row', style: 'margin-top:6px' },
+      el('label', { style: 'width:auto;color:inherit;display:flex;gap:4px;align-items:center' }, outline, 'Outline'),
+      el('label', { style: 'width:auto;color:inherit;display:flex;gap:4px;align-items:center' }, ligands, 'Show ligands'),
+      el('span', { style: 'flex:1' }), el('span', { class: 'note', textContent: 'Rotate 90°:' }),
+      btn('↺ X', turn(90, 'x')), btn('↺ Y', turn(90, 'y')), btn('↺ Z', turn(90, 'z'))),
     el('div', { class: 'note' }, 'This visualises a deposited structure. It does not predict binding, dynamics, or new folds — structural claims depend on the underlying entry.'),
     el('div', { class: 'actions' }, btn('Cancel', closeModal), insertBtn)));
   setTimeout(() => id.focus(), 50);
 }
 
 // ---------- Templates ----------
-function openTemplatesDialog() {
-  const q = el('input', { type: 'search', class: 'tpl-search', placeholder: 'Search templates (pathway, timeline, cycle, poster…)' });
-  const grid = el('div', { class: 'tpl-grid' });
-  const cards = TEMPLATES.map((t) => {
-    const p = t.build();
-    const thumb = el('div', { class: 'thumb' });
-    thumb.innerHTML = pageSvgString(p).replace('<svg ', '<svg style="width:100%;height:100%" preserveAspectRatio="xMidYMid meet" ');
-    const choice = el('div', { class: 'tpl-choice hidden' },
-      btn('New page', (e) => { e.stopPropagation(); addTemplatePage(t, 'new'); closeModal(); }, 'primary'),
-      btn('Replace page', (e) => { e.stopPropagation(); if (!objs().length || confirm('Replace everything on this page?')) { addTemplatePage(t, 'replace'); closeModal(); } }),
-      btn('Add to page', (e) => { e.stopPropagation(); insertObjectsGrouped(t.build().objects, false); closeModal(); }));
-    const card = el('div', { class: 'tpl', onclick: () => { cards.forEach((c) => c.choice.classList.add('hidden')); choice.classList.remove('hidden'); } }, thumb, el('div', { class: 'cap' }, el('b', { textContent: t.name }), el('span', { textContent: t.desc })), choice);
-    return { t, card, choice };
-  });
-  const draw = () => {
-    const w = q.value.toLowerCase();
-    grid.innerHTML = '';
-    cards.filter(({ t }) => !w || `${t.name} ${t.desc}`.toLowerCase().includes(w)).forEach(({ card }) => grid.append(card));
-  };
-  q.addEventListener('input', draw);
-  draw();
-  openModal('Templates', el('div', {}, q, grid,
-    el('div', { class: 'note', style: 'margin-top:12px' }, 'Click a template, then open it as a new page, replace this page, or add it to this page as an editable group. A layout carries meaning — left-to-right implies sequence, circles imply cycles — so adapt the structure, not just the labels. For method diagrams, see Protocol.')));
-  setTimeout(() => q.focus(), 30);
-}
-
 // ---------- Export ----------
 function pngWithDpi(dataUrl, dpi) {
   const bin = atob(dataUrl.split(',')[1]);
@@ -363,7 +466,7 @@ function openExportDialog() {
           const slide = pptx.addSlide();
           slide.background = { color: (pg.background || '#ffffff').replace('#', '') };
           slide.addImage({ data: img, x: (first.width / 96 - w) / 2, y: (first.height / 96 - h) / 2, w, h });
-          const notes = (pg.comments || []).filter((c) => !c.resolved && c.text).map((c) => `${c.author}: ${c.text}`).join('\n');
+          const notes = [pg.notes || '', ...(pg.comments || []).filter((c) => !c.resolved && c.text).map((c) => `${c.author}: ${c.text}`)].filter(Boolean).join('\n');
           if (notes) slide.addNotes(notes);
         }
         const b64 = await pptx.write({ outputType: 'base64' });
