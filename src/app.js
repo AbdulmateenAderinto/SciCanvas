@@ -52,7 +52,7 @@ function toast(msg, ms = 2200) {
 
 // ---------- History ----------
 let lastCp = { key: null, t: 0 };
-function snapshot() { return JSON.stringify({ doc: state.doc, pageIndex: state.pageIndex }); }
+function snapshot() { return JSON.stringify({ doc: { ...state.doc, assets: undefined, uploads: undefined }, pageIndex: state.pageIndex }); }
 function checkpoint(key) {
   const now = Date.now();
   if (key && key === lastCp.key && now - lastCp.t < 900) { lastCp.t = now; return; }
@@ -64,6 +64,7 @@ function checkpoint(key) {
 }
 function restore(snap) {
   const s = JSON.parse(snap);
+  s.doc.assets = state.doc.assets; s.doc.uploads = state.doc.uploads;
   state.doc = s.doc;
   state.pageIndex = Math.min(s.pageIndex, state.doc.pages.length - 1);
   state.sel = state.sel.filter((id) => byId(id));
@@ -77,7 +78,10 @@ function markDirty() {
   state.dirty = true;
   updateTitle();
   clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(() => { try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ doc: state.doc, filePath: state.filePath })); } catch (e) { /* quota — ignore */ } }, 800);
+  autosaveTimer = setTimeout(() => {
+    const save = () => { try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ doc: state.doc, filePath: state.filePath })); } catch (e) { /* quota — ignore */ } };
+    window.requestIdleCallback ? requestIdleCallback(save, { timeout: 4000 }) : save();
+  }, 1500);
 }
 function updateTitle() {
   const name = state.filePath ? state.filePath.split(/[\\/]/).pop() : 'Untitled';
@@ -86,14 +90,29 @@ function updateTitle() {
 
 // ---------- Rendering ----------
 const elCache = new Map();
+// Cache key for an object's inner SVG: everything except position/rotation (those only change the
+// outer transform). Big strings (image data) are summarised so keys stay cheap to build.
+const KEY_SKIP = new Set(['x', 'y', 'rot', 'flipX', 'flipY', 'name', 'locked']);
+function innerKey(o, list) {
+  let k = JSON.stringify(o, (key, v) => (KEY_SKIP.has(key) && typeof v !== 'object' ? undefined : key === 'src' && typeof v === 'string' ? v.length + v.slice(-48) : v));
+  if (o.type === 'connector') { // depends on the boxes it's attached to
+    for (const end of [o.from, o.to]) { const t = end && end.id && list.find((x) => x.id === end.id); if (t) k += `|${t.x},${t.y},${t.w},${t.h},${t.rot || 0}`; }
+  }
+  if (o.type === 'icon' && !ICON_MAP[o.iconId]) k += getAsset(o.iconId) ? '+a' : '-a';
+  return k;
+}
 function renderScene() {
   const scene = $('#scene'), list = objs(), seen = new Set();
   let prev = null;
   for (const o of list) {
-    const { transform, inner } = renderParts(o, list, false);
+    let c0 = elCache.get(o.id), key = innerKey(o, list), transform, inner;
+    if (c0 && c0.key === key) { transform = transformFor(o); inner = c0.inner; }
+    else ({ transform, inner } = renderParts(o, list, false));
     let c = elCache.get(o.id);
     if (!c) { const g = document.createElementNS(SVGNS, 'g'); g.dataset.id = o.id; c = { el: g }; elCache.set(o.id, c); }
+    c.key = key;
     if (c.inner !== inner) { c.el.innerHTML = inner; c.inner = inner; }
+    if (c.hidden !== !!o.hidden) { c.el.style.display = o.hidden ? 'none' : ''; c.hidden = !!o.hidden; }
     if (c.transform !== transform) { transform ? c.el.setAttribute('transform', transform) : c.el.removeAttribute('transform'); c.transform = transform; }
     const op = o.opacity ?? 1;
     if (c.opacity !== op) { c.el.setAttribute('opacity', op); c.opacity = op; }
@@ -110,6 +129,7 @@ function applyViewport() {
   $('#viewport').setAttribute('transform', `translate(${state.panX} ${state.panY}) scale(${state.zoom})`);
   $('#zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
   if (typeof drawRulers === 'function') drawRulers();
+  if (typeof updateContextBar === 'function') updateContextBar();
 }
 
 function renderOverlay(extra = '') {
@@ -151,6 +171,7 @@ function renderOverlay(extra = '') {
     s += '</g>';
   }
   ov.innerHTML = s + extra + (typeof nodeOverlay === 'function' ? nodeOverlay() : '');
+  if (typeof updateContextBar === 'function') updateContextBar();
 }
 
 function render({ props = false, pages = false } = {}) {
@@ -197,8 +218,16 @@ function zoomFit() {
   state.panY = (r.height - p.height * state.zoom) / 2;
   applyViewport(); renderOverlay();
 }
+// While panning/zooming, skip expensive SVG filters (blur, glow, shadows) so every frame stays smooth.
+let navTimer;
+function navigating() {
+  svg.classList.add('navigating');
+  clearTimeout(navTimer);
+  navTimer = setTimeout(() => svg.classList.remove('navigating'), 160);
+}
 svg.addEventListener('wheel', (e) => {
   e.preventDefault();
+  navigating();
   if (e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
   else { state.panX -= e.deltaX; state.panY -= e.deltaY; applyViewport(); }
 }, { passive: false });
@@ -602,32 +631,6 @@ function computeResize(d, p, keepAspect) {
 }
 
 // Snap the moving selection's bounds to page and other objects; returns adjusted delta and guides.
-function snapMove(dx, dy) {
-  const moving = drag.orig.map((r) => r.o).filter((o) => o.type !== 'connector');
-  if (!moving.length) return { dx, dy, guides: '' };
-  const tmp = moving.map((o) => { const r = drag.orig.find((q) => q.o === o); return { ...o, x: r.x + dx, y: r.y + dy }; });
-  const bb = unionBounds(tmp);
-  const P = page(), th = 6 / state.zoom, ids = new Set(state.sel);
-  if (!state.view.snap && !state.view.snapGrid) return { dx, dy, guides: '' };
-  if (state.view.snapGrid) {
-    const gs = state.view.gridSize;
-    return { dx: dx + Math.round(bb.x / gs) * gs - bb.x, dy: dy + Math.round(bb.y / gs) * gs - bb.y, guides: '' };
-  }
-  const xs = [0, P.width / 2, P.width, ...((P.guides && P.guides.v) || [])], ys = [0, P.height / 2, P.height, ...((P.guides && P.guides.h) || [])];
-  for (const o of objs()) {
-    if (ids.has(o.id) || o.type === 'connector') continue;
-    const b = bounds(o);
-    xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h);
-  }
-  let bestX = null, bestY = null;
-  for (const cand of [bb.x, bb.x + bb.w / 2, bb.x + bb.w]) for (const t of xs) { const d = t - cand; if (Math.abs(d) < th && (!bestX || Math.abs(d) < Math.abs(bestX.d))) bestX = { d, t }; }
-  for (const cand of [bb.y, bb.y + bb.h / 2, bb.y + bb.h]) for (const t of ys) { const d = t - cand; if (Math.abs(d) < th && (!bestY || Math.abs(d) < Math.abs(bestY.d))) bestY = { d, t }; }
-  let g = '';
-  const sw = 1 / state.zoom;
-  if (bestX) { dx += bestX.d; g += `<line x1="${bestX.t}" y1="-10000" x2="${bestX.t}" y2="10000" stroke="#e8437b" stroke-width="${sw}"/>`; }
-  if (bestY) { dy += bestY.d; g += `<line x1="-10000" y1="${bestY.t}" x2="10000" y2="${bestY.t}" stroke="#e8437b" stroke-width="${sw}"/>`; }
-  return { dx, dy, guides: g };
-}
 
 function smooth(pts) { // Chaikin
   if (pts.length < 3) return pts;
@@ -648,12 +651,20 @@ function brushPointsFromDrag(d) {
   return d.pts;
 }
 
+let pendingMove = null;
 window.addEventListener('pointermove', (e) => {
+  const first = !pendingMove;
+  pendingMove = e;
+  if (first) requestAnimationFrame(() => { const ev = pendingMove; pendingMove = null; if (ev) handlePointerMove(ev); });
+});
+function flushPointerMove() { if (pendingMove) { const ev = pendingMove; pendingMove = null; handlePointerMove(ev); } }
+function handlePointerMove(e) {
   if (!drag) { if (pen && state.tool === 'pen') renderPenPreview(toWorld(e)); return; }
   const p = toWorld(e);
   if (['pencil', 'airbrush', 'line', 'pen-node', 'node'].includes(drag.mode)) return drawMove(e, p, drag);
   switch (drag.mode) {
     case 'pan':
+      navigating();
       state.panX = drag.px + e.clientX - drag.sx; state.panY = drag.py + e.clientY - drag.sy;
       applyViewport();
       return;
@@ -676,6 +687,7 @@ window.addEventListener('pointermove', (e) => {
       const o = drag.o;
       const lock = ['icon', 'image'].includes(o.type) ? !e.shiftKey : e.shiftKey;
       const r = computeResize(drag, p, o.type === 'text' ? true : lock);
+      $('#guides').innerHTML = o.type === 'text' || o.type === 'protocol' ? '' : snapResize(drag, r, lock);
       if (o.type === 'text') {
         o.fontSize = Math.max(4, Math.round(drag.font * (r.h / drag.start.h) * 2) / 2);
         postEdit(o); o.x = r.x; o.y = r.y;
@@ -712,7 +724,7 @@ window.addEventListener('pointermove', (e) => {
     }
     case 'marquee': {
       const x = Math.min(drag.start.x, p.x), y = Math.min(drag.start.y, p.y), w = Math.abs(p.x - drag.start.x), h = Math.abs(p.y - drag.start.y);
-      const inside = objs().filter((o) => { if (o.locked) return false; const b = bounds(o, objs()); return b.x < x + w && b.x + b.w > x && b.y < y + h && b.y + b.h > y; }).map((o) => o.id);
+      const inside = objs().filter((o) => { if (o.locked || o.hidden) return false; const b = bounds(o, objs()); return b.x < x + w && b.x + b.w > x && b.y < y + h && b.y + b.h > y; }).map((o) => o.id);
       state.sel = [...new Set([...drag.base, ...inside])];
       renderOverlay(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(59,111,214,.08)" stroke="#3b6fd6" stroke-width="${1 / state.zoom}" stroke-dasharray="${4 / state.zoom}"/>`);
       return;
@@ -740,9 +752,10 @@ window.addEventListener('pointermove', (e) => {
       return;
     }
   }
-});
+}
 
 window.addEventListener('pointerup', (e) => {
+  flushPointerMove(); // apply the last move before finishing the drag
   if (!drag) return;
   const d = drag;
   drag = null;
@@ -890,8 +903,10 @@ window.addEventListener('keydown', (e) => {
     render();
     return;
   }
-  if (mod && e.key === ']') { zorder(e.shiftKey ? 'front' : 'forward'); return; }
-  if (mod && e.key === '[') { zorder(e.shiftKey ? 'back' : 'backward'); return; }
+  if (mod && (e.key === ']' || e.key === '}')) { e.preventDefault(); zorder(e.shiftKey ? 'front' : 'forward'); return; }
+  if (mod && (e.key === '[' || e.key === '{')) { e.preventDefault(); zorder(e.shiftKey ? 'back' : 'backward'); return; }
+  if (mod && e.key.toLowerCase() === 'l') { e.preventDefault(); e.shiftKey ? setLocked(false) : setLocked(true); return; }
+  if (e.shiftKey && !mod && (e.key === 'H' || e.key === 'V')) { e.preventDefault(); flipSelection(e.key === 'H' ? 'h' : 'v'); return; }
   if (mod) return;
   const map = { v: 'select', h: 'pan', t: 'text', r: 'rect', e: 'ellipse', c: 'connector', b: 'brush', s: 'shape', n: 'badge', m: 'comment', d: 'pencil', p: 'pen', l: 'line', a: 'arrow', w: 'airbrush' };
   if (map[e.key.toLowerCase()]) setTool(map[e.key.toLowerCase()]);
@@ -1297,18 +1312,6 @@ function movePage(d) {
   gotoPage(j);
 }
 
-function renderLayers() {
-  const Lp = $('#layers');
-  Lp.innerHTML = '';
-  const list = [...objs()].reverse();
-  if (!list.length) { Lp.append(el('div', { class: 'note', textContent: 'No objects on this page yet.' })); return; }
-  for (const o of list) {
-    const r = el('div', { class: 'layer' + (state.sel.includes(o.id) ? ' sel' : ''), onclick: (e) => { state.sel = e.shiftKey ? [...new Set([...state.sel, o.id])] : [o.id]; render({ props: true }); } },
-      el('span', { class: 'kind', textContent: o.type }), el('span', { style: 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', textContent: layerName(o) }),
-      el('span', { title: o.locked ? 'Unlock' : 'Lock', style: `opacity:${o.locked ? 1 : 0.3}`, textContent: o.locked ? '🔒' : '🔓', onclick: (e) => { e.stopPropagation(); checkpoint(); o.locked = !o.locked; if (o.locked) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }));
-    Lp.append(r);
-  }
-}
 
 // Make near-white pixels transparent (for PubChem / RCSB renders and scanned artwork).
 async function removeWhite(src, threshold = 238) {
@@ -1367,6 +1370,7 @@ async function save(saveAs) {
 }
 
 async function runCommand(cmd) {
+  if (typeof ARRANGE_COMMANDS !== 'undefined' && ARRANGE_COMMANDS[cmd]) { if (!isTyping()) ARRANGE_COMMANDS[cmd](); return; }
   // Let native editing commands work inside text fields.
   if (isTyping() && ['undo', 'redo', 'selectAll'].includes(cmd)) return document.execCommand(cmd);
   if (isTyping() && ['duplicate', 'group', 'ungroup'].includes(cmd)) return;
@@ -1383,7 +1387,7 @@ async function runCommand(cmd) {
     case 'undo': undo(); break;
     case 'redo': redo(); break;
     case 'duplicate': duplicateSelection(); break;
-    case 'selectAll': state.sel = objs().filter((o) => !o.locked).map((o) => o.id); render({ props: true }); break;
+    case 'selectAll': state.sel = objs().filter((o) => !o.locked && !o.hidden).map((o) => o.id); render({ props: true }); break;
     case 'group': groupSelection(); break;
     case 'ungroup': ungroupSelection(); break;
     case 'zoomIn': zoomAt(1.25); break;

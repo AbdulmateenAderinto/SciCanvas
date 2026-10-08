@@ -360,9 +360,13 @@ function applyEffects(o, inner) {
 }
 
 // ---------- Main entry ----------
+function transformFor(o) {
+  if (o.type === 'connector') return '';
+  return `translate(${o.x} ${o.y})${o.rot ? ` rotate(${o.rot} ${o.w / 2} ${o.h / 2})` : ''}${o.flipX ? ` translate(${o.w} 0) scale(-1 1)` : ''}${o.flipY ? ` translate(0 ${o.h}) scale(1 -1)` : ''}`;
+}
 // Returns { transform, inner } so the editor can move objects without re-parsing heavy content.
 function renderParts(o, objects, forExport) {
-  const transform = o.type === 'connector' ? '' : `translate(${o.x} ${o.y})${o.rot ? ` rotate(${o.rot} ${o.w / 2} ${o.h / 2})` : ''}${o.flipX ? ` translate(${o.w} 0) scale(-1 1)` : ''}`;
+  const transform = transformFor(o);
   let inner = '';
   switch (o.type) {
     case 'icon': {
@@ -434,7 +438,7 @@ function renderObjectString(o, objects, forExport) {
 }
 
 function pageSvgString(page, { transparent } = {}) {
-  const body = page.objects.map((o) => renderObjectString(o, page.objects, true)).join('');
+  const body = page.objects.filter((o) => !o.hidden).map((o) => renderObjectString(o, page.objects, true)).join('');
   const bg = transparent ? '' : `<rect width="${page.width}" height="${page.height}" fill="${page.background || '#ffffff'}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${page.width}" height="${page.height}" viewBox="0 0 ${page.width} ${page.height}">${bg}${body}</svg>`;
 }

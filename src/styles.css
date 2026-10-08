@@ -178,3 +178,25 @@ table.credits td, table.credits th { text-align: left; border-bottom: 1px solid 
 .libcard a { font-size: 12px; color: var(--accent); }
 .mine-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .mine-grid img { width: 100%; height: 54px; object-fit: contain; }
+
+/* ---- v0.4: performance ---- */
+#svg { will-change: transform; contain: strict; }
+#svg.navigating #scene [filter] { filter: none; }
+#svg.navigating #scene image { image-rendering: optimizeSpeed; }
+#ctxbar { position: absolute; z-index: 8; display: flex; align-items: center; gap: 1px; padding: 3px; background: #fff; border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 4px 16px rgba(20,30,50,.14); }
+#ctxbar button { border: none; background: none; padding: 5px 6px; border-radius: 6px; color: #33404d; display: flex; }
+#ctxbar button:hover { background: var(--accent-soft); color: var(--accent); }
+#ctxbar button[data-ctx="deleteSel"]:hover { background: #fdecec; color: var(--danger); }
+#ctxbar .ctxsep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 3px; }
+#alignpop { position: absolute; z-index: 9; background: #fff; border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 20px rgba(20,30,50,.16); padding: 5px; display: flex; flex-direction: column; min-width: 190px; }
+#alignpop button { border: none; background: none; text-align: left; padding: 6px 8px; border-radius: 6px; }
+#alignpop button:hover { background: var(--accent-soft); }
+.layer { gap: 4px; border: 1px solid transparent; }
+.layer .caret { width: 12px; color: var(--muted); font-size: 10px; cursor: pointer; flex-shrink: 0; }
+.layer .kind { width: 18px; text-align: center; flex-shrink: 0; }
+.layer .lname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer .lbtn { border: none; background: none; padding: 0 3px; opacity: .25; font-size: 12px; }
+.layer:hover .lbtn, .layer .lbtn.on { opacity: 1; }
+.layer.hid .lname, .layer.hid .kind { opacity: .4; text-decoration: line-through; }
+.layer.drop-above { border-top: 2px solid var(--accent); }
+.layer.drop-below { border-bottom: 2px solid var(--accent); }

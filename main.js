@@ -7,6 +7,13 @@ const { installPack, catalog } = require('./scripts/packs');
 
 let win;
 
+// Hardware acceleration: rasterise the canvas on the GPU and keep it on the GPU path even on
+// machines Chromium would otherwise block-list.
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-oop-rasterization');
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1440,
@@ -20,6 +27,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
@@ -71,9 +79,6 @@ function buildMenu() {
         { label: 'Duplicate', accelerator: 'CmdOrCtrl+D', click: send('duplicate') },
         { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: send('selectAll') },
         { label: 'Copy as Image', accelerator: 'CmdOrCtrl+Shift+C', click: send('copyImage') },
-        { type: 'separator' },
-        { label: 'Group', accelerator: 'CmdOrCtrl+G', click: send('group') },
-        { label: 'Ungroup', accelerator: 'CmdOrCtrl+Shift+G', click: send('ungroup') },
       ],
     },
     {
@@ -91,6 +96,37 @@ function buildMenu() {
         { label: 'Create Icon with AI…', click: send('aiIcon') },
         { label: 'Save Selection as Icon…', click: send('saveIcon') },
         { label: 'Icon Libraries…', click: send('libraries') },
+      ],
+    },
+    {
+      label: 'Arrange',
+      submenu: [
+        { label: 'Bring to Front', accelerator: 'Shift+CmdOrCtrl+]', click: send('bringFront') },
+        { label: 'Bring Forward', accelerator: 'CmdOrCtrl+]', click: send('bringForward') },
+        { label: 'Send Backward', accelerator: 'CmdOrCtrl+[', click: send('sendBackward') },
+        { label: 'Send to Back', accelerator: 'Shift+CmdOrCtrl+[', click: send('sendBack') },
+        { type: 'separator' },
+        { label: 'Align', submenu: [
+          { label: 'Left', click: send('alignL') }, { label: 'Centre', click: send('alignC') }, { label: 'Right', click: send('alignR') },
+          { type: 'separator' },
+          { label: 'Top', click: send('alignT') }, { label: 'Middle', click: send('alignM') }, { label: 'Bottom', click: send('alignB') },
+        ] },
+        { label: 'Distribute', submenu: [{ label: 'Horizontally', click: send('distH') }, { label: 'Vertically', click: send('distV') }] },
+        { label: 'Match Size', submenu: [{ label: 'Width', click: send('matchW') }, { label: 'Height', click: send('matchH') }, { label: 'Width and Height', click: send('matchSize') }] },
+        { label: 'Flip Horizontally', accelerator: 'Shift+H', click: send('flipH') },
+        { label: 'Flip Vertically', accelerator: 'Shift+V', click: send('flipV') },
+        { type: 'separator' },
+        { label: 'Group', accelerator: 'CmdOrCtrl+G', click: send('group') },
+        { label: 'Ungroup', accelerator: 'CmdOrCtrl+Shift+G', click: send('ungroup') },
+        { type: 'separator' },
+        { label: 'Lock', accelerator: 'CmdOrCtrl+L', click: send('lock') },
+        { label: 'Unlock All', accelerator: 'CmdOrCtrl+Shift+L', click: send('unlockAll') },
+        { label: 'Hide', click: send('hide') },
+        { label: 'Show All', click: send('showAll') },
+        { type: 'separator' },
+        { label: 'Smart Alignment Guides', click: send('toggleSnap') },
+        { label: 'Distance Labels', click: send('toggleDistances') },
+        { label: 'Snap to Grid', click: send('toggleSnapGrid') },
       ],
     },
     {
@@ -253,6 +289,19 @@ ipcMain.handle('read-pack-icon', (_e, { pack, file }) => {
   return fs.readFileSync(path.join(d, 'svg', file), 'utf8');
 });
 ipcMain.handle('pack-catalog', () => catalog());
+ipcMain.handle('gpu-status', () => app.getGPUFeatureStatus());
+
+// Right-click menu: the renderer describes the items; clicks come back as normal menu commands.
+ipcMain.on('context-menu', (e, items) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  const build = (list) => list.map((it) => {
+    if (it.type === 'separator') return { type: 'separator' };
+    if (it.role) return { label: it.label, role: it.role };
+    if (it.submenu) return { label: it.label, submenu: build(it.submenu) };
+    return { label: it.label, click: () => e.sender.send('menu', it.cmd) };
+  });
+  Menu.buildFromTemplate(build(items)).popup({ window: w });
+});
 ipcMain.handle('install-pack', async (e, id) => {
   // Bundled packs (app folder) are updated in place when writable; otherwise install to userData.
   const root = app.isPackaged ? path.join(app.getPath('userData'), 'iconpacks') : bundledPacks();

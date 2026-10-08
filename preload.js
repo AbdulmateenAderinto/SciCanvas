@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('native', {
   openPath: (p) => ipcRenderer.invoke('open-path', p),
   listPacks: () => ipcRenderer.invoke('list-packs'),
   readPackIcon: (pack, file) => ipcRenderer.invoke('read-pack-icon', { pack, file }),
+  contextMenu: (items) => ipcRenderer.send('context-menu', items),
+  gpuStatus: () => ipcRenderer.invoke('gpu-status'),
   packCatalog: () => ipcRenderer.invoke('pack-catalog'),
   installPack: (id) => ipcRenderer.invoke('install-pack', id),
   saveUserIcon: (icon) => ipcRenderer.invoke('save-user-icon', icon),

@@ -49,6 +49,17 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - Save as icon: any selection becomes a reusable icon in "My icons".
 - Create icon with AI: describe it and choose a style (shaded, flat, line art or textbook) to get 3 editable vector options.
 
+**Arranging & alignment**
+- Smart guides while dragging: pink lines show edge and centre alignment, purple labels show distances to neighbours, and objects snap to equal spacing. Resizing also snaps edges and shows the size.
+- Floating context bar above the selection: front, forward, backward, back, align, flip, group, duplicate, lock, delete.
+- Right-click menu, plus an **Arrange** menu: z-order (⌘] / ⌘[, add ⇧ for front/back), align, distribute, match size, flip (⇧H / ⇧V), group, lock (⌘L) / unlock all (⇧⌘L), hide / show all, and guide toggles.
+- Layers panel: drag rows to restack, 👁 to hide, 🔒 to lock, double-click to rename, ▸ to see inside groups, Shift / ⌘-click to multi-select.
+
+**Performance**
+- GPU rasterisation enabled (Settings shows the graphics status).
+- Each object only redraws when it changes, and drag updates are batched to the display's refresh rate. Dragging a figure with ~60 objects went from ~56 fps to the display's full 120 Hz.
+- Blur and glow effects are skipped while panning or zooming, then restored.
+
 **Icon editing**
 - Colour (built-ins) or tint overlay (library icons).
 - Colour layers: recolour or hide each distinct colour in an icon, e.g. a transparent nucleus.
@@ -126,6 +137,7 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - `scripts/packs.js`: icon-library installers (Bioicons, Reactome, Health Icons, PhyloPic)
 - `scripts/setup-electron.sh`: finishes the Electron install when npm blocks it
 - `src/draw.js`: pencil, pen, line/arrow, airbrush, point editing, shading, connector ports
+- `src/arrange.js`: smart guides, arrange commands, context bar, right-click menu, layers panel
 - `src/creator.js`: drawing options, My icons, AI icon generation, library manager
 - `src/icons.js`: built-in icons
 - `src/packs.js`: icon packs, SVG sanitising, colour layers and tint, search, credits

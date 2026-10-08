@@ -242,7 +242,14 @@ async function openSettingsDialog() {
   const author = el('input', { type: 'text', value: appSettings.author, placeholder: 'Your name (for comments)' });
   const field = el('select', {}, ...RESEARCH_FIELDS.map((f) => el('option', { value: f, textContent: f || 'Not set', selected: f === appSettings.field })));
   const key = el('input', { type: 'password', placeholder: appSettings.hasApiKey ? (appSettings.keyFromEnv ? 'Using ANTHROPIC_API_KEY from environment' : '•••••••• saved — type to replace') : 'sk-ant-…', autocomplete: 'off', style: 'flex:1' });
+  let gpu = '';
+  try {
+    const g = await window.native.gpuStatus();
+    const hw = (v) => /enabled/.test(v || '') && !/software/.test(v || '');
+    gpu = g ? `${hw(g.gpu_compositing) && hw(g.rasterization) ? '✓ Hardware accelerated' : '⚠ Partly software'} — compositing: ${g.gpu_compositing}, rasterization: ${g.rasterization}, WebGL: ${g.webgl}` : '';
+  } catch { /* browser preview */ }
   openModal('Settings', el('div', { style: 'max-width:560px' },
+    gpu ? el('div', { class: 'note', style: 'margin-bottom:12px' }, el('b', { textContent: 'Graphics: ' }), gpu) : null,
     field_('Your name', author),
     field_('Research field', field),
     el('div', { class: 'note', style: 'margin:-2px 0 12px 84px' }, 'Used to rank library search results toward your field.'),
@@ -483,6 +490,8 @@ function insertObjectsGrouped(list, replace) {
   setupLibrary();
   setupRulers();
   setupDrawOpts();
+  setupContextBar();
+  setupContextMenu();
   $$('[data-rtab]').forEach((t) => t.addEventListener('click', () => {
     $$('[data-rtab]').forEach((x) => x.classList.toggle('active', x === t));
     ['props', 'layers', 'comments'].forEach((k) => $('#' + k).classList.toggle('hidden', t.dataset.rtab !== k));
