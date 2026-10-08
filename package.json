@@ -9,12 +9,17 @@
     "icons": "node scripts/packs.js all",
     "setup": "sh scripts/setup-electron.sh",
     "dist": "electron-builder --mac dmg --arm64",
-    "dist:intel": "electron-builder --mac dmg --x64"
+    "dist:intel": "electron-builder --mac dmg --x64",
+    "lint": "eslint .",
+    "test": "node --test \"test/**/*.test.js\""
   },
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "electron": "^33.0.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
@@ -37,7 +42,9 @@
       "!build/**",
       "!.claude/**",
       "!scripts/setup-electron.sh",
-      "!README.md"
+      "!README.md",
+      "!test/**",
+      "!eslint.config.js"
     ],
     "extraResources": [
       {

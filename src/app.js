@@ -299,7 +299,7 @@ function layerName(o) {
     case 'icon': return ICON_MAP[o.iconId]?.name || getAsset(o.iconId)?.name || 'Icon';
     case 'text': return o.text.split('\n')[0].slice(0, 28) || 'Text';
     case 'rect': case 'ellipse': return o.label ? o.label.split('\n')[0].slice(0, 28) : o.type === 'rect' ? 'Rectangle' : 'Ellipse';
-    case 'shape': return o.label ? o.label.split('\n')[0].slice(0, 28) : (SHAPES.find((x) => x[0] === o.kind) || [, 'Shape'])[1];
+    case 'shape': return o.label ? o.label.split('\n')[0].slice(0, 28) : (SHAPES.find((x) => x[0] === o.kind) || [null, 'Shape'])[1];
     case 'connector': return o.label || 'Connector';
     case 'path': return o.closed ? 'Drawn shape' : o.headEnd === 'arrow' || o.headStart === 'arrow' ? 'Arrow' : 'Drawn line';
     case 'brush': return `${o.kind[0].toUpperCase()}${o.kind.slice(1)} brush`;

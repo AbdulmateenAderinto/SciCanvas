@@ -8,7 +8,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 const UA = { 'User-Agent': 'SciCanvas/0.3 (scientific figure editor; icon pack installer)' };
-const safe = (s) => String(s).replace(/[^\w.\-]+/g, '_').slice(0, 150);
+const safe = (s) => String(s).replace(/[^\w.-]+/g, '_').slice(0, 150);
 const getJson = async (url) => { const r = await fetch(url, { headers: UA }); if (!r.ok) throw new Error(`${r.status} ${url}`); return r.json(); };
 const getText = async (url) => { const r = await fetch(url, { headers: UA }); if (!r.ok) throw new Error(`${r.status} ${url}`); return r.text(); };
 
@@ -20,7 +20,7 @@ async function pool(items, worker, { concurrency = 8, onProgress = () => {} } = 
     while (i < items.length) {
       const k = i++;
       for (let attempt = 0; attempt < 2; attempt++) {
-        try { out[k] = await worker(items[k]); break; } catch (e) { if (attempt === 1) failed++; else await new Promise((r) => setTimeout(r, 800)); }
+        try { out[k] = await worker(items[k]); break; } catch { if (attempt === 1) failed++; else await new Promise((r) => setTimeout(r, 800)); }
       }
       onProgress(++done, items.length);
     }

@@ -223,12 +223,6 @@ function invert(M) {
   return A.map((r) => r.slice(n));
 }
 
-function fmtP(p) {
-  if (!isFinite(p)) return 'p = n/a';
-  return p < 0.0001 ? 'p < 0.0001' : `p = ${p.toPrecision(2)}`;
-}
-function stars(p) { return p < 0.0001 ? '****' : p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : 'ns'; }
-
 // Parse pasted CSV / TSV: first row = headers. Returns numeric columns plus the raw strings.
 function parseTable(text) {
   const lines = String(text || '').trim().split(/\r?\n/).filter((l) => l.trim());
