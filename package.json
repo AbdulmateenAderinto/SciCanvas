@@ -1,0 +1,61 @@
+{
+  "name": "scicanvas",
+  "productName": "SciCanvas",
+  "version": "0.2.0",
+  "description": "Desktop scientific illustration, graphing and figure-assembly tool",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node scripts/packs.js all",
+    "setup": "sh scripts/setup-electron.sh",
+    "dist": "electron-builder --mac dmg --arm64",
+    "dist:intel": "electron-builder --mac dmg --x64"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1",
+    "3dmol": "^2.5.5",
+    "pptxgenjs": "^4.0.1"
+  },
+  "author": "SciCanvas",
+  "build": {
+    "appId": "com.scicanvas.app",
+    "productName": "SciCanvas",
+    "copyright": "SciCanvas",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!assets/**",
+      "!dist/**",
+      "!build/**",
+      "!.claude/**",
+      "!scripts/setup-electron.sh",
+      "!README.md"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/iconpacks",
+        "to": "iconpacks"
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "icon": "build/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "SciCanvas ${version}",
+      "artifactName": "SciCanvas-${version}-${arch}.dmg"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Rebuilt with `npm install` (+ `npm run setup`)
+node_modules/
+# Rebuilt with `npm run icons` (~640 MB)
+assets/iconpacks/
+# Installers built with `npm run dist`
+dist/
+# Local tool settings
+.claude/
+.DS_Store
+*.log
