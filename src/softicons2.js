@@ -10,14 +10,14 @@
   // ---------- DNA drawing helpers ----------
   // Duplex helix between x0..x0+w, top at y0 (height 24). opts: hi {index: colour}, skip [indices], amp.
   function helix(x0, y0, w, o = {}) {
-    const a = [], b = [], rungs = [], n = o.n || Math.max(4, Math.round(w / 9)), amp = o.amp || 10, ph0 = o.ph || 0;
-    for (let i = 0; i <= n; i++) {
-      const x = x0 + 3 + (i * (w - 6)) / n, ph = ph0 + i * 0.95;
-      const ya = y0 + 12 + amp * Math.sin(ph), yb = y0 + 12 - amp * Math.sin(ph);
-      a.push([x, ya]); b.push([x, yb]);
-      if (i > 0 && i < n && !(o.skip || []).includes(i)) { const hc = (o.hi || {})[i]; rungs.push(`<path d="M${f(x)} ${f(ya)} V${f(yb)}" stroke="${hc || '#b8c4d4'}" stroke-width="${hc ? 4 : 2.4}" stroke-linecap="round"/>`); }
-    }
-    return rungs.join('') + tube(b, 5, o.c2 || P.sky) + tube(a, 5, o.c1 || P.navy);
+    // Drawn by the kit's helix (even base pairs that end on the strands, strands alternating in front); the options
+    // keep their meaning: hi / skip refer to the old rung positions i = 1…n−1 and go to the nearest base pair.
+    const n = o.n || Math.max(4, Math.round(w / 9)), turns = (n * 0.95) / (Math.PI * 2);
+    const mark = {};
+    for (const [i, c] of Object.entries(o.hi || {})) mark[i / n] = c;
+    const nPairs = Math.max(2, Math.round(turns * 10)), pairs = Array.from({ length: nPairs }, (_, k) => ({ t: (k + 0.5) / nPairs }));
+    for (const i of o.skip || []) { let best = pairs[0]; for (const p of pairs) if (Math.abs(p.t - i / n) < Math.abs(best.t - i / n)) best = p; best.skip = true; }
+    return K.helix(x0 + 3, x0 + w - 3, y0 + 12, o.amp || 10, turns, { w: 5, c1: o.c1 || P.navy, c2: o.c2 || P.sky, phase: o.ph || 0, pairs, mark });
   }
   // DNA as a soft ribbon along any path (for loops, plasmids, chromatin).
   const ds = (pts, w = 9, c = P.sky) => tube(pts, w, c, { oc: P.navy }) + `<path d="${cr(pts, false)}" fill="none" stroke="${P.navy}" stroke-width="${w * 0.62}" stroke-dasharray="1.4 3.4" opacity=".45"/>`;
