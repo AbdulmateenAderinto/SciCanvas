@@ -738,10 +738,12 @@ addDiagram('elisa', {
 function diagramPreviewSvg(list) {
   const shapes = list.filter((o) => o.type !== 'connector');
   if (!shapes.length) return '';
-  const x0 = Math.min(...shapes.map((o) => o.x)) - 20, y0 = Math.min(...shapes.map((o) => o.y)) - 20;
+  // Extra margin when there are curved connectors (loop-back arrows bulge outside the shapes).
+  const pad = list.some((o) => o.type === 'connector' && o.style === 'curved') ? 60 : 20;
+  const x0 = Math.min(...shapes.map((o) => o.x)) - pad, y0 = Math.min(...shapes.map((o) => o.y)) - pad;
   shapes.forEach((o) => { o.x -= x0; o.y -= y0; });
   list.filter((o) => o.type === 'connector').forEach((cn) => [cn.from, cn.to].forEach((e) => { if (e && e.x != null && !e.id) { e.x -= x0; e.y -= y0; } }));
-  const W = Math.max(...shapes.map((o) => o.x + o.w)) + 20, H = Math.max(...shapes.map((o) => o.y + o.h)) + 20;
+  const W = Math.max(...shapes.map((o) => o.x + o.w)) + pad, H = Math.max(...shapes.map((o) => o.y + o.h)) + pad;
   return pageSvgString({ width: W, height: H, background: '#ffffff', objects: list });
 }
 function openDiagramDialog(startKey) {
@@ -788,3 +790,102 @@ function openDiagramDialog(startKey) {
 }
 ARRANGE_COMMANDS.diagramBuilder = () => openDiagramDialog();
 Object.keys(DIAGRAMS).forEach((k) => { ARRANGE_COMMANDS['diagram_' + k] = () => openDiagramDialog(k); });
+
+// ---------- Flowchart from Mermaid, JSON or a step list (no AI needed) ----------
+// Returns { title, direction, nodes: [{ id, label, kind }], edges: [{ from, to, label }] } for buildFlowchart().
+function parseFlowText(text, format = 'auto') {
+  const src = String(text || '').trim();
+  const fmt = format !== 'auto' ? format : /^[[{]/.test(src) ? 'json' : /^(flowchart|graph)\b/im.test(src) || /-->|---|==>|-\.->/.test(src) ? 'mermaid' : 'steps';
+  const nodes = [], edges = [], byId = new Map();
+  const node = (id, label, kind) => {
+    id = String(id).trim();
+    if (!byId.has(id)) { const n = { id, label: label || id, kind: kind || 'process' }; byId.set(id, n); nodes.push(n); }
+    else if (label) { const n = byId.get(id); n.label = label; if (kind) n.kind = kind; }
+    return byId.get(id);
+  };
+  let direction = 'TB';
+  if (fmt === 'json') {
+    const j = JSON.parse(src);
+    const list = Array.isArray(j) ? { steps: j } : j;
+    if (list.steps) return parseFlowText(list.steps.map((s, i) => `${i + 1}. ${typeof s === 'string' ? s : s.label || s.text || ''}`).join('\n'), 'steps');
+    direction = /^LR|RL$/i.test(list.direction || '') ? 'LR' : 'TB';
+    (list.nodes || []).forEach((n) => node(n.id, n.label || n.text || n.name, ({ decision: 'decision', diamond: 'decision', start: 'start', end: 'end', terminal: 'end', data: 'data', io: 'data' })[String(n.kind || n.shape || n.type || '').toLowerCase()]));
+    (list.edges || list.links || []).forEach((e) => { const a = e.from ?? e.source, b = e.to ?? e.target; if (a == null || b == null) return; node(a); node(b); edges.push({ from: String(a), to: String(b), label: e.label || e.text || '' }); });
+    return { title: list.title || '', direction, nodes, edges };
+  }
+  if (fmt === 'steps') {
+    const lines = src.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+    const parsed = lines.map((l, i) => {
+      const parts = l.replace(/^(\d+)[.)]\s*|^[-*•]\s*/, '').split('|').map((x) => x.trim());
+      const label = parts[0], jumps = parts.slice(1).map((p) => p.match(/^(.*?)\s*(?:->|→)\s*(\d+)$/)).filter(Boolean).map((m) => ({ label: m[1], to: +m[2] }));
+      const kind = /\?\s*$/.test(label) ? 'decision' : i === 0 && /^(start|begin)/i.test(label) ? 'start' : i === lines.length - 1 && /^(end|stop|finish|done)/i.test(label) ? 'end' : 'process';
+      return { id: String(i + 1), label, kind, jumps };
+    });
+    parsed.forEach((p) => node(p.id, p.label, p.kind));
+    parsed.forEach((p, i) => {
+      p.jumps.forEach((j) => { if (j.to >= 1 && j.to <= parsed.length) edges.push({ from: p.id, to: String(j.to), label: j.label }); });
+      if (!p.jumps.length && i + 1 < parsed.length) edges.push({ from: p.id, to: parsed[i + 1].id, label: '' });
+    });
+    return { title: '', direction, nodes, edges };
+  }
+  // Mermaid flowchart subset: nodes with [], (), ([ ]), (( )), {}, [/ /], [( )]; edges -->, ---, -.->, ==>, labels |x| or -- x -->.
+  const SHAPE = /^([A-Za-z0-9_.-]+)\s*(\(\[(.*?)\]\)|\(\((.*?)\)\)|\[\((.*?)\)\]|\[\/(.*?)\/\]|\[\\(.*?)\\\]|\{\{(.*?)\}\}|\[(.*?)\]|\((.*?)\)|\{(.*?)\}|>(.*?)\])?/;
+  const EDGE = /^\s*(?:--\s*([^-|>][^|]*?)\s*-->|-\.\s*([^.|]+?)\s*\.->|==\s*([^=|]+?)\s*==>|(-->|---|-\.->|-\.-|==>|===|--[ox]|<-->)\s*(?:\|([^|]*)\|)?)\s*/;
+  const unq = (s) => (s == null ? s : s.trim().replace(/^"(.*)"$/, '$1').replace(/<br\s*\/?>/gi, '\n'));
+  const readNodes = (str) => {
+    const ids = [];
+    let rest = str;
+    for (;;) {
+      rest = rest.replace(/^\s+/, '');
+      const m = rest.match(SHAPE);
+      if (!m || !m[1]) break;
+      const g = m.slice(3), label = unq(g.find((x) => x != null));
+      const kind = m[3] != null || m[4] != null ? 'terminal' : m[11] != null || m[8] != null ? 'decision' : m[5] != null || m[6] != null || m[7] != null ? 'data' : null;
+      node(m[1], label, kind);
+      ids.push(m[1]);
+      rest = rest.slice(m[0].length).replace(/^\s*:::\w+/, '');
+      if (!/^\s*&/.test(rest)) break;
+      rest = rest.replace(/^\s*&/, '');
+    }
+    return { ids, rest };
+  };
+  for (const raw of src.split('\n')) {
+    const line = raw.replace(/%%.*$/, '').trim().replace(/;$/, '');
+    if (!line) continue;
+    const head = line.match(/^(?:flowchart|graph)\s+(TB|TD|BT|LR|RL)\b/i);
+    if (head) { direction = /LR|RL/i.test(head[1]) ? 'LR' : 'TB'; continue; }
+    if (/^(subgraph|end$|classDef|class\s|style\s|linkStyle|click\s|direction\s)/.test(line)) continue;
+    let { ids: from, rest } = readNodes(line);
+    while (from.length) {
+      const e = rest.match(EDGE);
+      if (!e) break;
+      rest = rest.slice(e[0].length);
+      const r = readNodes(rest);
+      if (!r.ids.length) break;
+      const label = unq(e[1] || e[2] || e[3] || e[5] || '');
+      from.forEach((a) => r.ids.forEach((b) => edges.push({ from: a, to: b, label })));
+      from = r.ids; rest = r.rest;
+    }
+  }
+  nodes.forEach((n) => { if (n.kind === 'terminal') n.kind = edges.some((e) => e.to === n.id) ? 'end' : 'start'; });
+  return { title: '', direction, nodes, edges };
+}
+addDiagram('flowtext', {
+  label: 'Flowchart from Mermaid / JSON / steps', group: 'Hierarchies & layers', desc: 'Paste Mermaid flowchart code, JSON (nodes and edges), or numbered steps. In steps, end a line with ? for a decision and add | yes -> 4 | no -> 6 to branch or loop back.',
+  fields: [
+    { key: 'text', label: 'Flowchart', type: 'textarea', rows: 12, def: 'flowchart TD\n  A([Patient with chest pain]) --> B[ECG within 10 min]\n  B --> C{ST elevation?}\n  C -->|Yes| D[Activate cath lab]\n  C -->|No| E[High-sensitivity troponin]\n  E --> F{Rising troponin?}\n  F -->|Yes| G[NSTEMI pathway]\n  F -->|No| H[Repeat at 3 h]\n  H --> E\n  D --> I([PCI])' },
+    { key: 'format', label: 'Format', type: 'select', def: 'auto', options: [['auto', 'Detect automatically'], ['mermaid', 'Mermaid'], ['json', 'JSON'], ['steps', 'Numbered steps']] },
+    { key: 'dir', label: 'Direction', type: 'select', def: 'auto', options: [['auto', 'As written (Mermaid) / top to bottom'], ['TB', 'Top to bottom'], ['LR', 'Left to right']] },
+    { key: 'title', label: 'Title', type: 'text', def: '' },
+  ],
+  build(p) {
+    let r;
+    try { r = parseFlowText(p.text, p.format); } catch (e) { return [dgText(`Couldn't read this: ${e.message}`, 20, 20, { color: '#c0392b' })]; }
+    if (!r.nodes.length) return [];
+    r.title = p.title || r.title || '';
+    if (p.dir && p.dir !== 'auto') r.direction = p.dir;
+    const out = buildFlowchart(r).objects;
+    return r.title ? out : out.filter((o) => !(o.type === 'text' && !o.text));
+  },
+});
+ARRANGE_COMMANDS.diagram_flowtext = () => openDiagramDialog('flowtext');

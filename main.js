@@ -133,6 +133,7 @@ function buildMenu() {
           { label: 'Cycle / Life Cycle…', click: send('diagram_cycle') }, { label: 'Radial (Hub and Spoke)…', click: send('diagram_radial') }, { label: 'Process Steps…', click: send('diagram_process') },
           { label: 'Funnel…', click: send('diagram_funnel') }, { label: 'Pyramid…', click: send('diagram_pyramid') }, { label: 'Concentric Layers…', click: send('diagram_concentric') },
           { label: 'Hierarchy / Decision Tree…', click: send('diagram_tree') },
+          { label: 'Flowchart from Mermaid / JSON / Steps…', click: send('diagram_flowtext') },
           { type: 'separator' },
           { label: 'Timeline…', click: send('diagram_timeline') }, { label: 'Gantt Chart…', click: send('diagram_gantt') },
           { type: 'separator' },

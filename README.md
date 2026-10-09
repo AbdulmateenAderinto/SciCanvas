@@ -195,6 +195,12 @@ Every result is checked against SciPy in the automatic tests (`test/fixtures/sta
 
 **18 new templates**: mRNA delivery by lipid nanoparticle, mRNA vaccine immune response, CRISPR–Cas9 editing, haematopoiesis, EMT, extracellular vesicles, gut–brain axis, bulk and single-cell RNA-seq workflows (with live volcano and UMAP charts), proteomics (LC-MS/MS), machine learning (with a live ROC curve), 2D vs 3D culture, wound-healing phases, antibiotic resistance, hybridoma antibodies, the drug development pipeline, clinical trial phases and 3D bioprinting.
 
+## New in v0.9: AI drafting from your documents
+
+**Attach reference files** in Generate with AI (⌘K) and in the guided planner: PDF papers (sent to Claude as documents, up to 20 MB and 100 pages), Word (.docx), PowerPoint (.pptx, including speaker notes), Excel / CSV / TSV tables, text or Markdown, and images. Choose how to use them: as the source of facts, a **visual summary of a paper** (graphical abstract), **one figure from a set of slides**, a **remake of an image** as an editable figure, or **charts from a table**. Charts made from a table take their numbers straight from the file: Claude only names the columns to plot, so values can't be mistyped or invented.
+
+**Flowchart from Mermaid, JSON or steps** (Insert › Diagram, no AI needed): paste Mermaid flowchart code (shapes, labelled edges, chains, `&` groups, loops), JSON nodes and edges, or numbered steps (`3. Quality OK? | yes -> 4 | no -> 2`). Flowchart layout now keeps each box under its parents, so branches no longer cross other boxes (this also improves AI-generated flowcharts).
+
 ## New in v0.8: design tools from Illustrator, Figma and Canva
 
 **Components with variants** (Figma components, Illustrator symbols): select a protein, cell or labelled group and choose Arrange › Create Component (⌥⌘K). Every copy stays linked: double-click any copy to edit the main component and all copies on every page update. Add variants for biological states (Unbound / Bound / Phosphorylated, Naive / Activated / Exhausted) and switch them per copy from Properties. Each copy can override its own colours and text, and Detach instance makes it independent. Insert › Components… lists them.
@@ -294,6 +300,7 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/statcharts.js`: Statistics & Models chart types (curve fit, contingency, ROC, Bland–Altman, Deming, multiple regression, three-way ANOVA)
 - `src/diagrams.js`: diagram builder (19 generated diagram types) and icon lookup by name
 - `src/templates2.js`: v0.9 templates (drug delivery, genome editing, omics and ML workflows, physiology, microbiology, clinical)
+- `src/aidocs.js`: reference files for AI drafting (PDF, Word, PowerPoint, tables, images) and charts from attached tables
 - `src/ai.js`: AI planner, generators, restyle / edit / remove text, smart search, narration
 - `src/bio.js`: antibody builder, disease-mechanism templates
 - `src/files.js`: folder gallery, version history, change detection, templates, slide sorter, poster layout
