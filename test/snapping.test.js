@@ -78,3 +78,14 @@ test('icon search still finds built-in icons (cached list)', () => {
   assert.equal(A.nativeSearchList(), A.nativeSearchList());
   assert.ok(A.searchIcons('mitochondr').items.some((i) => /Mitochondri/.test(i.name)));
 });
+
+test('redraw check: moving an object reuses its drawing, moving a connector end does not', () => {
+  const r = A.Make.rect(10, 10, 50, 40);
+  const k = A.innerKey(r, [r]);
+  r.x = 300; r.y = 200;
+  assert.equal(A.innerKey(r, [r]), k); // only the outer position changed
+  const c = A.Make.connector({ x: 100, y: 450 }, { x: 120, y: 456 });
+  const k2 = A.innerKey(c, [c]);
+  c.to = { x: 300, y: 450 };
+  assert.notEqual(A.innerKey(c, [c]), k2); // used to be equal, leaving a stub arrow on screen
+});

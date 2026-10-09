@@ -101,7 +101,9 @@ const elCache = new Map();
 // outer transform). Big strings (image data) are summarised so keys stay cheap to build.
 const KEY_SKIP = new Set(['x', 'y', 'rot', 'flipX', 'flipY', 'name', 'locked']);
 function innerKey(o, list) {
-  let k = JSON.stringify(o, (key, v) => (KEY_SKIP.has(key) && typeof v !== 'object' ? undefined : key === 'src' && typeof v === 'string' ? v.length + v.slice(-48) : v));
+  // Only the object's own position is left out; positions inside it (connector ends, path points, group
+  // children) do change the drawing. (Skipping those too left connectors drawn as stubs.)
+  let k = JSON.stringify(o, function (key, v) { return this === o && KEY_SKIP.has(key) && typeof v !== 'object' ? undefined : key === 'src' && typeof v === 'string' ? v.length + v.slice(-48) : v; });
   if (o.type === 'connector') { // depends on the boxes it's attached to
     for (const end of [o.from, o.to]) { const t = end && end.id && list.find((x) => x.id === end.id); if (t) k += `|${t.x},${t.y},${t.w},${t.h},${t.rot || 0}`; }
   }
@@ -267,6 +269,12 @@ function addObjects(list, { select = true } = {}) {
   if (select) state.sel = list.map((o) => o.id);
   setTool('select');
   render({ props: true });
+}
+// Drawing tools (shapes, brushes, connectors, lines, pen) stay selected so you can draw several in a row;
+// Esc or V goes back to the pointer. Say so the first time.
+function toolStaysHint() {
+  try { if (localStorage.getItem('scicanvas:toolStaysHint')) return; localStorage.setItem('scicanvas:toolStaysHint', '1'); } catch { return; }
+  toast('The tool stays on so you can draw more. Press Esc or V to go back to the pointer.', 4500);
 }
 function viewCenter() {
   const r = svg.getBoundingClientRect();
@@ -838,7 +846,7 @@ window.addEventListener('pointerup', (e) => {
       const o = d.o;
       if (o.w < 5 && o.h < 5) { o.w = 160; o.h = 100; o.x = d.start.x - 80; o.y = d.start.y - 50; }
       state.sel = [o.id];
-      setTool('select');
+      toolStaysHint(); // drawing tools stay on until Esc / V
       break;
     }
     case 'connect': case 'endpoint': {
@@ -855,7 +863,7 @@ window.addEventListener('pointerup', (e) => {
         if (o.from.id && o.from.id === o.to.id) { page().objects = objs().filter((x) => x !== o); break; }
         if (o.from.id && !o.to.id && len < 8) { const c = center(byId(o.from.id)); o.to = { x: c.x + byId(o.from.id).w / 2 + 120, y: c.y }; }
         state.sel = [o.id];
-        setTool('select');
+        toolStaysHint();
       }
       break;
     }
@@ -872,7 +880,7 @@ window.addEventListener('pointerup', (e) => {
       const o = Make.brush(state.brushKind, x, y, W, H, pts.map((q) => [(q.x - x) / W, (q.y - y) / H]), { closed: d.shape === 'ellipse' });
       objs().push(o);
       state.sel = [o.id];
-      setTool('select');
+      toolStaysHint();
       break;
     }
   }
