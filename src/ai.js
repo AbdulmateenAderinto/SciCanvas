@@ -3,9 +3,9 @@
 // narration. Plus non-AI background removal by edge colour.
 
 const cleanErr = (e) => String(e && e.message ? e.message : e).replace(/^Error invoking remote method[^:]*: (Error: )?/, '');
-async function aiCall({ system, prompt, schema, image }) {
+async function aiCall({ system, prompt, schema, image, documents }) {
   if (!appSettings.hasApiKey) { toast('Add your Anthropic API key in Settings first'); openSettingsDialog(); throw new Error('No API key set'); }
-  return window.native.aiGenerate({ system, prompt, image, schema });
+  return window.native.aiGenerate({ system, prompt, image, schema, ...(documents && documents.length ? { documents } : {}) });
 }
 const sObj = (props, req = Object.keys(props)) => ({ type: 'object', additionalProperties: false, required: req, properties: props });
 const sArr = (items) => ({ type: 'array', items });
@@ -166,25 +166,29 @@ function buildFlowchart(r) {
     const list = byRank[rk];
     const bary = (n) => { const ps = edges.filter((e) => e.to === n.id && pos[e.from] != null).map((e) => pos[e.from]); return ps.length ? ps.reduce((x, y) => x + y, 0) / ps.length : list.indexOf(n); };
     list.sort((a, b) => bary(a) - bary(b));
-    list.forEach((n, i) => { pos[n.id] = i - (list.length - 1) / 2; });
+    // Keep each node near its parents (not re-centred per row), at least one slot apart.
+    let prev = -Infinity;
+    list.forEach((n, i) => { const want = rk === '0' ? i - (list.length - 1) / 2 : bary(n); pos[n.id] = Math.max(want, prev + 1); prev = pos[n.id]; });
+    const shift = list.length > 1 && rk !== '0' ? (list.reduce((t, n) => t + bary(n), 0) - list.reduce((t, n) => t + pos[n.id], 0)) / list.length : 0;
+    if (shift < 0) list.forEach((n) => { pos[n.id] += shift; });
   });
+  const minPos = Math.min(...Object.values(pos));
   const LR = r.direction === 'LR', NW = 190, NH = 74, GX = 70, GY = 70;
-  const maxPer = Math.max(...Object.values(byRank).map((l) => l.length));
   const objsOut = [], map = {};
   const shapeFor = (n, x, y) => {
     const base = { label: n.label, labelSize: 14 };
     switch (n.kind) {
       case 'decision': return Make.shape('diamond', x - 10, y - 14, NW + 20, NH + 28, { ...base, fill: '#fdf0e6', stroke: '#e8743b' });
-      case 'start': case 'end': return Make.shape('pill', x, y, NW, NH - 10, { ...base, fill: '#e9f6ee', stroke: '#3fa55b' });
+      case 'start': case 'end': return Make.shape('pill', x, y + 5, NW, NH - 10, { ...base, fill: '#e9f6ee', stroke: '#3fa55b' });
       case 'data': return Make.shape('parallelogram', x, y, NW, NH, { ...base, fill: '#f1ebfa', stroke: '#9b7fd1' });
       default: return Make.rect(x, y, NW, NH, { ...base, fill: '#e8f0fb', stroke: '#4a7fd6', radius: 10 });
     }
   };
   Object.entries(byRank).forEach(([rk, list]) => {
-    list.forEach((n, i) => {
-      const offset = ((maxPer - list.length) * (LR ? NH + GY : NW + GX)) / 2;
-      const x = LR ? 40 + +rk * (NW + GX + 40) : 40 + offset + i * (NW + GX);
-      const y = LR ? 90 + offset + i * (NH + GY) : 90 + +rk * (NH + GY + 20);
+    list.forEach((n) => {
+      const cross = (pos[n.id] - minPos) * (LR ? NH + GY : NW + GX);
+      const x = LR ? 40 + +rk * (NW + GX + 40) : 40 + cross;
+      const y = LR ? 90 + cross : 90 + +rk * (NH + GY + 20);
       const s = shapeFor(n, x, y); objsOut.push(s); map[n.id] = s;
     });
   });
@@ -233,7 +237,8 @@ async function generateFlowchart() {
 
 // ---------- Leo-style planner: questions → 4 grayscale sketches → mark-up → colour draft ----------
 function openPlanner() {
-  const st = { desc: '', source: '', image: null, questions: [], answers: {}, sketches: [], chosen: -1, final: null, finalObjs: null };
+  const st = { desc: '', source: '', image: null, refs: [], refMode: 'auto', questions: [], answers: {}, sketches: [], chosen: -1, final: null, finalObjs: null };
+  const att = () => referencesForRequest(st.refs, st.refMode);
   const area = el('div');
   const header = el('div', { class: 'steps' });
   const stepNames = ['Describe', 'Plan', 'Sketch', 'Draft'];
@@ -244,17 +249,17 @@ function openPlanner() {
     setStep(0); area.innerHTML = '';
     const d = el('textarea', { rows: 5, style: 'width:100%;font-family:inherit;font-size:13px', value: st.desc, placeholder: 'What should the figure explain? e.g. “How our bispecific antibody bridges CD3 on T cells and HER2 on tumour cells to trigger killing.”' });
     const src = el('textarea', { rows: 4, style: 'width:100%;font-family:inherit;font-size:12px', value: st.source, placeholder: 'Optional: paste source material — abstract, methods, results, slide notes.' });
-    const ref = el('span', { class: 'note', textContent: st.image ? 'Reference image attached' : '' });
-    const file = el('input', { type: 'file', accept: 'image/png,image/jpeg', style: 'display:none', onchange: async (e) => { const f = e.target.files[0]; if (f) { st.image = await downscale(await readAsDataUrl(f), 1400); ref.textContent = `Reference: ${f.name}`; } } });
+    const refUI = referencePicker(st);
     const next = btn('Next: planning questions →', async () => {
       st.desc = d.value.trim(); st.source = src.value.trim();
-      if (!st.desc) return toast('Describe the figure first');
+      if (!st.desc && st.refs.length) st.desc = 'A figure made from the attached material';
+      if (!st.desc) return toast('Describe the figure, or attach a reference file');
       const done = busy(next, 'Thinking…');
       try {
         const r = await aiCall({
           system: 'You are a scientific figure designer planning a figure with a researcher. Ask the 2–4 most useful questions about audience/venue, the single main message, which entities and relationships must appear, and preferred layout or emphasis. Give 2–4 short answer options for each. Respond with the JSON schema.',
-          prompt: `Figure idea: ${st.desc}${st.source ? `\n\nSource material:\n${st.source.slice(0, 8000)}` : ''}`,
-          image: st.image,
+          prompt: `Figure idea: ${st.desc}${st.source ? `\n\nSource material:\n${st.source.slice(0, 8000)}` : ''}${att().text}`,
+          image: att().image, documents: att().documents,
           schema: sObj({ questions: sArr(sObj({ id: sStr, question: sStr, options: sArr(sStr) })) }),
         });
         st.questions = r.questions.slice(0, 4);
@@ -262,7 +267,7 @@ function openPlanner() {
       } catch (e) { err(e); }
       done();
     }, 'primary');
-    area.append(d, el('div', { style: 'height:6px' }), src, el('div', { class: 'btnrow', style: 'margin:8px 0' }, btn('Attach reference image / sketch…', () => file.click()), file, ref), el('div', { class: 'actions' }, next));
+    area.append(d, el('div', { style: 'height:6px' }), src, el('div', { class: 'btnrow', style: 'margin:8px 0' }, refUI), el('div', { class: 'actions' }, next));
   };
 
   const step2 = () => {
@@ -279,12 +284,12 @@ function openPlanner() {
         const SKETCH_ITEM = { ...AI_SCHEMA, required: [...AI_SCHEMA.required, 'concept'], properties: { ...AI_SCHEMA.properties, concept: sStr } };
         const r = await aiCall({
           system: AI_SYSTEM + '\n\nYou are producing 4 alternative LAYOUT SKETCHES for the same figure: genuinely different compositions (e.g. left-to-right flow, central hub, side-by-side comparison, zoom-in panels). Keep each sketch simple (≤ 25 elements). "concept" is one sentence naming the composition idea.',
-          prompt: `Figure: ${st.desc}\n${qa}${st.source ? `\n\nSource material:\n${st.source.slice(0, 6000)}` : ''}`,
-          image: st.image,
+          prompt: `Figure: ${st.desc}\n${qa}${st.source ? `\n\nSource material:\n${st.source.slice(0, 6000)}` : ''}${att().text}`,
+          image: att().image, documents: att().documents,
           schema: sObj({ sketches: sArr(SKETCH_ITEM) }),
         });
         st.sketches = [];
-        for (const sk of r.sketches.slice(0, 4)) st.sketches.push({ json: sk, objs: await aiToObjects(sk) });
+        for (const sk of r.sketches.slice(0, 4)) st.sketches.push({ json: sk, objs: await aiToObjects(sk, att().tables) });
         step3();
       } catch (e) { err(e); }
       done();
@@ -335,11 +340,11 @@ function openPlanner() {
         const cx = c.getContext('2d'); cx.filter = 'grayscale(1)'; cx.drawImage(im, 0, 0); cx.filter = 'none'; cx.drawImage(canvas, 0, 0, c.width, c.height);
         const r = await aiCall({
           system: AI_SYSTEM + '\n\nNow produce the FINAL colour version of the chosen sketch: keep its composition, apply the researcher\'s comments and red mark-up (shown on the attached image), use a restrained, consistent colour palette, and add any labels needed for clarity.',
-          prompt: `Figure: ${st.desc}\nChosen sketch (JSON):\n${JSON.stringify(sk.json)}\nComments: ${notes.value.trim() || '(none)'}`,
-          image: c.toDataURL('image/jpeg', 0.9),
+          prompt: `Figure: ${st.desc}\nChosen sketch (JSON):\n${JSON.stringify(sk.json)}\nComments: ${notes.value.trim() || '(none)'}${att().text.replace(/The attached image is a reference[^\n]*/, 'The attached image shows the chosen sketch with the mark-up.')}`,
+          image: c.toDataURL('image/jpeg', 0.9), documents: att().documents,
           schema: AI_SCHEMA,
         });
-        st.final = r; st.finalObjs = await aiToObjects(r);
+        st.final = r; st.finalObjs = await aiToObjects(r, att().tables);
         step4();
       } catch (e) { err(e); }
       done();
@@ -356,7 +361,7 @@ function openPlanner() {
     const rev = el('textarea', { rows: 2, style: 'width:100%;font-family:inherit;font-size:13px', placeholder: 'Request changes, e.g. “use blue for T cells, make the arrows thicker”' });
     const revise = btn('Revise', async () => {
       const done = busy(revise, 'Revising…');
-      try { st.final = await aiCall({ system: AI_SYSTEM, prompt: `Current figure (JSON):\n${JSON.stringify(st.final)}\n\nRevise it with these changes, keeping everything else:\n${rev.value.trim()}`, schema: AI_SCHEMA }); st.finalObjs = await aiToObjects(st.final); draw(); }
+      try { st.final = await aiCall({ system: AI_SYSTEM, prompt: `Current figure (JSON):\n${JSON.stringify(st.final)}\n\nRevise it with these changes, keeping everything else:\n${rev.value.trim()}`, schema: AI_SCHEMA }); st.finalObjs = await aiToObjects(st.final, att().tables); draw(); }
       catch (e) { err(e); }
       done();
     });

@@ -354,7 +354,7 @@ const AI_SCHEMA = {
         required: ['id', 'kind', 'x', 'y', 'w', 'h', 'text', 'icon', 'color', 'from', 'to', 'arrow', 'shape'],
         properties: {
           id: { type: 'string' },
-          kind: { type: 'string', enum: ['icon', 'text', 'box', 'ellipse', 'shape', 'arrow', 'membrane', 'dna', 'badge'] },
+          kind: { type: 'string', enum: ['icon', 'text', 'box', 'ellipse', 'shape', 'arrow', 'membrane', 'dna', 'badge', 'chart'] },
           x: { type: 'number' }, y: { type: 'number' }, w: { type: 'number' }, h: { type: 'number' },
           text: { type: 'string' }, icon: { type: 'string' }, color: { type: 'string' },
           from: { type: 'string' }, to: { type: 'string' },
@@ -375,12 +375,13 @@ Element kinds:
 - box / ellipse / shape: a panel, compartment or process step; "text" is centred inside (use "" for background panels); "color" is the accent hex. For kind "shape", "shape" is one of triangle, diamond, hexagon, star, arrow, chevron, cylinder, cloud, pill.
 - membrane: a lipid bilayer drawn along the box (a horizontal band), or a closed cell outline when "shape" is "ellipse". dna: a double helix along the box.
 - badge: a numbered step marker; "text" is the number; size about 34 × 34.
+- chart: ONLY when the request includes an attached table. "shape" is the chart type (bar, box, violin, dotplot, scatter, line, dose, survival, heatmap, pie, groupedbar, growth); "text" lists the exact column headers to plot, separated by | (scatter / line / dose: the X column first; survival: time | event | group; groupedbar: factor A | factor B | value). Never write numbers: the editor reads them from the file. Typical size 340 × 260.
 - arrow: connects two elements by id ("from", "to"). "arrow" is arrow (leads to / activates), inhibit (blocks), bind (binds / associates) or line. "text" is a short verb label or "". Set x, y, w, h to 0.
 Fill every unused field with "" or 0. Give each element a short unique "id"; arrows must reference ids that exist.
 
 Design: one clear reading direction (usually left → right or top → bottom); group related content in light background boxes with short headings; keep each entity in one consistent colour; use a restrained palette of 2–4 accents on white; label every important object; prefer a verb on each arrow. Draw elements back-to-front (panels before their contents). Represent only what the user describes — don't add mechanisms, data or claims they didn't mention; when something is hypothetical, say "proposed" in its label.`;
 
-async function aiToObjects(result) {
+async function aiToObjects(result, tables) {
   const objsOut = [], byKey = {};
   const hexOr = (c, d) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c.toLowerCase() : d);
   for (const e of result.elements) {
@@ -416,6 +417,7 @@ async function aiToObjects(result) {
       case 'membrane': o = Make.brush('membrane', x, y, w, h, e.shape === 'ellipse' ? Shapes.ellipse() : Shapes.line(), { closed: e.shape === 'ellipse', color: hexOr(e.color, '#e8b45a') }); break;
       case 'dna': o = Make.brush('dna', x, y, w, h, Shapes.line(), { size: 6, color: hexOr(e.color, '#3b82c4') }); break;
       case 'badge': o = Make.badge(e.text || '1', x + w / 2, y + h / 2); break;
+      case 'chart': o = typeof aiChartFromTables === 'function' ? aiChartFromTables(e, tables) : null; break;
     }
     if (o) { objsOut.push(o); byKey[e.id] = o; }
   }
@@ -428,18 +430,13 @@ async function aiToObjects(result) {
 }
 
 function openAIDialog() {
-  let last = null, lastObjs = null, refImage = null;
+  let last = null, lastObjs = null;
+  const refs = {};
   const prompt = el('textarea', { rows: 6, style: 'width:100%;font-family:inherit;font-size:13px', placeholder: 'Describe the figure: the message, the entities, how they relate, the layout, and the audience.\n\ne.g. “Graphical abstract: tumour-bearing mice receive drug X or vehicle; after 14 days tumours are harvested for flow cytometry (CD8 T cells) and RNA-seq. Show the two arms left-to-right with both readouts on the right.”' });
   const revise = el('textarea', { rows: 2, style: 'width:100%;font-family:inherit;font-size:13px', placeholder: 'Request changes to this draft, e.g. “put the readouts in separate panels”, “use blue for the treated arm”…' });
   const preview = el('div', { class: 'preview', style: 'min-height:360px' }, el('span', { class: 'note', textContent: 'Your draft will appear here.' }));
   const status = el('div', { class: 'note' });
-  const refBox = el('span', { class: 'note' });
-  const fileIn = el('input', { type: 'file', accept: 'image/png,image/jpeg', style: 'display:none', onchange: async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    refImage = await downscale(await readAsDataUrl(f), 1568);
-    refBox.textContent = `Reference: ${f.name}`;
-  } });
+  const refUI = referencePicker(refs);
   const addBtn = btn('Add to page', () => { if (!lastObjs) return; insertObjectsGrouped(lastObjs, false); closeModal(); }, 'primary');
   const newBtn = btn('Open as new page', () => {
     if (!lastObjs) return;
@@ -453,16 +450,16 @@ function openAIDialog() {
   [addBtn, newBtn, reviseBtn].forEach((b) => (b.disabled = true));
   async function run(isRevision) {
     if (!appSettings.hasApiKey) { status.textContent = ''; toast('Add your Anthropic API key in Settings first'); openSettingsDialog(); return; }
-    const desc = prompt.value.trim();
-    if (!desc) { status.textContent = 'Describe the figure first.'; return; }
-    let text = `Figure request:\n${desc}`;
+    const desc = prompt.value.trim() || (refs.refs.length ? 'Make a figure from the attached material.' : '');
+    if (!desc) { status.textContent = 'Describe the figure, or attach a reference file.'; return; }
+    const att = referencesForRequest(refs.refs, refs.refMode);
+    let text = `Figure request:\n${desc}${att.text}`;
     if (isRevision && last) text += `\n\nCurrent draft (JSON):\n${JSON.stringify(last)}\n\nRevise the draft with these changes, keeping everything else:\n${revise.value.trim() || 'Improve spacing and readability.'}`;
-    if (refImage) text += '\n\nThe attached image is a reference sketch or example — follow its composition.';
     [addBtn, newBtn, reviseBtn, genBtn].forEach((b) => (b.disabled = true));
     status.textContent = isRevision ? 'Revising draft…' : 'Drafting figure… (this can take up to a minute)';
     try {
-      last = await window.native.aiGenerate({ system: AI_SYSTEM, prompt: text, image: refImage, schema: AI_SCHEMA });
-      lastObjs = await aiToObjects(last);
+      last = await window.native.aiGenerate({ system: AI_SYSTEM, prompt: text, image: att.image, schema: AI_SCHEMA, ...(att.documents.length ? { documents: att.documents } : {}) });
+      lastObjs = await aiToObjects(last, att.tables);
       const pg = { width: last.width || 1000, height: last.height || 650, background: '#ffffff', objects: lastObjs };
       preview.innerHTML = pageSvgString(pg).replace('<svg ', '<svg style="width:100%;max-height:420px" preserveAspectRatio="xMidYMid meet" ');
       status.textContent = `${lastObjs.length} editable objects. Check the science before using it — drafts can misplace compartments, reverse arrows or overstate certainty.`;
@@ -475,10 +472,10 @@ function openAIDialog() {
   openModal('Generate figure with AI', el('div', {},
     el('div', { class: 'dlg-cols', style: 'grid-template-columns:360px 1fr' },
       el('div', {}, prompt,
-        el('div', { class: 'btnrow', style: 'margin:6px 0' }, btn('Attach reference image…', () => fileIn.click()), fileIn, refBox),
+        el('div', { style: 'margin:6px 0' }, refUI),
         el('div', { class: 'btnrow', style: 'margin:6px 0 12px' }, genBtn),
         el('h3', { class: 'dlg-sub', textContent: 'Refine' }), revise, el('div', { class: 'btnrow', style: 'margin-top:6px' }, reviseBtn),
-        el('div', { class: 'note', style: 'margin-top:10px' }, 'Uses Claude via your Anthropic API key (Settings). Your description and any reference image are sent to Anthropic.')),
+        el('div', { class: 'note', style: 'margin-top:10px' }, 'Uses Claude via your Anthropic API key (Settings). Your description and any attachments are sent to Anthropic.')),
       el('div', {}, preview, status)),
     el('div', { class: 'actions' }, btn('Close', closeModal), newBtn, addBtn)));
   setTimeout(() => prompt.focus(), 30);
