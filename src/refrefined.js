@@ -18,12 +18,20 @@
   const vessels = (paths, col, w) => paths.map((d) => `<path d="${d}" fill="none" stroke="${D(col, 0.25)}" stroke-width="${w + 0.7}" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`).join('');
   // Superficial cortical veins draining up towards the superior sagittal sinus.
   const VEINS = ['M60 30 C62 22 63.6 14 64.4 5.4', 'M72 34 C76 26 78 18 80.6 11', 'M40 26 C40.6 18 42 11 44 4', 'M28 30 C26 22 26 15 28 8.6'];
-  swap('r-lateral-brain', (c) => part('brain', fit(O.brainLateral(c), 1.12, 1.12, 4, 0.2)));
+  // Where professional artwork exists (organart.js), use it, with its licence for File › Credits.
+  const art = (id, key) => {
+    const ic = ICON_MAP[id], A = globalThis.ORGAN_ART, OA = globalThis.OrganArt;
+    if (!ic || !A || !A[key] || !OA) return;
+    const orig = ic.draw, [W, H] = ic.vb || [100, 100], base = part('brain', OA.placed(key, W, H)), def = A[key].colour;
+    ic.color = def; ic.art = true; ic.credit = { ...A[key].credit };
+    ic.draw = (c) => (globalThis.IconStyle && IconStyle.mode === 'classic' ? orig(c) : !c || String(c).toLowerCase() === def ? base : typeof applyTint === 'function' ? applyTint(base, c) : base);
+  };
+  art('r-lateral-brain', 'brain');
+  art('r-brain-coronal-cut', 'brain-coronal');
+  art('r-brain-with-regions-coronal', 'brain-regions-coronal');
   swap('r-lateral-brain-with-vessels', (c) => part('brain', fit(O.brainLateral(c), 1.12, 1.12, 4, 0.2))
     + part('arteries', fit(vessels(O.MCA, ART, 1.3), 1.12, 1.12, 4, 0.2)) + part('veins', fit(vessels(VEINS, VEIN, 1.1), 1.12, 1.12, 4, 0.2)));
   swap('r-brain-sagittal-cut', (c) => part('brain', fit(O.brainSagittal(c), 1.12, 1.12, 4, 0.2)));
   swap('r-brain-superior-view', (c) => part('brain', O.brainSuperior(c)));
-  swap('r-brain-coronal-cut', (c) => part('brain', O.brainCoronal(c)));
-  swap('r-brain-with-regions-coronal', (c) => part('brain', O.brainCoronal(c, { regions: true })));
   swap('r-lateral-brain-in-head', (c) => part('head', O.headWithBrain(c)));
 })();

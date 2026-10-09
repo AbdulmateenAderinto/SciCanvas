@@ -305,7 +305,7 @@
   // ---------- Wrap every built-in icon ----------
   const MEMO = 24;
   for (const ic of ICONS) {
-    if (ic.finished) continue;
+    if (ic.finished || ic.art) continue; // professional artwork (organicons.js) is already shaded
     const prev = ic.draw, memo = new Map(), size = Math.max(...(ic.vb || [100, 100]));
     ic.finished = true;
     ic.draw = (c) => {
