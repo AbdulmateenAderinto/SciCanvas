@@ -606,7 +606,7 @@ function renderParts(o, objects, forExport) {
 
 function renderObjectString(o, objects, forExport) {
   const { transform, inner } = renderParts(o, objects, forExport);
-  const g = `<g${transform ? ` transform="${transform}"` : ''}${o.opacity != null && o.opacity < 1 ? ` opacity="${o.opacity}"` : ''}>${inner}</g>`;
+  const g = `<g${transform ? ` transform="${transform}"` : ''}${o.opacity != null && o.opacity < 1 ? ` opacity="${o.opacity}"` : ''}${o.blend ? ` style="mix-blend-mode:${o.blend}"` : ''}>${inner}</g>`;
   return forExport && o.link && /^https?:\/\//.test(o.link) ? `<a href="${esc(o.link)}" xlink:href="${esc(o.link)}" target="_blank">${g}</a>` : g;
 }
 // Partial erasing: strokes stored in the object's local box (0..1) become a luminance mask.

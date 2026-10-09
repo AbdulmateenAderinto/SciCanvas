@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webFrame } = require('electron');
 
 contextBridge.exposeInMainWorld('native', {
   onMenu: (fn) => ipcRenderer.on('menu', (_e, cmd) => fn(cmd)),
@@ -43,4 +43,8 @@ contextBridge.exposeInMainWorld('native', {
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   aiGenerate: (req) => ipcRenderer.invoke('ai-generate', req),
   fetchImage: (url) => ipcRenderer.invoke('fetch-image', url),
+  menuCommands: () => ipcRenderer.invoke('menu-commands'),
+  spellCheck: async (words) => words.filter((w) => { try { return webFrame.isWordMisspelled(w); } catch { return false; } }),
+  spellAvailable: async () => { try { return webFrame.isWordMisspelled('qzxwvtkj'); } catch { return false; } },
+  spellSuggest: async (word) => { try { return webFrame.getWordSuggestions(word); } catch { return []; } },
 });

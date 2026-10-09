@@ -524,8 +524,9 @@ function insertObjectsGrouped(list, replace) {
   setupContextMenu();
   $$('[data-rtab]').forEach((t) => t.addEventListener('click', () => {
     $$('[data-rtab]').forEach((x) => x.classList.toggle('active', x === t));
-    ['props', 'layers', 'comments'].forEach((k) => $('#' + k).classList.toggle('hidden', t.dataset.rtab !== k));
+    ['props', 'layers', 'comments', 'check'].forEach((k) => $('#' + k) && $('#' + k).classList.toggle('hidden', t.dataset.rtab !== k));
     if (t.dataset.rtab === 'comments') renderCommentsPanel();
+    if (t.dataset.rtab === 'check' && typeof renderCheckPanel === 'function') renderCheckPanel();
   }));
   $('#shapeKind').innerHTML = SHAPES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
   try { appSettings = await window.native.getSettings() || appSettings; } catch { /* browser preview */ }

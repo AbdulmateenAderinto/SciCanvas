@@ -471,9 +471,19 @@
     cellIcon(n, c, k, d, t);
   });
 
-  for (const it of ICON_LIST) {
-    const icon = { id: slug(it.name), name: it.name, cat: it.cat, tags: it.tags, color: it.color, draw: it.draw, vb: it.vb, soft: true };
-    ICONS.push(icon);
-    ICON_MAP[icon.id] = icon;
+  function flush() {
+    for (const it of ICON_LIST.splice(0)) {
+      const icon = { id: slug(it.name), name: it.name, cat: it.cat, tags: it.tags, color: it.color, draw: it.draw, vb: it.vb, soft: true };
+      ICONS.push(icon);
+      ICON_MAP[icon.id] = icon;
+    }
   }
+  flush();
+  // Drawing kit shared with softicons2.js (DNA-level and lab-method icons).
+  globalThis.SoftKit = {
+    P, OW, f, oc, col, MEM, MEMLINE, rng, hash, cr, blob, wob, glob, tubes, tube, ball, ell, G, jit, membrane, ubChain, dnaH, A, SPECIAL, cell,
+    add: (name, cat, tags, color, draw, vb) => { add(name, cat, `${tags} soft`, color, draw, vb); flush(); },
+    arch: (name, a, colour, cat, tags) => { arch(name, a, colour, cat, tags); flush(); },
+    special: (name, key, cat, tags, arg) => { special(name, key, cat, tags, arg); flush(); },
+  };
 })();

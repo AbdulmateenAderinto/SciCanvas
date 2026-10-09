@@ -143,6 +143,11 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - **Cancer**: about 200 named drivers, suppressors, kinases, apoptosis, metabolism and epigenetic proteins, ADC and CAR-T targets, therapeutic antibodies and small-molecule drugs.
 - **Cells**: 90 soft-style cells, including T-cell subsets, CAR-T, exhausted T cells, B and plasma cells, NK cells, macrophage subsets, DCs, granulocytes, MDSC, tumour cells (including PD-L1+ and MHC-I+), CAFs and tissue cells.
 
+- **DNA & chromatin** (about 125): DNA damage (DSB, nick, AP site, UV dimer, mismatch), repair complexes on DNA (Ku, MRN, RAD51 filament, MutSα, PCNA, UNG base flipping, NER), replication fork and origin, transcription bubble and initiation, enhancer–promoter loop, cohesin, CTCF, nucleosome arrays, heterochromatin, histone and CpG methylation marks, R-loop, G-quadruplex, Holliday junction, supercoiling and topoisomerase, telomere T-loop, AID on ssDNA, V(D)J recombination, class switch recombination, somatic hypermutation, CRISPR–Cas9 / Cas12a / base and prime editors / CRISPRi / CRISPRa, restriction enzyme, ligase, PCR, primers, transposon, provirus, gene structure, mRNA, ribosome, tRNA, siRNA, miRNA, chromosomes, plus about 70 named DNA-binding and chromatin proteins.
+- **Flow cytometry** (about 57): dot / quadrant / contour plots with gates, histogram overlay, CFSE, gating strategy, flow cell with laser, cytometer, FACS sorting, labelled cell, compensation bead, CyTOF metal-tagged antibody, viability, 24 fluorochromes, 12 fluorescent proteins and luciferases, and antibody–fluorochrome conjugates.
+- **Antibody discovery** (about 19): lab, immunised, xenograft and humanised mice, spleen, B cell–myeloma fusion, hybridoma, antibody-secreting cell, monoclonal vs polyclonal, HAT selection, limiting dilution, ELISA plate and sandwich well, ELISpot, protein A column, phage and yeast display, antigen-specific B-cell sorting.
+- **Lab methods & engineering** (about 47): plasmid, lentivirus, retrovirus, AAV, adenovirus, transduction, LNP and mRNA–LNP, electroporation, lipofection, CRISPR RNP, knockout and knock-in, GFP and luciferase reporter cells, Yamanaka factors, iPSC reprogramming, organoid, spheroid, pooled CRISPR screen, sgRNA library, antibiotic selection, CD3/CD28 beads, MACS, leukapheresis, infusion and bioreactor bags, flask, cryovial, dewar, incubator, hood, tubes, thermocycler, sequencer, reads, gel, western blot, multichannel pipette, microfluidic chip, single-cell droplet, barcoded bead, exosome, colonies, haemocytometer.
+
 **Soft protein pencil**: choose **Soft protein** in the pencil options. A stroke becomes a rounded, outlined protein tube; the width slider sets its thickness and the fill swatch its colour. Closing a loop gives a smooth outlined blob. Use it to sketch a custom subunit such as FAM72a, then use Save as icon to reuse it. Any open drawing can be switched to "Soft protein tube" in Properties.
 
 ## Immunology & cancer toolkit
@@ -162,6 +167,38 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - Graph › Tumour growth: per-mouse curves plus group mean ± error, endpoint statistics and tumour growth inhibition (TGI) against the first group.
 - Insert › Western Blot Quantification…: box the target and loading-control bands on a blot image, get per-lane densitometry with local background subtraction, normalised ratios, a copyable table and a bar chart with statistics.
 - Insert › Protein Domain Map…: domains and modification sites (P, Ub, Ac, Me, glycosylation, mutations) drawn to scale with an amino-acid axis.
+
+## New in v0.8: design tools from Illustrator, Figma and Canva
+
+**Components with variants** (Figma components, Illustrator symbols): select a protein, cell or labelled group and choose Arrange › Create Component (⌥⌘K). Every copy stays linked: double-click any copy to edit the main component and all copies on every page update. Add variants for biological states (Unbound / Bound / Phosphorylated, Naive / Activated / Exhausted) and switch them per copy from Properties. Each copy can override its own colours and text, and Detach instance makes it independent. Insert › Components… lists them.
+
+**Global colours and text styles** (Figma styles, Illustrator global swatches and paragraph styles): Properties › Global colours saves a named colour ("Treg", "PD-1 green") and links objects to it; change it in Arrange › Colour & Text Styles… and everything linked updates. Text styles (Panel letter, Title, Label, Caption, or your own) work the same way for text. Recolouring a linked property by hand unlinks just that property.
+
+**Copy / paste style** (⌥⌘C / ⌥⌘V): fill, outline, shading, effects, blend mode, width profile and text formatting from one object onto many.
+
+**Recolour artwork** (Illustrator Recolor Artwork): lists every colour in the selection, page or whole figure, including icon colour layers, coloured words and graph series. Change any colour, or map them all to Okabe–Ito, Paul Tol, a journal palette, grayscale, your global colours or brand kit, keeping light and dark shades of one colour paired. Live preview, one undo step.
+
+**Repeat and blend** (Illustrator): Arrange › Repeat makes radial copies (select a receptor and the cell, and copies go round the cell facing outward), grids (96-well plates, cohorts, staggered monolayers) or copies along a drawn path, with a live preview and an "Edit repeat…" button afterwards. Arrange › Blend… creates the steps between two objects (position, size, rotation, opacity, colours, and shape for drawings with the same number of points).
+
+**Width tool** (Illustrator): taper, swell, pinch or custom start / middle / end widths for any open drawing or arrow (Properties › Width tool).
+
+**Image Trace** (Illustrator): Insert › Image Trace… turns a PNG / JPG into editable vector shapes (black & white line art, 3, 6 or 16 colours, with detail, smoothness and speck settings). Works offline.
+
+**Shape Builder** (Illustrator, ⇧⌘M): select overlapping closed shapes; drag across pieces to merge them, ⌥-drag to delete pieces, Enter to finish.
+
+**Blend modes and fades**: Multiply, Screen, Overlay and 12 more per object, plus a fade-out opacity mask (left, right, up, down or vignette) in Properties › Blending. Exported to PNG, SVG and PDF.
+
+**Auto layout** (Figma, ⌥⌘A): a group whose items stack with fixed gaps and padding and resize to fit, with an optional background box and border. Add an item and the box grows; delete one and the rest close up. Good for legends and key boxes.
+
+**Magic resize** (Canva): Arrange › Magic Resize… adds a copy of the page at another size (slide, poster panel, square post, A4…). Reflow keeps labels with their icons and spreads the layout to the new shape; Fit scales it.
+
+**Smart animate** (Figma, Canva): page properties › Transition into this slide: Smart animate, Fade or Slide in. Duplicate a page, move, resize or recolour things, and the presenter glides between the two slides. File › Export Animation… saves MP4 (or WebM) or an animated GIF.
+
+**Command palette** (⌘/): type to run any menu command, pick a tool or brush, jump to a page, insert a component or apply a global colour or text style.
+
+**Find and replace** (⌘F) across text, labels, tables, protocol steps, graph titles, speaker notes and components on every page, plus **Check spelling**, which uses the system dictionary and skips gene, protein and CD-marker names (every icon name is in its word list).
+
+**Outline view** (⌘Y, Illustrator): every object as a thin outline, with hidden, off-page and tiny stray objects in red.
 
 ## New in v0.7
 
@@ -246,3 +283,6 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/app.js`: editor core (state, interaction, properties)
 - `src/dialogs.js`: graph, protocol, chemistry, PDB, template and export dialogs
 - `src/extras.js`: library UI, rulers and guides, group editing, comments, home, settings, credits, help, AI, boot
+- `src/design.js`: components and variants, global colours and text styles, copy / paste style, recolour artwork
+- `src/design2.js`: repeat, blend, width tool, image trace, shape builder, blend modes and fades
+- `src/design3.js`: auto layout, magic resize, smart animate and animation export, command palette, find / replace and spelling, outline view

@@ -121,8 +121,33 @@ Object.assign(Stats, {
     return { coef: beta, r2: 1 - rss / y.reduce((s, v) => s + (v - my) ** 2, 0), f: (v) => beta.reduce((s, b, k) => s + b * v ** k, 0) };
   },
   spearman(x, y) {
-    const r = Stats.linreg(ranks(x), ranks(y)).r, n = x.length, t = r * Math.sqrt((n - 2) / Math.max(1e-12, 1 - r * r));
+    const rx = ranks(x), ry = ranks(y), r = Stats.linreg(rx, ry).r, n = x.length;
+    // Small samples: exact permutation distribution of ρ (the t approximation is far too liberal for n < 10).
+    if (n >= 3 && n < 10) {
+      const perm = ry.slice(), mx = Stats.mean(rx), my = Stats.mean(ry), dx = rx.map((v) => v - mx), sxx = dx.reduce((s, v) => s + v * v, 0), syy = ry.reduce((s, v) => s + (v - my) ** 2, 0);
+      const obs = Math.abs(r) - 1e-12;
+      let hit = 0, tot = 0;
+      const heap = (k) => { // Heap's algorithm over all n! orderings of the y ranks
+        if (k === 1) { let sxy = 0; for (let i = 0; i < n; i++) sxy += dx[i] * (perm[i] - my); tot++; if (Math.abs(sxy / Math.sqrt(sxx * syy)) >= obs) hit++; return; }
+        for (let i = 0; i < k; i++) { heap(k - 1); const j = k % 2 ? 0 : i; [perm[j], perm[k - 1]] = [perm[k - 1], perm[j]]; }
+      };
+      if (sxx > 0 && syy > 0) { heap(n); return { rho: r, p: hit / tot, exact: true }; }
+    }
+    const t = r * Math.sqrt((n - 2) / Math.max(1e-12, 1 - r * r));
     return { rho: r, p: n > 2 ? Stats.tTwoSidedP(t, n - 2) : NaN };
+  },
+  friedman(cols) { // columns = conditions, rows = subjects (complete rows only)
+    const n = Math.min(...cols.map((c) => c.length)), k = cols.length;
+    const R = new Array(k).fill(0);
+    let tieAdj = 0;
+    for (let i = 0; i < n; i++) {
+      const row = cols.map((c) => c[i]), r = ranks(row);
+      r.forEach((v, j) => { R[j] += v; });
+      const counts = {}; row.forEach((v) => { counts[v] = (counts[v] || 0) + 1; });
+      tieAdj += Object.values(counts).reduce((s, t) => s + t ** 3 - t, 0);
+    }
+    const Q = ((12 / (n * k * (k + 1))) * R.reduce((s, v) => s + v * v, 0) - 3 * n * (k + 1)) / (1 - tieAdj / (n * k * (k * k - 1)) || 1);
+    return { name: 'Friedman test', H: Q, df: k - 1, p: Stats.chi2P(Q, k - 1), n };
   },
   logistic(x, y) { // IRLS for logit(p) = b0 + b1 x
     let b = [0, 0], inv;
@@ -197,8 +222,8 @@ function groupAnalysis(groups, names, cfg) {
       out.lines.push(`${t.name}: ${t.t !== undefined ? `t = ${t.t.toFixed(3)}, df = ${t.df.toFixed(1)}` : t.U !== undefined ? `U = ${t.U}, z = ${t.z.toFixed(3)}` : `W⁺ = ${t.W}, z = ${t.z.toFixed(3)}`}, ${fmtP(t.p)}`);
       out.p = t.p;
     } else {
-      const omni = test === 'mw' || test === 'wilcoxon' ? Stats.kruskal(G) : test === 'paired' ? Stats.rmAnova(G) : Stats.anova(G);
-      out.lines.push(omni.H !== undefined ? `${omni.name}: H(${omni.df}) = ${omni.H.toFixed(3)}, ${fmtP(omni.p)}` : `${omni.name}: F(${omni.d1}, ${omni.d2}) = ${omni.F.toFixed(3)}, ${fmtP(omni.p)}${omni.n ? ` (n = ${omni.n} subjects; sphericity assumed)` : ''}`);
+      const omni = test === 'wilcoxon' ? Stats.friedman(G) : test === 'mw' ? Stats.kruskal(G) : test === 'paired' ? Stats.rmAnova(G) : Stats.anova(G);
+      out.lines.push(omni.name === 'Friedman test' ? `${omni.name}: χ²(${omni.df}) = ${omni.H.toFixed(3)}, ${fmtP(omni.p)} (n = ${omni.n} subjects)` : omni.H !== undefined ? `${omni.name}: H(${omni.df}) = ${omni.H.toFixed(3)}, ${fmtP(omni.p)}` : `${omni.name}: F(${omni.d1}, ${omni.d2}) = ${omni.F.toFixed(3)}, ${fmtP(omni.p)}${omni.n ? ` (n = ${omni.n} subjects; sphericity assumed)` : ''}`);
       out.p = omni.p;
       const pairs = [];
       for (let i = 0; i < G.length; i++) for (let j = i + 1; j < G.length; j++) {

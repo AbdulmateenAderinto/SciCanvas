@@ -252,3 +252,20 @@ button.aimenu span { color: var(--muted); font-size: 11.5px; }
 .scard textarea { font-family: inherit; font-size: 12px; width: 100%; }
 .pnotes { color: #ddd; font-size: 16px; max-width: 90vw; margin: 10px auto 0; white-space: pre-wrap; text-align: left; max-height: 110px; overflow: auto; }
 #presentStage { display: flex; flex-direction: column; align-items: center; }
+
+/* ---------- Design tools (components, repeat, palette, outline view) ---------- */
+#modal.side { background: transparent; justify-content: flex-end; align-items: flex-start; pointer-events: none; }
+#modal.side .dialog { pointer-events: auto; width: auto; margin: 70px 300px 0 0; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+#cmdk { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); width: min(620px, 92vw); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.28); z-index: 200; padding: 8px; }
+#cmdk input { width: 100%; font-size: 15px; padding: 9px 10px; border-radius: 8px; }
+.cmdk-list { max-height: 50vh; overflow: auto; margin-top: 6px; }
+.cmdk-item { display: flex; justify-content: space-between; gap: 12px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.cmdk-item.active, .cmdk-item:hover { background: var(--accent-soft); }
+.cmdk-item kbd { color: var(--muted); font: 11px/1.8 -apple-system, BlinkMacSystemFont, Helvetica, sans-serif; white-space: nowrap; }
+#svg.outline-view #scene * { fill: none !important; stroke: #1f2933 !important; stroke-width: 0.8px !important; vector-effect: non-scaling-stroke; filter: none !important; mask: none !important; clip-path: none !important; mix-blend-mode: normal !important; }
+#svg.outline-view #scene image { opacity: .12; }
+#svg.outline-view #scene > g { opacity: 1 !important; mix-blend-mode: normal !important; }
+#svg.outline-view #scene > g.ol-hidden { display: inline !important; }
+#svg.outline-view #scene > g.ol-hidden *, #svg.outline-view #scene > g.ol-stray * { stroke: #e0453a !important; stroke-width: 1.4px !important; }
+#svg.outline-view #pagebg { fill: #fff !important; }
+#svg.outline-view #scene rect[fill="transparent"] { stroke: none !important; }
