@@ -103,8 +103,10 @@ const ICONS = [
     draw: (c) => `<path d="M30 15 C50 0 80 10 85 35 C95 55 85 85 60 88 C35 95 10 80 12 55 C5 40 15 22 30 15 Z" fill="${c}" stroke="${D(c)}" stroke-width="2.5"/>
       <path d="M30 40 q10 -10 20 0 q10 10 20 0 M28 60 q12 10 24 0" stroke="${L(c, 0.4)}" stroke-width="3" fill="none"/>` },
   { id: 'dna', name: 'DNA double helix', cat: 'Molecules', tags: 'nucleic acid gene genome', color: '#3b82c4', vb: [50, 100],
-    draw: (c) => { let s = ''; for (let i = 0; i < 8; i++) { const y = 8 + i * 11.5; const w = Math.abs(Math.sin((i + 0.5) * 0.8)) * 30 + 4; s += `<line x1="${25 - w / 2}" y1="${y}" x2="${25 + w / 2}" y2="${y}" stroke="${i % 2 ? '#e05a5a' : '#f2c14e'}" stroke-width="3"/>`; }
-      return s + `<path d="M8 2 C8 26 42 26 42 50 C42 74 8 74 8 98" stroke="${c}" stroke-width="5" fill="none"/><path d="M42 2 C42 26 8 26 8 50 C8 74 42 74 42 98" stroke="${D(c)}" stroke-width="5" fill="none"/>`; } },
+    // Vertical helix drawn by the soft kit's helix (base pairs end exactly on the strands); the x/y swap turns it upright.
+    draw: (c) => (globalThis.SoftKit && SoftKit.helix
+      ? `<g transform="matrix(0 1 1 0 0 0)">${SoftKit.helix(3, 97, 25, 17, 1, { w: 5, ow: 1.4, c1: c, c2: D(c, 0.18), phase: Math.PI / 2, pairA: '#f2c14e', pairB: '#e05a5a', rw: 3 })}</g>`
+      : `<path d="M8 2 C8 26 42 26 42 50 C42 74 8 74 8 98" stroke="${c}" stroke-width="5" fill="none"/><path d="M42 2 C42 26 8 26 8 50 C8 74 42 74 42 98" stroke="${D(c)}" stroke-width="5" fill="none"/>`) },
   { id: 'rna', name: 'mRNA', cat: 'Molecules', tags: 'nucleic acid transcript', color: '#d6584a', vb: [100, 40],
     draw: (c) => `<path d="M4 20 C14 4 24 4 34 20 S54 36 64 20 S84 4 96 20" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/>
       ${[14, 30, 46, 62, 78].map((x, i) => `<line x1="${x}" y1="${i % 2 ? 26 : 14}" x2="${x}" y2="${i % 2 ? 36 : 4}" stroke="${L(c, 0.3)}" stroke-width="3"/>`).join('')}` },

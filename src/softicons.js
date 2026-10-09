@@ -33,7 +33,29 @@
     }
     return d + (closed ? ' Z' : '');
   }
-  const blob = (pts, c, o = {}) => `<path d="${cr(pts, true)}" fill="${c}" stroke="${o.oc || oc(c)}" stroke-width="${o.w || OW}" stroke-linejoin="round"${o.op ? ` opacity="${o.op}"` : ''}/>`;
+  // ---------- Two-tone finish (v1.2) ----------
+  // Like professional scientific illustration (and the Refined icons): the fill reads as the shaded side and a slightly
+  // lighter copy, inset and nudged up-left, as the lit side; tubes get a light line along their length. Added only
+  // where it fits inside the shape (so C-shapes, thin parts and small dots stay flat), on solid colours, never on
+  // translucent shapes, and not in the Classic icon style.
+  const LIFT = 0.2;
+  const shadeOn = () => !(globalThis.IconStyle && globalThis.IconStyle.mode === 'classic');
+  const solid = (c) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c || '');
+  const inPoly = (x, y, pts) => { let ins = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ins = !ins; } return ins; };
+  function litBlob(pts, c, o) {
+    if (o.op || o.flat || !solid(c) || pts.length < 6 || !shadeOn()) return '';
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, cx = 0, cy = 0;
+    for (const [x, y] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); cx += x / pts.length; cy += y / pts.length; }
+    const size = Math.min(x1 - x0, y1 - y0);
+    if (size < 10) return '';
+    const k = 0.86, off = Math.min(2.4, size * 0.05), inner = pts.map(([x, y]) => [cx + (x - cx) * k - off, cy + (y - cy) * k - off]);
+    for (let i = 0; i < inner.length; i++) { // the lit copy must stay inside (concave shapes stay flat)
+      const [x, y] = inner[i], [nx, ny] = inner[(i + 1) % inner.length];
+      if (!inPoly(x, y, pts) || !inPoly((x + nx) / 2, (y + ny) / 2, pts)) return '';
+    }
+    return `<path d="${cr(inner, true)}" fill="${L(c, LIFT)}"/>`;
+  }
+  const blob = (pts, c, o = {}) => `<path d="${cr(pts, true)}" fill="${c}" stroke="${o.oc || oc(c)}" stroke-width="${o.w || OW}" stroke-linejoin="round"${o.op ? ` opacity="${o.op}"` : ''}/>` + litBlob(pts, c, o);
   // Smooth organic outline: low-frequency harmonics (no corners), optional extra modulation.
   function wob(cx, cy, rx, ry, r, { amp = 0.07, n = 28, rot = 0, mod } = {}) {
     const pts = [], ph = r() * Math.PI * 2, p2 = r() * 6.3, p3 = r() * 6.3, p4 = r() * 6.3, w2 = 0.5 + r() * 0.5, w3 = 0.3 + r() * 0.5;
@@ -50,13 +72,24 @@
   function tubes(list, w, c, o = {}) {
     const ds = list.map((pts) => cr(pts, false));
     const cap = `stroke-linecap="round" stroke-linejoin="round" fill="none"`;
+    // The light line is nudged up-left (its own path, so the Refined style pass doesn't mistake it for the body).
+    const lit = w >= 4.5 && solid(c) && !o.flat && shadeOn() ? list.map((pts) => `<path d="${cr(pts.map(([x, y]) => [x - w * 0.08, y - w * 0.08]), false)}" stroke="${L(c, 0.26)}" stroke-width="${f(w * 0.34)}" ${cap} opacity=".8"/>`).join('') : '';
     return ds.map((d) => `<path d="${d}" stroke="${o.oc || oc(c)}" stroke-width="${w + 2 * (o.ow ?? OW)}" ${cap}/>`).join('')
-      + ds.map((d) => `<path d="${d}" stroke="${c}" stroke-width="${w}" ${cap}/>`).join('')
+      + ds.map((d) => `<path d="${d}" stroke="${c}" stroke-width="${w}" ${cap}/>`).join('') + lit
       + (o.seg ? ds.map((d) => `<path d="${d}" stroke="${L(c, 0.35)}" stroke-width="${w * 0.5}" stroke-dasharray="${o.seg}" ${cap} opacity=".75"/>`).join('') : '');
   }
   const tube = (pts, w, c, o) => tubes([pts], w, c, o);
-  const ball = (cx, cy, rad, c, o = {}) => `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(rad)}" fill="${c}" stroke="${o.oc || oc(c)}" stroke-width="${o.w || OW * 0.8}"/>`;
-  const ell = (cx, cy, rx, ry, c, rot = 0, o = {}) => `<ellipse cx="${f(cx)}" cy="${f(cy)}" rx="${f(rx)}" ry="${f(ry)}" fill="${c}" stroke="${o.oc || oc(c)}" stroke-width="${o.w || OW}"${rot ? ` transform="rotate(${f(rot)} ${f(cx)} ${f(cy)})"` : ''}/>`;
+  const ball = (cx, cy, rad, c, o = {}) => `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(rad)}" fill="${c}" stroke="${o.oc || oc(c)}" stroke-width="${o.w || OW * 0.8}"/>`
+    + (rad >= 4.5 && solid(c) && !o.flat && shadeOn() ? `<circle cx="${f(cx - rad * 0.1)}" cy="${f(cy - rad * 0.1)}" r="${f(rad * 0.84)}" fill="${L(c, LIFT)}"/>` : '');
+  const ell = (cx, cy, rx, ry, c, rot = 0, o = {}) => {
+    const tf = rot ? ` transform="rotate(${f(rot)} ${f(cx)} ${f(cy)})"` : '';
+    let s = `<ellipse cx="${f(cx)}" cy="${f(cy)}" rx="${f(rx)}" ry="${f(ry)}" fill="${c}" stroke="${o.oc || oc(c)}" stroke-width="${o.w || OW}"${tf}/>`;
+    if (Math.min(rx, ry) >= 4.5 && solid(c) && !o.flat && !o.op && shadeOn()) { // lit side up-left on the page, whatever the rotation
+      const m = Math.min(rx, ry) * 0.1, t = -(rot * Math.PI) / 180;
+      s += `<ellipse cx="${f(cx - m * Math.cos(t) + m * Math.sin(t))}" cy="${f(cy - m * Math.sin(t) - m * Math.cos(t))}" rx="${f(rx * 0.84)}" ry="${f(ry * 0.84)}" fill="${L(c, LIFT)}"${tf}/>`;
+    }
+    return s;
+  };
   const G = (inner, tf) => `<g transform="${tf}">${inner}</g>`;
   const jit = (pts, r, a = 3) => pts.map(([x, y]) => [x + (r() * 2 - 1) * a, y + (r() * 2 - 1) * a]);
   const membrane = (y, w, h = 14) => `<rect x="0" y="${y}" width="${w}" height="${h}" fill="${MEM}" opacity=".7"/><path d="M0 ${y} H${w} M0 ${y + h} H${w}" stroke="${MEMLINE}" stroke-width="1.4"/>`;
@@ -163,10 +196,52 @@
     },
     channel: (c) => ({ vb: [80, 100], s: membrane(30, 80, 40) + tube([[18, 22], [18, 78]], 14, L(c, 0.3)) + tube([[62, 22], [62, 78]], 14, L(c, 0.3)) + tube([[33, 18], [32, 82]], 13, c) + tube([[47, 18], [48, 82]], 13, c) }),
   };
+  // ---------- DNA double helix ----------
+  // Strand A (c1) and strand B (c2) between x0 and x1 around yc. Base pairs are evenly spaced (10 per turn), run
+  // exactly from one strand's centre line to the other's in two tints, sit behind the strands and are left out where
+  // the strands cross. The strands take turns in front (redrawn half-turn by half-turn on top with flat ends, so the
+  // joins don't show), which makes the helix read in 3D.
+  // o: w strand width, ow outline, phase, pairs [{ t (0..1), colour, skip }] to override the even spacing,
+  //    mark { t: colour } to colour the base pair nearest each t, pairA / pairB tints, rw base-pair width.
+  function helix(x0, x1, yc, amp, turns, o = {}) {
+    const w = o.w ?? 5, ow = o.ow ?? OW, c1 = o.c1 || P.navy, c2 = o.c2 || P.sky, ph0 = o.phase ?? 0, TAU = Math.PI * 2;
+    const phase = (t) => ph0 + t * turns * TAU;
+    const pA = (t) => [x0 + (x1 - x0) * t, yc + amp * Math.sin(phase(t))], pB = (t) => [x0 + (x1 - x0) * t, yc - amp * Math.sin(phase(t))];
+    const sample = (fn, t0, t1) => { const n = Math.max(3, Math.ceil((t1 - t0) * turns * 28)); return Array.from({ length: n + 1 }, (_, i) => fn(t0 + ((t1 - t0) * i) / n)); };
+    const nPairs = Math.max(2, Math.round(turns * 10));
+    const pairs = o.pairs || Array.from({ length: nPairs }, (_, k) => ({ t: (k + 0.5) / nPairs }));
+    for (const [tm, colour] of Object.entries(o.mark || {})) { // colour the nearest base pair
+      let best = null;
+      for (const p of pairs) if (!best || Math.abs(p.t - tm) < Math.abs(best.t - tm)) best = p;
+      if (best) best.colour = colour;
+    }
+    const rw = o.rw ?? Math.max(1.6, w * 0.44), tA = o.pairA || L(c1, 0.3), tB = o.pairB || D(c2, 0.14);
+    let s = '';
+    for (const p of pairs) {
+      if (p.skip) continue;
+      const [x, ya] = pA(p.t), yb = pB(p.t)[1];
+      if (!p.colour && Math.abs(ya - yb) < w * 1.5) continue; // the strands overlap here
+      const ym = (ya + yb) / 2, ww = p.colour ? rw * 1.7 : rw;
+      s += `<path d="M${f(x)} ${f(ya)} V${f(ym)}" stroke="${p.colour || tA}" stroke-width="${f(ww)}"/><path d="M${f(x)} ${f(ym)} V${f(yb)}" stroke="${p.colour || tB}" stroke-width="${f(ww)}"/>`;
+    }
+    const strand = (fn, c, t0, t1, cap) => {
+      const d = cr(sample(fn, t0, t1), false), a = `stroke-linecap="${cap}" stroke-linejoin="round" fill="none"`;
+      return `<path d="${d}" stroke="${oc(c)}" stroke-width="${f(w + 2 * ow)}" ${a}/><path d="${d}" stroke="${c}" stroke-width="${f(w)}" ${a}/>`;
+    };
+    s += strand(pB, c2, 0, 1, 'round') + strand(pA, c1, 0, 1, 'round');
+    // Half-turns run between the peaks (phase = π/2 + kπ); in each, the strand with cos(phase) > 0 is in front.
+    const bounds = [0];
+    for (let k = Math.floor((ph0 - Math.PI / 2) / Math.PI); ; k++) { const t = (Math.PI / 2 + k * Math.PI - ph0) / (turns * TAU); if (t >= 1) break; if (t > 0) bounds.push(t); }
+    bounds.push(1);
+    for (let i = 0; i < bounds.length - 1; i++) {
+      const t0 = bounds[i], t1 = bounds[i + 1];
+      s += Math.cos(phase((t0 + t1) / 2)) > 0 ? strand(pA, c1, t0, t1, 'butt') : strand(pB, c2, t0, t1, 'butt');
+    }
+    return s;
+  }
+  // The DNA used under proteins in many icons: 24 units tall from y0, across w (same footprint as before).
   function dnaH(x0, y0, w, hi) {
-    const a = [], b = [], rungs = [];
-    for (let i = 0; i <= 10; i++) { const x = x0 + 4 + (i * (w - 8)) / 10, ph = i * 0.95; a.push([x, y0 + 12 + 10 * Math.sin(ph)]); b.push([x, y0 + 12 - 10 * Math.sin(ph)]); if (i > 0 && i < 10) rungs.push(`<path d="M${f(x)} ${f(y0 + 12 + 10 * Math.sin(ph))} V${f(y0 + 12 - 10 * Math.sin(ph))}" stroke="${hi === i ? P.red : '#b8c4d4'}" stroke-width="${hi === i ? 4 : 2.4}" stroke-linecap="round"/>`); }
-    return rungs.join('') + tube(b, 5, P.sky) + tube(a, 5, P.navy);
+    return helix(x0 + 4, x0 + w - 4, y0 + 12, 10, 1.51, { w: 5, c1: P.navy, c2: P.sky, mark: hi ? { [hi / 10]: P.red } : null });
   }
 
   // ---------- Cells ----------
@@ -481,7 +556,7 @@
   flush();
   // Drawing kit shared with softicons2.js (DNA-level and lab-method icons).
   globalThis.SoftKit = {
-    P, OW, f, oc, col, MEM, MEMLINE, rng, hash, cr, blob, wob, glob, tubes, tube, ball, ell, G, jit, membrane, ubChain, dnaH, A, SPECIAL, cell,
+    P, OW, f, oc, col, MEM, MEMLINE, rng, hash, cr, blob, wob, glob, tubes, tube, ball, ell, G, jit, membrane, ubChain, dnaH, helix, A, SPECIAL, cell,
     add: (name, cat, tags, color, draw, vb) => { add(name, cat, `${tags} soft`, color, draw, vb); flush(); },
     arch: (name, a, colour, cat, tags) => { arch(name, a, colour, cat, tags); flush(); },
     special: (name, key, cat, tags, arg) => { special(name, key, cat, tags, arg); flush(); },

@@ -132,13 +132,13 @@
   // =====================================================================================
   // Heart & circulation
   // =====================================================================================
-  S('Heart (four chambers)', CAT.heart, 'heart cross section atria ventricles septum valves aorta', [100, 100], () =>
-    line('M40 4 V22', '#5c6bc0', 7) + line('M56 4 C56 14 60 18 68 20 C80 22 84 12 86 4', BLOOD, 7)
-    + path('M50 24 C40 14 14 16 12 38 C10 58 30 78 50 96 C70 78 90 58 88 38 C86 16 60 14 50 24 Z', '#e57373')
-    + path('M20 36 C20 28 30 26 38 30 C42 34 42 42 38 46 H22 C20 44 20 40 20 36 Z', '#9fa8da') // right atrium
-    + path('M22 50 H40 C44 60 46 72 46 82 C36 74 26 64 22 50 Z', '#7986cb') // right ventricle
-    + path('M60 30 C68 26 80 28 80 36 C80 40 80 44 78 46 H62 C58 42 58 34 60 30 Z', '#ef9a9a') // left atrium
-    + path('M60 50 H78 C76 62 66 74 54 84 C54 72 56 60 60 50 Z', '#e53935'), BLOOD);
+  S('Heart (four chambers)', CAT.heart, 'heart cross section atria ventricles septum valves aorta four chambers', [100, 100], () =>
+    tube([[34, 34], [34, 4]], 8, '#7986cb') + tube([[46, 32], [48, 16], [62, 10], [70, 14]], 8, '#7986cb') + tube([[56, 32], [56, 14], [66, 4], [80, 8], [84, 20]], 9, '#e53935')
+    + path('M50 26 C42 18 16 18 12 38 C8 58 30 80 52 96 C72 80 92 60 88 40 C84 20 58 18 50 26 Z', '#c94c4c') // myocardium
+    + ell(31, 40, 12, 9, '#9fa8da') + ell(67, 39, 12, 8, '#ef9a9a') // right and left atria
+    + path('M22 54 C28 50 40 50 44 54 C46 64 46 74 49 84 C38 78 28 66 22 54 Z', '#9fa8da') // right ventricle
+    + path('M57 54 C62 50 74 50 79 54 C76 66 68 76 56 84 C57 74 57 64 57 54 Z', '#ef9a9a') // left ventricle (thicker wall)
+    + line('M26 49.5 H38 M60 49.5 H74', '#ffffff', 2), '#c94c4c');
   S('Vein with valve', CAT.heart, 'vein venous valve leaflets one-way flow', [110, 60], () =>
     rr(2, 6, 106, 48, 20, '#7986cb') + rr(6, 14, 98, 32, 14, '#c5cae9', { oc: '#7986cb' })
     + path('M46 14 C54 22 60 28 64 30 C58 30 52 30 46 26 Z', '#9fa8da') + path('M46 46 C54 38 60 32 64 30 C58 30 52 30 46 34 Z', '#9fa8da')

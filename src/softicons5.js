@@ -191,11 +191,19 @@
   }, '#81c784');
   S('Gastric ulcer', CAT.dis, 'peptic gastric ulcer stomach H. pylori erosion', [100, 90], () =>
     path(STOMACH_D, '#f0a07f') + shine(64, 40, 10, 6) + ell(46, 66, 9, 6, '#c62828', -10) + ell(46, 66, 5, 3, '#fff3e0', -10, { oc: '#c62828', w: 1 }), '#c62828');
-  S('Inflammatory bowel disease (colitis)', CAT.dis, 'inflammatory bowel disease IBD ulcerative colitis Crohn disease inflamed colon', [110, 70], (r) => {
-    let s = rr(4, 8, 102, 54, 22, '#e57373', { oc: '#b71c1c' }) + rr(12, 18, 86, 34, 16, '#ef9a9a', { oc: '#c62828', w: 1.4 });
-    for (let k = 0; k < 7; k++) s += ell(20 + r() * 70, 26 + r() * 18, 4 + r() * 3, 2.4, '#fff3e0', r() * 60, { oc: '#b71c1c', w: 1 });
-    return s + line('M12 8 V62 M40 8 V62 M70 8 V62 M98 8 V62', '#b71c1c', 1.2, { op: 0.4 });
-  }, '#b71c1c');
+  S('Inflammatory bowel disease (colitis)', CAT.dis, 'inflammatory bowel disease IBD ulcerative colitis Crohn disease inflamed colon ulcers', [110, 70], (r) => {
+    // A segment of large intestine with its pouches (haustra), swollen and red, with pale ulcers on the lining.
+    const x0 = 10, x1 = 98, n = 5, sw = (x1 - x0) / n, top = 20, bot = 50, rr2 = (bot - top) / 2;
+    let d = `M${x0} ${top}`;
+    for (let k = 1; k <= n; k++) d += ` A${f(sw / 2)} 6 0 0 1 ${f(x0 + k * sw)} ${top}`;
+    d += ` A6 ${rr2} 0 0 1 ${x1} ${bot}`;
+    for (let k = n - 1; k >= 0; k--) d += ` A${f(sw / 2)} 6 0 0 1 ${f(x0 + k * sw)} ${bot}`;
+    d += ` A6 ${rr2} 0 0 1 ${x0} ${top} Z`;
+    let s = path(d, '#e06060') + ell(x1, 35, 5, rr2 - 2.5, '#9c2f2f', 0, { oc: '#b83a3a', w: 1.2 }); // open end shows the lumen
+    for (let k = 1; k < n; k++) { const x = x0 + k * sw; s += line(`M${f(x)} ${top + 2} Q${f(x - 3)} 35 ${f(x)} ${bot - 2}`, '#b83a3a', 1.6); }
+    for (let k = 0; k < n; k++) s += ell(x0 + (k + 0.5) * sw + (r() - 0.5) * 5, 30 + r() * 10, 3.6, 2.5, '#fff1c1', r() * 60, { oc: '#a31515', w: 1.2 });
+    return s;
+  }, '#d32f2f');
   S('Colon polyp', CAT.dis, 'colon polyp adenoma colorectal colonoscopy', [110, 70], () =>
     rr(4, 8, 102, 54, 22, '#f3b8a6', { oc: '#d9927e' }) + rr(12, 16, 86, 38, 16, '#fbe0d6', { oc: '#d9927e', w: 1.4 }) + line('M48 54 V40', '#d9927e', 4) + ball(48, 34, 10, '#e57373') + shine(45, 30, 3, 2), '#e57373');
   S('Appendicitis', CAT.dis, 'appendicitis inflamed appendix caecum acute abdomen', [90, 100], () =>
@@ -312,8 +320,11 @@
     `<circle cx="42" cy="66" r="28" fill="none" stroke="#455a64" stroke-width="5"/>` + `<circle cx="42" cy="66" r="3" fill="#455a64"/>` + ball(82, 88, 7, '#455a64') + line('M24 14 V54 H66 L80 84 M24 40 H62', '#607d8b', 5) + line('M66 54 V30', '#607d8b', 4) + rr(18, 8, 12, 8, 3, '#263238'), '#455a64');
   S('Crutches', CAT.proc, 'crutches mobility aid injury', [80, 110], () =>
     [[24, -6], [56, 6]].map(([x, rot]) => G(line('M-8 6 H8 M-6 6 L-3 70 M6 6 L3 70 M0 70 V104 M-4 40 H4', '#90a4ae', 3.6) + rr(-10, 0, 20, 7, 3.5, '#455a64') + rr(-5, 98, 10, 8, 3, '#263238'), `translate(${x} 4) rotate(${rot} 0 50)`)).join(''), '#90a4ae');
-  S('Arm cast and sling', CAT.proc, 'cast sling fracture arm immobilisation orthopaedics', [100, 90], () =>
-    path('M10 20 L70 70 H90 L30 14 Z', '#b3e5fc', { oc: '#4fc3f7', op: 0.9 }) + rr(30, 44, 56, 22, 10, '#ffffff', { oc: '#b0bec5', rot: 0 }) + line('M40 44 V66 M52 44 V66 M64 44 V66', '#e0e0e0', 1.4) + path('M86 48 C96 48 98 62 88 64 Z', ORG.skin), '#4fc3f7');
+  S('Arm cast and sling', CAT.proc, 'cast sling fracture arm immobilisation orthopaedics', [110, 90], () =>
+    line('M14 48 L54 6 M98 40 L62 6', '#4fc3f7', 5) + ell(58, 7, 6, 5, '#4fc3f7') // strap round the neck
+    + G(rr(0, -10, 78, 20, 9, '#f4efe6', { oc: '#b8ab95' }) + line('M18 -10 L24 10 M34 -10 L40 10 M50 -10 L56 10', '#ddd3c1', 1.4), 'translate(10 46) rotate(-5)') // forearm cast
+    + ell(94, 38, 8, 6.5, ORG.skin) // hand
+    + path('M8 46 L96 44 C92 62 70 78 42 80 C24 80 10 66 8 46 Z', '#81d4fa', { oc: '#4fc3f7' }), '#4fc3f7');
   S('Surgical lights (operating theatre)', CAT.proc, 'operating theatre surgical lights surgery OR operating room', [110, 90], () =>
     line('M55 0 V14 M55 14 L30 30 M55 14 L80 30', '#90a4ae', 4) + [[30, 40], [80, 40]].map(([x, y]) => ell(x, y, 22, 12, DEV, 0, { oc: DEVO }) + ngon(x, y + 2, 9, 6).map(([px, py]) => ball(px, py, 3, '#fff59d', { oc: '#fbc02d', w: 0.8 })).join('') + ball(x, y + 2, 3, '#fff59d', { oc: '#fbc02d', w: 0.8 })).join('') + rr(14, 76, 82, 10, 4, '#4db6ac'), DEVO);
   S('Ambulance', CAT.proc, 'ambulance emergency EMS paramedic transport', [120, 80], () =>

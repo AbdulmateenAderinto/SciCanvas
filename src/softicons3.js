@@ -43,9 +43,25 @@
     [[16, 30], [26, 24], [36, 20], [46, 16], [56, 14]].forEach(([x, half], i) => { s += tube(arc(110 - x * 0.3, 50, 74 - i * 9, half + 18, Math.PI * 0.72, Math.PI * 1.28, 12), 8, i % 2 ? L(P.pink, 0.2) : P.pink); });
     return s + [[38, 10], [30, 86], [70, 20], [64, 82], [24, 22]].map(([x, y], i) => ball(x, y, 4.6, i < 2 ? P.pink : L(P.pink, 0.3))).join('');
   }, P.pink);
-  S('Mitochondrion (soft)', CAT.org, 'mitochondria cristae ATP powerhouse', [100, 64], () =>
-    ell(50, 32, 46, 28, P.salmon) + ell(50, 32, 40, 22, L(P.salmon, 0.55), 0, { w: 1.4 })
-    + tubes([[[22, 12], [22, 32]], [[36, 52], [36, 30]], [[50, 10], [50, 34]], [[64, 54], [64, 30]], [[78, 13], [78, 32]]], 5, P.salmon, { ow: 1.2 }), P.salmon);
+  S('Mitochondrion (soft)', CAT.org, 'mitochondria cristae ATP powerhouse inner membrane matrix', [100, 64], () => {
+    // Outer membrane, then the inner membrane folding into finger-like cristae from top and bottom around the matrix.
+    const cx = 50, cy = 32, rx = 39, ry = 21, edge = (x, sgn) => cy + sgn * ry * Math.sqrt(Math.max(0, 1 - ((x - cx) / rx) ** 2));
+    let d = `M${cx - rx} ${cy}`;
+    // Walk one side of the inner membrane (top: left to right, bottom: right to left), dipping into a fold at each u.
+    const side = (sgn, folds, from, to) => {
+      const dir = Math.sign(to - from); let x = from;
+      for (const u of folds) {
+        const a = u - 3 * dir, b = u + 3 * dir, deep = cy + sgn * 4;
+        for (; dir * (a - x) > 0; x += 2 * dir) d += ` L${f(x)} ${f(edge(x, sgn))}`;
+        d += ` L${f(a)} ${f(edge(a, sgn))} L${f(a)} ${f(deep)} A3 3 0 0 0 ${f(b)} ${f(deep)} L${f(b)} ${f(edge(b, sgn))}`;
+        x = b + 2 * dir;
+      }
+      for (; dir * (to - x) >= 0; x += 2 * dir) d += ` L${f(x)} ${f(edge(x, sgn))}`;
+    };
+    side(-1, [26, 42, 58, 74], cx - rx + 2, cx + rx);
+    side(1, [66, 50, 34], cx + rx - 2, cx - rx);
+    return ell(50, 32, 47, 29, '#ec9a86') + path(d + ' Z', '#fbe1d8', { oc: '#c9654f', w: 2.2 });
+  }, '#ec9a86');
   S('Chloroplast', CAT.plant, 'thylakoid grana stroma photosynthesis plastid', [100, 64], () => {
     let s = ell(50, 32, 46, 28, P.green) + ell(50, 32, 41, 23, L(P.green, 0.6), 0, { w: 1.4 }) + line('M18 34 L82 30 M26 22 L74 42', L(P.green, 0.1), 2.2);
     [[24, 30], [40, 22], [56, 38], [72, 26]].forEach(([x, y]) => { for (let k = 0; k < 4; k++) s += rr(x - 7, y - 8 + k * 4.4, 14, 4, 2, P.green, { w: 0.8 }); });
@@ -160,7 +176,10 @@
   S('Pancreas', CAT.anat, 'pancreas islets insulin exocrine organ', [100, 60], (r) => blob(jit([[8, 40], [10, 22], [24, 14], [40, 24], [58, 22], [76, 18], [94, 22], [90, 32], [72, 34], [56, 40], [38, 44], [24, 52]], r, 1.5), ORG.yellow) + line('M16 36 Q40 32 60 30 T90 26', '#c89436', 2), ORG.yellow);
   S('Gallbladder', CAT.anat, 'gallbladder bile cystic duct', [70, 100], () => path('M34 26 C14 30 10 60 16 78 C22 94 48 96 56 80 C62 66 56 38 44 28 Z', '#7fb069') + tube([[40, 28], [44, 14], [56, 4]], 6, '#7fb069') + shine(26, 56, 6, 12, 10), '#7fb069');
   S('Urinary bladder', CAT.anat, 'bladder urine ureter urethra', [100, 100], () => tubes([[[24, 6], [28, 26], [34, 36]], [[76, 6], [72, 26], [66, 36]]], 5, '#e8c547') + path('M50 30 C24 30 14 50 18 66 C22 80 38 86 50 86 C62 86 78 80 82 66 C86 50 76 30 50 30 Z', '#f5d76e') + tube([[50, 86], [50, 98]], 7, '#e8c547'), '#e8c547');
-  S('Kidney (soft)', CAT.anat, 'kidney renal nephron ureter', [80, 100], () => path('M44 6 C18 6 6 30 8 52 C10 76 24 94 44 94 C58 94 66 82 60 70 C56 62 50 58 50 50 C50 42 56 38 60 30 C66 18 58 6 44 6 Z', ORG.liver) + path('M58 38 C46 40 42 46 42 50 C42 56 46 60 58 62 Z', '#f0c8a0', { w: 1.4 }) + tube([[56, 54], [70, 66], [72, 98]], 5, '#f0c8a0'), ORG.liver);
+  S('Kidney (soft)', CAT.anat, 'kidney renal hilum ureter renal artery vein', [80, 100], () =>
+    tube([[56, 46], [76, 38]], 5, '#e53935') + tube([[56, 55], [76, 60]], 6, '#5c6bc0')
+    + path('M40 6 C16 6 6 30 8 52 C10 76 22 94 42 94 C58 94 66 84 62 72 C58 64 52 60 52 50 C52 40 58 36 62 28 C66 16 58 6 40 6 Z', ORG.liver) + shine(24, 30, 6, 12, 15)
+    + path('M48 42 C54 44 58 47 60 50 C58 53 54 56 48 58 C45 54 45 46 48 42 Z', '#f6d6a0') + tube([[58, 52], [66, 70], [66, 98]], 5, '#f6d6a0'), ORG.liver);
   S('Adrenal gland', CAT.anat, 'adrenal suprarenal cortisol adrenaline', [80, 100], () => path('M40 36 C18 36 8 56 10 72 C12 88 26 98 42 96 C56 94 62 84 58 76 C54 70 50 66 52 60 C54 52 60 48 58 42 C56 36 48 36 40 36 Z', ORG.liver) + path('M20 38 C24 22 34 10 44 8 C54 12 60 26 58 40 C48 32 32 32 20 38 Z', ORG.yellow), ORG.yellow);
   S('Liver (soft)', CAT.anat, 'liver hepatic lobe organ', [100, 70], () => path('M8 24 C20 8 60 6 92 12 C98 14 96 22 88 28 C70 42 52 60 34 64 C20 66 8 56 6 42 C5 34 5 28 8 24 Z', ORG.liver) + line('M56 12 C52 26 44 40 36 60', L(ORG.liver, 0.2), 2.4) + shine(30, 28, 12, 7), ORG.liver);
   S('Uterus and ovaries', CAT.dev, 'uterus fallopian tubes ovaries female reproductive', [100, 80], () =>
