@@ -22,7 +22,7 @@ Icon libraries live in `assets/iconpacks/` (about 640 MB in total). Reinstall or
 
 ```bash
 npm run lint   # ESLint
-npm test       # unit tests for the statistics (src/graph.js) and chemical-formula text (src/render.js)
+npm test       # unit tests: statistics (checked against SciPy), every chart type, chemical-formula text
 ```
 
 Both run on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`).
@@ -168,6 +168,21 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - Insert › Western Blot Quantification…: box the target and loading-control bands on a blot image, get per-lane densitometry with local background subtraction, normalised ratios, a copyable table and a bar chart with statistics.
 - Insert › Protein Domain Map…: domains and modification sites (P, Ub, Ac, Me, glycosylation, mutations) drawn to scale with an amino-acid axis.
 
+## New in v0.9: statistics
+
+Every result is checked against SciPy in the automatic tests (`test/fixtures/stats-reference.json`).
+
+**Group comparisons** (bar, box, violin, dot plots): new tests: Student's t / ANOVA (equal variances), Welch's ANOVA (unequal variances), lognormal t / ANOVA (on log values, reported as geometric-mean ratios), and one-sample t, Wilcoxon and ratio tests against a value you choose. **Follow-up comparisons** after a significant overall test: Tukey (Tukey–Kramer), Dunnett (each group vs the first), Bonferroni, Šídák, Games–Howell (unequal variances) and Dunn's (after Kruskal–Wallis), each with adjusted p-values and 95% confidence intervals. Holm-adjusted pairwise tests stay the default, so existing graphs give the same results. The report also gives a Brown–Forsythe equal-variance check, Mauchly's sphericity test with the Greenhouse–Geisser correction for repeated measures, and a choice of outlier check (1.5 × IQR or iterative Grubbs).
+
+**Insert › Statistics & Models** (also in the Graph dialog):
+- *Curve fit*: Michaelis–Menten, one-site binding, exponential growth, exponential plateau, logistic and Gompertz growth, one- and two-phase decay, and 3-, 4- and 5-parameter dose–response. Parameters with standard errors and 95% CIs, R², derived values (half-life, doubling time, EC50 / IC50 with CI, any ECx), an optional confidence band, and the extra-sum-of-squares F test for whether datasets need different curves. Replicates are fitted point by point and plotted as mean ± SD.
+- *Contingency table*: χ² (optional Yates correction), Fisher's exact test, odds ratio and relative risk with 95% CIs, Cramér's V, and a warning when expected counts are small. Paste counts, or raw one-row-per-subject data and it is cross-tabulated.
+- *ROC curve*: AUC with DeLong 95% CI, the Youden-optimal cut-off with its sensitivity and specificity, and the DeLong test between markers measured on the same subjects.
+- *Bland–Altman*: bias and 95% limits of agreement with their CIs, optional % difference, and a check for proportional bias.
+- *Deming regression*: for two methods that both have measurement error, with jackknife CIs and tests of slope = 1 and intercept = 0.
+- *Multiple linear regression*: coefficients with CIs and p-values, R², adjusted R², F test, variance inflation factors, and automatic coding of text columns (e.g. Sex).
+- *Three-way (factorial) ANOVA*: 2–4 factors with all interactions (Type III sums of squares), drawn as grouped bars in panels.
+
 ## New in v0.8: design tools from Illustrator, Figma and Canva
 
 **Components with variants** (Figma components, Illustrator symbols): select a protein, cell or labelled group and choose Arrange › Create Component (⌥⌘K). Every copy stays linked: double-click any copy to edit the main component and all copies on every page update. Add variants for biological states (Unbound / Bound / Phosphorylated, Naive / Activated / Exhausted) and switch them per copy from Properties. Each copy can override its own colours and text, and Detach instance makes it independent. Insert › Components… lists them.
@@ -263,6 +278,8 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/arrange.js`: smart guides, arrange commands, context bar, right-click menu, layers panel
 - `src/more.js`: eraser, eyedropper, palettes & brand kit, colour-vision previews, tables, symbols, panel layout
 - `src/graph2.js`: extended statistics, new chart types, data import
+- `src/stats3.js`: v0.9 statistics: post-hoc tests, distributions, contingency, ROC, method comparison, regression, factorial ANOVA, curve fitting
+- `src/statcharts.js`: Statistics & Models chart types (curve fit, contingency, ROC, Bland–Altman, Deming, multiple regression, three-way ANOVA)
 - `src/ai.js`: AI planner, generators, restyle / edit / remove text, smart search, narration
 - `src/bio.js`: antibody builder, disease-mechanism templates
 - `src/files.js`: folder gallery, version history, change detection, templates, slide sorter, poster layout

@@ -210,21 +210,61 @@ function groupAnalysis(groups, names, cfg) {
   const lines = [], brackets = [];
   const k = groups.length;
   if (cfg.test === 'none' || groups.some((g) => g.length < 2)) return { lines, brackets };
+  // One-sample tests: each group against a hypothetical value (no between-group brackets).
+  if (['onesample', 'onesamplew', 'ratio'].includes(cfg.test) && typeof Stats.oneSampleT === 'function') {
+    const mu = cfg.mu === '' || cfg.mu == null || !isFinite(+cfg.mu) ? (cfg.test === 'ratio' ? 1 : 0) : +cfg.mu;
+    groups.forEach((g, i) => {
+      const r = cfg.test === 'onesamplew' ? Stats.wilcoxonOne(g, mu) : cfg.test === 'ratio' ? Stats.oneSampleRatio(g, mu) : Stats.oneSampleT(g, mu);
+      if (!r) { lines.push(`${names[i]}: the ratio test needs all values > 0.`); return; }
+      lines.push(`${names[i]} vs ${mu}: ${r.name}, ${r.t !== undefined ? `t(${r.df}) = ${r.t.toFixed(3)}, ` : `W⁺ = ${r.W}, `}${fmtP(r.p)}${r.ratio !== undefined ? `; geometric mean ratio ${r.ratio.toPrecision(3)} (95% CI ${r.lo.toPrecision(3)}–${r.hi.toPrecision(3)})` : r.lo !== undefined ? `; difference ${r.diff.toPrecision(3)} (95% CI ${r.lo.toPrecision(3)} to ${r.hi.toPrecision(3)})` : ''} ${stars(r.p)}`);
+    });
+    if (groups.length > 1) lines.push('Each group is tested separately; p-values are not adjusted for multiple groups.');
+    return { lines, brackets };
+  }
   const paired = cfg.test === 'paired' || cfg.test === 'wilcoxon';
   const rec = recommendTest(groups, paired || cfg.paired);
   let test = cfg.test === 'auto' || !cfg.test ? rec.key : cfg.test;
-  const run = (G) => {
+  // Lognormal: run the parametric tests on log-transformed values (all values must be > 0).
+  const logged = test === 'lognormal';
+  if (logged) {
+    if (groups.some((g) => g.some((v) => v <= 0))) { lines.push('Lognormal tests need every value > 0.'); return { lines, brackets }; }
+    lines.push(`Lognormal: tests run on ln(values). Geometric means: ${groups.map((g, i) => `${names[i]} ${Math.exp(Stats.mean(g.map(Math.log))).toPrecision(4)}`).join(', ')}.`);
+  }
+  const POSTHOC_NAMES = { tukey: "Tukey's multiple comparisons (Tukey–Kramer)", dunnett: `Dunnett's multiple comparisons vs ${names[0]}`, bonferroni: 'Bonferroni-corrected t-tests (pooled SD)', sidak: 'Šídák-corrected t-tests (pooled SD)', gameshowell: 'Games–Howell (unequal variances)', dunn: "Dunn's multiple comparisons (Bonferroni)" };
+  const run = (G0) => {
     const out = { lines: [], brackets: [] };
+    const G = logged ? G0.map((g) => g.map(Math.log)) : G0;
     if (G.length === 2) {
       const [a, b] = G;
-      const t = test === 'mw' ? Stats.mannWhitney(a, b) : test === 'wilcoxon' && a.length === b.length ? Stats.wilcoxonSigned(a, b) : test === 'paired' && a.length === b.length ? Stats.pairedT(a, b) : Stats.welch(a, b);
+      const t = test === 'mw' ? Stats.mannWhitney(a, b) : test === 'wilcoxon' && a.length === b.length ? Stats.wilcoxonSigned(a, b) : test === 'paired' && a.length === b.length ? Stats.pairedT(a, b) : test === 'student' && Stats.studentT ? Stats.studentT(a, b) : Stats.welch(a, b);
       out.brackets.push({ a: 0, b: 1, p: t.p });
       out.lines.push(`${t.name}: ${t.t !== undefined ? `t = ${t.t.toFixed(3)}, df = ${t.df.toFixed(1)}` : t.U !== undefined ? `U = ${t.U}, z = ${t.z.toFixed(3)}` : `W⁺ = ${t.W}, z = ${t.z.toFixed(3)}`}, ${fmtP(t.p)}`);
       out.p = t.p;
     } else {
-      const omni = test === 'wilcoxon' ? Stats.friedman(G) : test === 'mw' ? Stats.kruskal(G) : test === 'paired' ? Stats.rmAnova(G) : Stats.anova(G);
-      out.lines.push(omni.name === 'Friedman test' ? `${omni.name}: χ²(${omni.df}) = ${omni.H.toFixed(3)}, ${fmtP(omni.p)} (n = ${omni.n} subjects)` : omni.H !== undefined ? `${omni.name}: H(${omni.df}) = ${omni.H.toFixed(3)}, ${fmtP(omni.p)}` : `${omni.name}: F(${omni.d1}, ${omni.d2}) = ${omni.F.toFixed(3)}, ${fmtP(omni.p)}${omni.n ? ` (n = ${omni.n} subjects; sphericity assumed)` : ''}`);
+      const omni = test === 'wilcoxon' ? Stats.friedman(G) : test === 'mw' ? Stats.kruskal(G) : test === 'paired' ? Stats.rmAnova(G) : test === 'welchanova' && Stats.welchAnova ? Stats.welchAnova(G) : Stats.anova(G);
+      const sph = test === 'paired' && Stats.sphericity ? Stats.sphericity(G) : null;
+      out.lines.push(omni.name === 'Friedman test' ? `${omni.name}: χ²(${omni.df}) = ${omni.H.toFixed(3)}, ${fmtP(omni.p)} (n = ${omni.n} subjects)` : omni.H !== undefined ? `${omni.name}: H(${omni.df}) = ${omni.H.toFixed(3)}, ${fmtP(omni.p)}` : `${omni.name}: F(${omni.d1}, ${+omni.d2.toFixed(2)}) = ${omni.F.toFixed(3)}, ${fmtP(omni.p)}${omni.n ? ` (n = ${omni.n} subjects; sphericity assumed)` : ''}`);
+      if (sph) {
+        const pGG = Stats.fP(omni.F, omni.d1 * sph.gg, omni.d2 * sph.gg);
+        out.lines.push(`Sphericity: Mauchly's W = ${sph.mauchlyW.toFixed(3)}, ${fmtP(sph.p)}; Greenhouse–Geisser ε = ${sph.gg.toFixed(3)} → corrected ${fmtP(pGG)}${sph.p < 0.05 ? ' (sphericity violated: report the corrected p)' : ''}`);
+      }
       out.p = omni.p;
+      // Named post-hoc procedures (Tukey, Dunnett, …) where they suit the test; otherwise Holm-adjusted pairwise tests.
+      const ph = cfg.posthoc || 'holm';
+      const parametric = ['welch', 'welchanova', 'student', 'lognormal'].includes(test);
+      const usable = ph === 'dunn' ? test === 'mw' : parametric && ['tukey', 'dunnett', 'bonferroni', 'sidak', 'gameshowell'].includes(ph);
+      if (ph === 'none') return out;
+      if (usable && Stats.postHoc) {
+        const res = Stats.postHoc(G, ph, { control: 0 });
+        out.lines.push(`Post-hoc: ${POSTHOC_NAMES[ph]}, multiplicity-adjusted:`);
+        res.forEach((r) => {
+          const ci = r.lo !== undefined && !logged ? `, diff ${r.diff.toPrecision(3)} (95% CI ${r.lo.toPrecision(3)} to ${r.hi.toPrecision(3)})` : r.lo !== undefined ? `, ratio ${Math.exp(r.diff).toPrecision(3)} (95% CI ${Math.exp(r.lo).toPrecision(3)}–${Math.exp(r.hi).toPrecision(3)})` : '';
+          out.lines.push(`  ${names[r.i]} vs ${names[r.j]}: ${r.statName} = ${Math.abs(r.stat).toFixed(3)}${ci}, adj. ${fmtP(r.p)} ${stars(r.p)}`);
+          if (r.p < 0.05 && cfg.posthocBrackets !== false) out.brackets.push({ a: Math.min(r.i, r.j), b: Math.max(r.i, r.j), p: r.p });
+        });
+        return out;
+      }
+      if (ph !== 'holm') out.lines.push(`(${POSTHOC_NAMES[ph] || ph} doesn't apply to this test, so Holm-adjusted pairwise tests are shown instead.)`);
       const pairs = [];
       for (let i = 0; i < G.length; i++) for (let j = i + 1; j < G.length; j++) {
         const f = test === 'mw' ? Stats.mannWhitney : test === 'wilcoxon' ? Stats.wilcoxonSigned : test === 'paired' ? Stats.pairedT : Stats.welch;
@@ -242,10 +282,18 @@ function groupAnalysis(groups, names, cfg) {
   // Normality + recommendation.
   const normTxt = rec.norm.map((r, i) => (r ? `${names[i]} W = ${r.W.toFixed(3)}, p = ${r.p.toPrecision(2)}` : null)).filter(Boolean);
   if (normTxt.length) lines.push(`Shapiro–Wilk normality: ${normTxt.join('; ')}`);
+  // Equal-variance check for the unpaired parametric tests (a note only; never changes the test used).
+  if (!paired && Stats.levene && groups.every((g) => g.length >= 2)) {
+    const bf = Stats.levene(groups);
+    if (isFinite(bf.p)) lines.push(`${bf.name} for equal variances: F(${bf.d1}, ${bf.d2}) = ${bf.F.toFixed(3)}, ${fmtP(bf.p)}${bf.p < 0.05 && ['welch', 'student', 'lognormal'].includes(test) && k > 2 ? " — variances differ; consider Welch's ANOVA with Games–Howell." : bf.p < 0.05 && test === 'student' ? " — variances differ; consider Welch's t-test." : ''}`);
+  }
   lines.push(`Suggested test: ${rec.why}.${cfg.test === 'auto' || !cfg.test ? ' (used)' : test === rec.key ? '' : ' Consider switching.'}`);
-  // Sensitivity to flagged outliers (report only — never auto-exclude).
-  if (!paired && groups.some((g) => g.length >= 4 && Stats.outliersIQR(g).length)) {
-    const trimmed = groups.map((g) => { const o = g.length >= 4 ? Stats.outliersIQR(g) : []; return g.filter((v) => !o.includes(v)); });
+  // Sensitivity to flagged outliers (report only — never auto-exclude). IQR rule by default, or iterative Grubbs.
+  const flag = (g) => (g.length < 4 ? [] : cfg.outliers === 'grubbs' && Stats.grubbs ? Stats.grubbs(g) : Stats.outliersIQR(g));
+  if (cfg.outliers !== 'off' && !paired && groups.some((g) => flag(g).length)) {
+    const flagged = groups.map(flag);
+    lines.push(`Possible outliers (${cfg.outliers === 'grubbs' ? 'Grubbs, α = 0.05' : '1.5 × IQR rule'}): ${flagged.map((o, i) => (o.length ? `${names[i]} ${o.map((v) => +v.toPrecision(6)).join(', ')}` : null)).filter(Boolean).join('; ')}`);
+    const trimmed = groups.map((g, i) => g.filter((v) => !flagged[i].includes(v)));
     if (trimmed.every((g) => g.length >= 2)) { const alt = run(trimmed); lines.push(`Sensitivity — excluding flagged outliers: ${fmtP(alt.p)} (vs ${fmtP(main.p)} with all data). Report both if you exclude anything, and say why.`); }
   }
   return { lines, brackets, suggestion: rec.key };

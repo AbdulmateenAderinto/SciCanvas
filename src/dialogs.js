@@ -57,6 +57,10 @@ function openGraphDialog(existing, preset) {
     show(ptsRow, ['bar', 'box', 'violin', 'groupedbar', 'tumour'].includes(k));
     show(centerRow, k === 'dotplot');
     show(testRow, GROUP.includes(k) || k === 'tumour');
+    const nGroups = (parseTable(cfg.data || '').headers || []).length;
+    show(posthocRow, GROUP.includes(k) && nGroups > 2 && !['onesample', 'onesamplew', 'ratio', 'none'].includes(cfg.test));
+    show(muRow, GROUP.includes(k) && ['onesample', 'onesamplew', 'ratio'].includes(cfg.test));
+    show(outlierRow, GROUP.includes(k) && cfg.test !== 'none');
     show(statsRow, ['scatter', 'survival', 'groupedbar'].includes(k));
     show(fitRow, k === 'scatter');
     show(stdFitRow, k === 'standard');
@@ -104,7 +108,10 @@ function openGraphDialog(existing, preset) {
   const errRow = field('Error bars', bind('error', el('select', {}, ...opts([['sd', 'SD'], ['sem', 'SEM'], ['ci95', '95% CI']]))));
   const ptsRow = field('', cb('showPoints', 'Show individual points'));
   const centerRow = field('Centre line', bind('center', el('select', {}, ...opts([['mean', 'Mean ± error'], ['median', 'Median + IQR']]))));
-  const testSel = bind('test', el('select', {}, ...opts([['auto', 'Automatic (recommended test)'], ['welch', "Welch's t / ANOVA (parametric)"], ['mw', 'Mann–Whitney / Kruskal–Wallis (non-parametric)'], ['paired', 'Paired t / repeated-measures ANOVA'], ['wilcoxon', 'Wilcoxon signed-rank (paired, non-parametric)'], ['none', 'None']])));
+  const testSel = bind('test', el('select', {}, ...opts([['auto', 'Automatic (recommended test)'], ['welch', "Welch's t / ANOVA (parametric)"], ['student', "Student's t / ANOVA (equal variances)"], ['welchanova', "Welch's t / Welch's ANOVA (unequal variances)"], ['lognormal', 'Lognormal t / ANOVA (on log values)'], ['mw', 'Mann–Whitney / Kruskal–Wallis (non-parametric)'], ['paired', 'Paired t / repeated-measures ANOVA'], ['wilcoxon', 'Wilcoxon signed-rank (paired, non-parametric)'], ['onesample', 'One-sample t-test vs a value'], ['onesamplew', 'One-sample Wilcoxon vs a value'], ['ratio', 'One-sample ratio t-test vs a value'], ['none', 'None']])));
+  const posthocRow = field('Follow-up', bind('posthoc', el('select', {}, ...opts([['holm', 'Holm-adjusted pairwise tests'], ['tukey', "Tukey (all pairs)"], ['dunnett', "Dunnett (each vs first group)"], ['bonferroni', 'Bonferroni'], ['sidak', 'Šídák'], ['gameshowell', 'Games–Howell (unequal variances)'], ['dunn', "Dunn's (after Kruskal–Wallis)"], ['none', 'None (overall test only)']]))));
+  const muRow = field('Test against', bind('mu', el('input', { type: 'number', step: 'any', placeholder: '0 (ratio: 1)', style: 'width:90px' })));
+  const outlierRow = field('Outlier check', bind('outliers', el('select', {}, ...opts([['iqr', '1.5 × IQR rule'], ['grubbs', 'Grubbs (α = 0.05)'], ['off', 'Off']]))));
   const testRow = el('div', {}, field('Analysis', testSel), el('div', { style: 'margin-left:84px' }, useSuggested));
   const statsRow = field('', el('label', { style: 'width:auto;color:inherit' }, (() => { const c = el('input', { type: 'checkbox', checked: cfg.test !== 'none' }); c.addEventListener('change', () => { cfg.test = c.checked ? 'auto' : 'none'; update(); }); return c; })(), ' Run statistics'));
   const fitRow = field('Fit', bind('fit', el('select', {}, ...opts([['linear', 'Linear'], ['poly2', 'Quadratic (degree 2)'], ['poly3', 'Cubic (degree 3)'], ['none', 'None']]))));
@@ -147,7 +154,7 @@ function openGraphDialog(existing, preset) {
         field('Title', bind('title', el('input', { type: 'text' }))),
         field('X label', bind('xLabel', el('input', { type: 'text' }))),
         field('Y label', bind('yLabel', el('input', { type: 'text' }))),
-        extraRow, errRow, ptsRow, centerRow, testRow, statsRow, fitRow, stdFitRow, heatRow, donutRow, bandRow, transformRow, axisRow, logRow, pRow,
+        extraRow, errRow, ptsRow, centerRow, testRow, posthocRow, muRow, outlierRow, statsRow, fitRow, stdFitRow, heatRow, donutRow, bandRow, transformRow, axisRow, logRow, pRow,
         field('', cb('grid', 'Gridlines'))),
       el('div', {}, preview, report,
         el('div', { class: 'note', style: 'margin-top:8px' }, 'The software cannot tell from a table which observations are independent, paired, or technical vs biological replicates — choose the test to match your design. Outlier flags are prompts to investigate, not reasons to exclude.'))),
