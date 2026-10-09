@@ -16,6 +16,20 @@ library → canvas → relationships → data → review → export.
 
 SciCanvas 1.0 brings together everything built so far: drawing and design tools (v0.8), about 21,500 icons (including 1,500 soft-style icons) with new soft-style sets for anatomy, microbes, model organisms, plants, lab and clinical items, graphs with publication-grade statistics (follow-up tests, curve fitting, ROC, contingency tables, regression, factorial ANOVA), a diagram builder with 19 diagram types and flowcharts from Mermaid / JSON / steps, templates, a journal-figure checker, and AI drafting from your own PDFs, Word files, slides and tables. The sections below describe each release in detail.
 
+## New design tools (next release)
+
+- **Fill editor** (Properties › Fill editor): gradients with any number of colours and per-colour opacity, linear at any angle or radial, dragged directly on the canvas; presets (fade to transparent, cytoplasm, hypoxic core, viridis…); fill opacity; patterns (stripes, dots, crosshatch, hatch, checks, grid, waves, bricks) and generated textures (cytoplasm granules, collagen / ECM fibres, stroma, nuclear chromatin, lipid droplets, bone trabeculae, grain). Patterns and textures export as vectors.
+- **One light source**: with nothing selected, Properties › Lighting sets the light direction for the whole figure; every shading style and drop shadow follows it.
+- **Warp, perspective and isometric**: arc, arch, bulge, flag, wave, fish-eye, twist, squeeze and rise warps; free distort and perspective with four corner handles; one-click isometric top / left / right planes, floor and walls; View › Isometric Grid. Warps stay editable; text and photos move with the plane as rigid pieces.
+- **Cutaway**: wedge or straight cuts (or cut with your own shape) through a cell, organ or tumour, with a cut face and an optional inside colour.
+- **Path tools** (Arrange › Path): offset path, outline stroke (keeps width profiles), knife, scissors, join / close (⌘J), simplify, smooth, round corners; rectangles can have a different radius on each corner.
+- **Typography**: letter spacing, line height, paragraph spacing, text boxes that wrap words, columns, justify, wrap around objects, vertical alignment, small caps and number styles. Typing `\alpha`, `\mu`, `\deg`, `->`, `<=>`, `+/-` then a space gives α, μ, °, →, ⇌, ±.
+- **Labels that stay attached**: Arrange › Label Selected Objects names every selected icon in tidy columns with leader lines (straight, elbow or curved) that follow the objects when they move.
+- **Graphic styles**: save a whole look (fill, gradient, pattern, outline, shading, effects, text formatting) as a named style, apply it in one click, and update every linked object at once (Arrange › Graphic Styles…).
+- **Selection and navigation**: lasso (Q), ⌥⌘-click to select the object behind, select same fill / outline / effects / font / graphic style, View › Zoom to Selection (⌘2) and a mini-map.
+- **Layout grids**: per-page columns and rows with gutters and margins, including Nature / Cell, Science and PNAS column presets; objects snap to columns and whole-column widths. Never exported.
+- **More effects**: inner glow, halo outline (keeps labels readable over images), grain, depth-of-field blur, and background blur for frosted panels.
+
 ## Download
 
 Get the installer from the [latest release](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest) (also linked under **Releases** on the right of the GitHub page):
