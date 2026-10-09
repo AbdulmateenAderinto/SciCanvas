@@ -42,7 +42,11 @@ let groupEdit = null;
 const page = () => state.doc.pages[state.pageIndex];
 const objs = () => page().objects;
 const byId = (id) => objs().find((o) => o.id === id);
-const selected = () => state.sel.map(byId).filter(Boolean);
+const selected = () => { // keeps selection order; one pass over the page for big selections
+  if (state.sel.length < 4) return state.sel.map(byId).filter(Boolean);
+  const m = new Map(objs().map((o) => [o.id, o]));
+  return state.sel.map((id) => m.get(id)).filter(Boolean);
+};
 const deep = (x) => JSON.parse(JSON.stringify(x));
 
 function toast(msg, ms = 2200) {
@@ -104,13 +108,25 @@ function innerKey(o, list) {
   if (o.type === 'icon' && !ICON_MAP[o.iconId]) k += getAsset(o.iconId) ? '+a' : '-a';
   return k;
 }
+// While dragging, only the objects being moved (plus connectors, which follow them) can change, so
+// renderSceneOnly() redraws just those instead of checking every object on the page each frame.
+// With moveOnly, those objects only changed position, so their drawings are reused without checking.
+let sceneOnly = null, sceneMoveOnly = false;
+function renderSceneOnly(ids, moveOnly = false) { sceneOnly = ids; sceneMoveOnly = moveOnly; try { renderScene(); } finally { sceneOnly = null; sceneMoveOnly = false; } }
 function renderScene() {
-  const scene = $('#scene'), list = objs(), seen = new Set();
+  const scene = $('#scene'), all = objs(), seen = new Set(), only = sceneOnly;
+  const list = only ? all.filter((o) => only.has(o.id) || o.type === 'connector') : all;
   let prev = null;
   for (const o of list) {
-    let c0 = elCache.get(o.id), key = innerKey(o, list), transform, inner;
+    const c1 = sceneMoveOnly && o.type !== 'connector' && elCache.get(o.id);
+    if (c1 && c1.inner !== undefined) {
+      const t = transformFor(o);
+      if (c1.transform !== t) { t ? c1.el.setAttribute('transform', t) : c1.el.removeAttribute('transform'); c1.transform = t; }
+      continue;
+    }
+    let c0 = elCache.get(o.id), key = innerKey(o, all), transform, inner;
     if (c0 && c0.key === key) { transform = transformFor(o); inner = c0.inner; }
-    else ({ transform, inner } = renderParts(o, list, false));
+    else ({ transform, inner } = renderParts(o, all, false));
     let c = elCache.get(o.id);
     if (!c) { const g = document.createElementNS(SVGNS, 'g'); g.dataset.id = o.id; c = { el: g }; elCache.set(o.id, c); }
     c.key = key;
@@ -121,11 +137,13 @@ function renderScene() {
     if (c.opacity !== op) { c.el.setAttribute('opacity', op); c.opacity = op; }
     if ((c.blend || '') !== (o.blend || '')) { c.el.style.mixBlendMode = o.blend || ''; c.blend = o.blend || ''; }
     c.el.classList.toggle('dimmed', !!groupEdit && !groupEdit.ids.has(o.id));
+    if (only) { if (!c.el.parentNode) scene.append(c.el); continue; } // order can't change mid-drag
     const want = prev ? prev.nextSibling : scene.firstChild;
     if (want !== c.el) scene.insertBefore(c.el, want);
     prev = c.el;
     seen.add(o.id);
   }
+  if (only) return;
   for (const [id, c] of elCache) if (!seen.has(id)) { c.el.remove(); elCache.delete(id); }
 }
 
@@ -703,7 +721,8 @@ function handlePointerMove(e) {
         } else { r.o.x = r.x + dx; r.o.y = r.y + dy; }
       }
       $('#guides').innerHTML = guides;
-      renderScene(); renderOverlay();
+      if (!drag.ids) drag.ids = new Set(drag.orig.map((r) => r.o.id));
+      renderSceneOnly(drag.ids, true); renderOverlay();
       return;
     }
     case 'resize': {
@@ -717,7 +736,7 @@ function handlePointerMove(e) {
       } else if (o.type === 'protocol') {
         o.x = r.x; o.w = r.w; postEdit(o);
       } else Object.assign(o, r);
-      renderScene(); renderOverlay();
+      renderSceneOnly(new Set([o.id])); renderOverlay();
       return;
     }
     case 'rotate': {

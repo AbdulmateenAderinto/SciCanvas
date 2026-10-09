@@ -219,13 +219,26 @@ const FIELD_CATS = {
   Chemistry: ['Chemistry', 'Amino-Acids', 'Molecular modelling'],
   'Animal models': ['Animals', 'Organisms', 'Procedures'],
 };
+// The built-in icons' search entries, built once (rebuilt only if icons are added later).
+let nativeSearchCache = null;
+function nativeSearchList() {
+  if (!nativeSearchCache || nativeSearchCache.n !== ICONS.length) nativeSearchCache = { n: ICONS.length, list: ICONS.map((i) => ({ native: true, id: i.id, key: i.id, name: i.name, category: i.cat, hay: `${i.name} ${i.tags} ${i.cat}`.toLowerCase(), license: 'built-in' })) };
+  return nativeSearchCache.list;
+}
+// Library thumbnail for a built-in icon, drawn once and reused.
+const nativeThumbCache = new Map();
+function nativeThumb(id) {
+  let t = nativeThumbCache.get(id);
+  if (!t) { const ic = ICON_MAP[id], vb = iconViewBox(id); t = `<svg viewBox="-4 -4 ${vb.w + 8} ${vb.h + 8}">${ic.draw(ic.color)}</svg>`; nativeThumbCache.set(id, t); }
+  return t;
+}
 function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
   let q = query.toLowerCase().trim();
   const syn = SYNONYMS[q] || SYNONYMS[q.replace(/s$/, '')];
   const words = q.split(/\s+/).filter(Boolean);
   const synWords = syn ? syn.split(/\s+/) : null;
   const boost = new Set(FIELD_CATS[field] || []);
-  const native = ICONS.map((i) => ({ native: true, id: i.id, key: i.id, name: i.name, category: i.cat, hay: `${i.name} ${i.tags} ${i.cat}`.toLowerCase(), license: 'built-in' }));
+  const native = nativeSearchList();
   let all = [...native, ...Packs.all];
   if (cat === 'Suggested' && typeof suggestedIcons === 'function') { const sug = suggestedIcons(limit); return { total: sug.length, items: sug }; }
   if (cat === '★ Favorites') { const fav = getFavs(); all = all.filter((i) => fav.includes(i.key)); }

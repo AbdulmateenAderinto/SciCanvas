@@ -4,7 +4,9 @@ let appSettings = { hasApiKey: false, author: '', field: '' };
 const saveView = () => lsSet('scicanvas:view', state.view);
 
 // ---------- Library ----------
-let activeCat = 'All', libLimit = 240;
+// The library shows the first 72 matches, then loads more automatically as you scroll down.
+const LIB_FIRST = 72, LIB_MORE = 144;
+let activeCat = 'All', libLimit = LIB_FIRST;
 function renderLibrary() {
   const q = $('#search').value.trim();
   $$('#cats [data-cat]').forEach((b) => b.classList.toggle('active', b.dataset.cat === activeCat));
@@ -19,7 +21,7 @@ function renderLibrary() {
   const favs = new Set(getFavs());
   $('#icongrid').innerHTML = items.map((it) => {
     let pic;
-    if (it.native) { const vb = iconViewBox(it.id); pic = `<svg viewBox="-4 -4 ${vb.w + 8} ${vb.h + 8}">${ICON_MAP[it.id].draw(ICON_MAP[it.id].color)}</svg>`; }
+    if (it.native) pic = nativeThumb(it.id);
     else pic = `<img loading="lazy" decoding="async" src="${it.url}" alt="">`;
     const tip = it.native ? it.name : `${it.name} — ${it.author} (${LICENSE_NAMES[it.license] || it.license})${it.kb > 1024 ? ` · ${(it.kb / 1024).toFixed(1)} MB` : ''}`;
     const nc = isNonCommercial(it.license) ? '<em class="nc" title="Non-commercial licence">NC</em>' : '';
@@ -28,7 +30,7 @@ function renderLibrary() {
   const foot = $('#libfoot');
   foot.innerHTML = '';
   foot.append(el('span', { textContent: `${total.toLocaleString()} icon${total === 1 ? '' : 's'}` }));
-  if (total > items.length) foot.append(btn(`Show more (${(total - items.length).toLocaleString()})`, () => { libLimit += 480; renderLibrary(); }));
+  if (total > items.length) foot.append(btn(`Show more (${(total - items.length).toLocaleString()})`, () => { libLimit += LIB_MORE; renderLibrary(); }));
   foot.append(el('div', { class: 'btnrow' }, btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog)));
   foot.append(el('div', { class: 'note', style: 'margin-top:4px' }, `${(ICONS.length + Packs.all.length).toLocaleString()} icons from ${Packs.list.filter((p) => p.id !== 'mine').length + 1} libraries (CC0 / CC BY / MIT). Non-commercial icons are marked NC. File › Credits drafts your attributions.`));
 }
@@ -41,9 +43,9 @@ function renderLibraryBanner() {
 }
 function setupLibrary() {
   let t;
-  $('#search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { libLimit = 240; if (activeCat !== 'All' && $('#search').value && !['★ Favorites', 'Recent'].includes(activeCat)) activeCat = 'All'; renderLibrary(); }, 120); });
-  $('#cats').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { activeCat = b.dataset.cat; libLimit = 240; renderLibrary(); } });
-  $('#catSel').addEventListener('change', (e) => { activeCat = e.target.value || 'All'; libLimit = 240; renderLibrary(); });
+  $('#search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { libLimit = LIB_FIRST; if (activeCat !== 'All' && $('#search').value && !['★ Favorites', 'Recent'].includes(activeCat)) activeCat = 'All'; renderLibrary(); }, 120); });
+  $('#cats').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { activeCat = b.dataset.cat; libLimit = LIB_FIRST; renderLibrary(); } });
+  $('#catSel').addEventListener('change', (e) => { activeCat = e.target.value || 'All'; libLimit = LIB_FIRST; renderLibrary(); });
   $('#icongrid').addEventListener('click', (e) => {
     const req = e.target.closest('[data-request-icon]');
     if (req) { e.preventDefault(); requestContent('icon', req.dataset.requestIcon); return; }
@@ -53,6 +55,14 @@ function setupLibrary() {
     if (c) addIcon(c.dataset.key);
   });
   $('#icongrid').addEventListener('dragstart', (e) => { const c = e.target.closest('[data-key]'); if (c) e.dataTransfer.setData('application/x-scicanvas-icon', c.dataset.key); });
+  if ('IntersectionObserver' in window) { // scrolling near the end loads the next batch
+    let busy = false;
+    new IntersectionObserver((entries) => {
+      if (busy || !entries.some((x) => x.isIntersecting) || !$('#libfoot button')) return;
+      if (!/^Show more/.test($('#libfoot button').textContent)) return;
+      busy = true; libLimit += LIB_MORE; renderLibrary(); setTimeout(() => { busy = false; }, 150);
+    }, { rootMargin: '300px' }).observe($('#libfoot'));
+  }
 }
 
 // ---------- Rulers & guides ----------

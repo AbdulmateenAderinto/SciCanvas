@@ -6,8 +6,13 @@ const GUIDE_ALIGN = '#e8437b', GUIDE_SPACE = '#8a4fff';
 
 // ---------- Smart guides ----------
 function guideTargets() {
+  // Nothing else moves during a drag, so work the targets out once per drag rather than every frame.
+  if (typeof drag !== 'undefined' && drag && drag.snapTargets) return drag.snapTargets;
   const ids = new Set(state.sel);
-  return objs().filter((o) => !ids.has(o.id) && o.type !== 'connector' && !o.hidden && !(groupEdit && !groupEdit.ids.has(o.id))).map((o) => bounds(o));
+  if (typeof drag !== 'undefined' && drag && drag.orig) for (const r of drag.orig) ids.add(r.o.id); // docked riders too
+  const out = objs().filter((o) => !ids.has(o.id) && o.type !== 'connector' && !o.hidden && !(groupEdit && !groupEdit.ids.has(o.id))).map((o) => bounds(o));
+  if (typeof drag !== 'undefined' && drag) drag.snapTargets = out;
+  return out;
 }
 function label(x, y, text) {
   const z = state.zoom, fs = 10.5 / z, w = (text.length * 6.2 + 8) / z, h = 15 / z;
@@ -84,9 +89,9 @@ function distanceGuides(bb, others, skipX, skipY) {
 }
 
 function snapMove(dx, dy) {
-  const moving = drag.orig.map((r) => r.o).filter((o) => o.type !== 'connector');
+  const moving = drag.orig.filter((r) => r.o.type !== 'connector');
   if (!moving.length) return { dx, dy, guides: '' };
-  const tmp = moving.map((o) => { const r = drag.orig.find((q) => q.o === o); return { ...o, x: r.x + dx, y: r.y + dy }; });
+  const tmp = moving.map((r) => ({ ...r.o, x: r.x + dx, y: r.y + dy }));
   let bb = unionBounds(tmp);
   if (!state.view.snap && !state.view.snapGrid) return { dx, dy, guides: '' };
   if (state.view.snapGrid) {
@@ -289,8 +294,23 @@ function setupContextMenu() {
 // ---------- Layers panel ----------
 let layerOpen = new Set(), layerDrag = null, layerAnchor = null;
 const LAYER_ICON = { icon: '◉', rect: '▭', ellipse: '◯', shape: '⬡', text: 'T', connector: '↗', image: '🖼', brush: '〰', chart: '▤', protocol: '①', group: '▣', path: '✎' };
+// The list is rebuilt only when it's on screen and its rows actually changed (objects added, removed,
+// reordered, renamed, hidden, locked or groups opened); a new selection just moves the highlight.
+let layersShape = null, layerSerial = 0;
+const layerObjIds = new WeakMap(); // undo swaps in new object copies, which must rebuild the rows
+const layerObjId = (o) => { if (!layerObjIds.has(o)) layerObjIds.set(o, ++layerSerial); return layerObjIds.get(o); };
 function renderLayers() {
   const Lp = $('#layers');
+  if (Lp.classList.contains('hidden')) { layersShape = null; return; } // drawn when the Layers tab opens
+  const shape = JSON.stringify([state.pageIndex, [...layerOpen], objs().map((o) => [layerObjId(o), o.id, layerName(o), !!o.hidden, !!o.locked, o.type === 'group' && layerOpen.has(o.id) ? o.children.map((c) => [layerObjId(c), c.id, layerName(c)]) : 0])]);
+  if (shape === layersShape) {
+    const sel = new Set(state.sel);
+    let first = null;
+    for (const r of Lp.querySelectorAll('.layer')) { const on = sel.has(r.dataset.lid); r.classList.toggle('sel', on); if (on && !first) first = r; }
+    if (first) first.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  layersShape = shape;
   Lp.innerHTML = '';
   const list = [...objs()].reverse(); // top of the list = front-most
   if (!list.length) { Lp.append(el('div', { class: 'note', textContent: 'No objects on this page yet.' })); return; }
@@ -307,7 +327,7 @@ function renderLayers() {
       e.stopPropagation();
       const inp = el('input', { type: 'text', value: o.name || layerName(o), style: 'flex:1;min-width:0' });
       name.replaceWith(inp); inp.focus(); inp.select();
-      const done = () => { const v = inp.value.trim(); checkpoint(); o.name = v && v !== layerName({ ...o, name: '' }) ? v : undefined; renderLayers(); renderProps(); };
+      const done = () => { const v = inp.value.trim(); checkpoint(); o.name = v && v !== layerName({ ...o, name: '' }) ? v : undefined; layersShape = null; renderLayers(); renderProps(); };
       inp.addEventListener('blur', done);
       inp.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') inp.blur(); if (ev.key === 'Escape') { inp.value = o.name || ''; inp.blur(); } });
     });
@@ -358,3 +378,6 @@ function renderLayers() {
   const selRow = Lp.querySelector('.layer.sel');
   if (selRow) selRow.scrollIntoView({ block: 'nearest' });
 }
+
+// Draw the layers list when its tab is opened (it isn't kept up to date while hidden).
+$$('[data-rtab="layers"]').forEach((t) => t.addEventListener('click', () => setTimeout(renderLayers, 0)));
