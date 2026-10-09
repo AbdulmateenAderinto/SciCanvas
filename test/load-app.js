@@ -25,3 +25,4 @@ const code = [...order, ...extra].map((f) => `/* ${f} */\n` + fs.readFileSync(pa
 let R;
 try { R = vm.runInNewContext(code, ctx, { filename: 'app-bundle.js' }); } catch (e) { console.error('LOAD ERROR', e.message, e.stack.split('\n').slice(1, 3).join(' ')); throw e; }
 module.exports = R;
+module.exports.globals = ctx; // every top-level function of the app, for modules not listed above
