@@ -230,6 +230,7 @@ function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
   if (cat === 'Suggested' && typeof suggestedIcons === 'function') { const sug = suggestedIcons(limit); return { total: sug.length, items: sug }; }
   if (cat === '★ Favorites') { const fav = getFavs(); all = all.filter((i) => fav.includes(i.key)); }
   else if (cat === 'Recent') { const rec = getRecentIcons(); all = rec.map((k) => all.find((i) => i.key === k)).filter(Boolean); }
+  else if (cat === 'Soft style') all = all.filter((i) => i.category && i.category.startsWith('Soft'));
   else if (cat !== 'All') all = all.filter((i) => i.category === cat);
   const scored = [];
   for (const it of all) {

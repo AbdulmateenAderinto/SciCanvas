@@ -125,9 +125,20 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - New-figure types and recent files with thumbnails.
 
 
+## New in v0.6: soft-style icons
+
+**About 1,000 soft-style icons** (library › **Soft** chip), drawn from code in one consistent style: flat fills, darker same-colour outlines, and rounded protein "tubes" and blobs. Everything is recolourable, and each colour layer can be edited.
+- **Protein shapes**: hook, Ω, C-shape, oval adaptor, bean, globular, kinase (bilobed), dumbbell, 4-helix bundle, dimer / trimer / tetramer, LRR horseshoe, WD40 β-propeller, hexameric ring, Y-shape, cullin scaffold, open-cleft enzyme, β-trefoil, chemokine, coiled coil, TF on DNA, and membrane receptors (1–4 Ig domains, dimers, TNFR, RTK, GPCR, cytokine receptor + JAK, TLR, C-type lectin, integrin, cadherin, channel), plus shape variants.
+- **Ubiquitin & degradation**: ubiquitin and K48 / K63 / branched chains, polyubiquitinated substrate, 26S / 20S proteasome, fragments, E1 / E2 ~Ub, cullin-RING ligase, CTLH complex (also with FAM72A–UNG2, and ubiquitinating UNG2), PROTAC (molecule and ternary complex), molecular glue, autophagosome, lysosome. Over 150 named E2s, E3s, DUBs, autophagy and proteasome proteins.
+- **Immunology**: soft IgG / IgM / IgA / Fab / F(ab′)₂ / scFv / VHH / Fc / bispecific / BiTE / ADC / CAR, TCR–CD3, BCR, MHC I and II with peptide, TCR–pMHC synapse, PD-1 / PD-L1, perforin pore, inflammasome. About 200 named receptors and CD markers, 110 cytokines, chemokines and complement proteins, and 110 signalling proteins including AID, UNG2 and DNA repair.
+- **Cancer**: about 200 named drivers, suppressors, kinases, apoptosis, metabolism and epigenetic proteins, ADC and CAR-T targets, therapeutic antibodies and small-molecule drugs.
+- **Cells**: 90 soft-style cells, including T-cell subsets, CAR-T, exhausted T cells, B and plasma cells, NK cells, macrophage subsets, DCs, granulocytes, MDSC, tumour cells (including PD-L1+ and MHC-I+), CAFs and tissue cells.
+
+**Soft protein pencil**: choose **Soft protein** in the pencil options. A stroke becomes a rounded, outlined protein tube; the width slider sets its thickness and the fill swatch its colour. Closing a loop gives a smooth outlined blob. Use it to sketch a custom subunit such as FAM72a, then use Save as icon to reuse it. Any open drawing can be switched to "Soft protein tube" in Properties.
+
 ## Immunology & cancer toolkit
 
-**Soft icon set (88 icons)**: one consistent BioRender-style look (flat fill, thin darker outline, rounded ends) in four new library categories. *Proteins (soft)*: globular, C, S, U, Y-scaffold, bean, rod, two-domain, dimer, trimer, C-pair, helical bundle, unfolded chain, labelled adaptor oval, complex halo, kinase, enzyme, receptors, GPCR, channel. *Protein degradation*: ubiquitin, polyubiquitin, tagged substrate, E1 / E2 / E3, cullin–RING ligase, 26S and 20S proteasome, degraded peptides, SUMO, DUB, autophagosome, lysosome, chaperone, PTM marks. *Immunology*: IgG, Fab, IgM, IgA, BCR, TCR–CD3, MHC I / II with peptide, CD4, CD8, PD-1, PD-L1, CTLA-4, CD28 / B7, cytokines, chemokine, cytokine receptor + JAK, STAT dimer, TLR, Fc receptor, MAC pore, perforin / granzyme, inflammasome, AID, UNG, class-switch recombination, T / B / plasma / dendritic / NK cells, macrophage, neutrophil, germinal centre. *Cancer*: tumour cell, mitosis, metastatic and apoptotic cells, CAF, CAR-T cell, CAR construct, BiTE, ADC, spheroid, tumour mass, kinase inhibitor, RAS, p53, DNA break, mutation, mouse with tumour; plus a flow cytometer. Every icon is recolourable, with colour layers.
+**Soft icon set (88 icons)**: one consistent BioRender-style look (flat fill, thin darker outline, rounded ends) in the library under the **Soft** chip. *Soft · Protein shapes*: globular, C, S, U, Y-scaffold, bean, rod, two-domain, dimer, trimer, C-pair, helical bundle, unfolded chain, labelled adaptor oval, complex halo, kinase, enzyme, receptors, GPCR, channel. *Soft · Ubiquitin & degradation*: ubiquitin, polyubiquitin, tagged substrate, E1 / E2 / E3, cullin–RING ligase, 26S and 20S proteasome, degraded peptides, SUMO, DUB, autophagosome, lysosome, chaperone, PTM marks. *Soft · Immunology*: IgG, Fab, IgM, IgA, BCR, TCR–CD3, MHC I / II with peptide, CD4, CD8, PD-1, PD-L1, CTLA-4, CD28 / B7, cytokines, chemokine, cytokine receptor + JAK, STAT dimer, TLR, Fc receptor, MAC pore, perforin / granzyme, inflammasome, AID, UNG, class-switch recombination, T / B / plasma / dendritic / NK cells, macrophage, neutrophil, germinal centre. *Soft · Cancer*: tumour cell, mitosis, metastatic and apoptotic cells, CAF, CAR-T cell, CAR construct, BiTE, ADC, spheroid, tumour mass, kinase inhibitor, RAS, p53, DNA break, mutation, mouse with tumour; plus a flow cytometer. Every icon is recolourable, with colour layers.
 
 **Protein shapes**: Insert › Protein Shape… builds an editable outlined protein (globular, bean, oval, C, S, U, J, crescent, rod, unfolded chain) with thickness, bulge, an optional lighter partner subunit and a label tag. Arrange › Make Protein Shape turns any pencil stroke into an outlined tube (or gives a closed drawing the soft style). Arrange › Add Lighter Partner Subunit and Arrange › Degrade into Fragments (also in the right-click menu under Biology).
 
@@ -207,6 +218,8 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/immunotemplates.js`: immunology & cancer templates
 - `src/data.js`: flow cytometry (FCS), tumour growth curves, western blot densitometry
 - `src/icons.js`: built-in icons
+- `src/softicons.js`: soft-style icon generator (archetypes + named catalogue)
+- `src/immunoicons.js`: hand-drawn soft icons for the immunology & cancer toolkit
 - `src/packs.js`: icon packs, SVG sanitising, colour layers and tint, search, credits
 - `src/render.js`: object model → SVG (shapes, effects, connectors, brushes, protocols)
 - `src/graph.js`: statistics and charts
