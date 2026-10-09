@@ -309,8 +309,9 @@ function panelLayout() {
   items.forEach(({ o }, i) => {
     const r = Math.floor(i / cols), c = i % cols;
     const x0 = margin + c * (cellW + gap), y0 = margin + r * (cellH + label + gap) + label;
+    // Text keeps its size (only shrinks if it can't fit); other objects scale to fill the cell.
     const k = Math.min(cellW / o.w, cellH / o.h);
-    if (o.type === 'text') { o.fontSize *= k; postEdit(o); } else { o.w *= k; o.h *= k; if (o.type === 'protocol') postEdit(o); }
+    if (o.type === 'text') { if (k < 1) { o.fontSize *= k; postEdit(o); } } else { o.w *= k; o.h *= k; if (o.type === 'protocol') postEdit(o); }
     o.x = x0 + (cellW - o.w) / 2; o.y = y0 + (cellH - o.h) / 2; o.rot = 0;
     labels.push(Make.text(String.fromCharCode(65 + i), x0 - 4, y0 - label, { fontSize: 22, bold: true, name: `Panel ${String.fromCharCode(65 + i)}` }));
   });

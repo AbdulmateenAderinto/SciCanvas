@@ -445,7 +445,7 @@ function rasterize(p, scale, { transparent, mime }) {
 
 function openExportDialog() {
   const p = page();
-  const fmt = el('select', {}, ...[['png', 'PNG'], ['jpg', 'JPEG'], ['pdf', 'PDF (vector)'], ['svg', 'SVG (vector)'], ['pptx', 'PowerPoint (.pptx)']].map(([v, l]) => el('option', { value: v, textContent: l })));
+  const fmt = el('select', {}, ...[['png', 'PNG'], ['jpg', 'JPEG'], ['tiff', 'TIFF (LZW, for journals)'], ['pdf', 'PDF (vector)'], ['svg', 'SVG (vector)'], ['pptx', 'PowerPoint (.pptx)']].map(([v, l]) => el('option', { value: v, textContent: l })));
   const selOnly = el('input', { type: 'checkbox', checked: state.sel.length > 0, disabled: !state.sel.length });
   const selRow = field('', el('label', { style: 'width:auto;color:inherit' }, selOnly, ` Selection only${state.sel.length ? ` (${state.sel.length} object${state.sel.length > 1 ? 's' : ''})` : ' — nothing selected'}`));
   const { icons: usedIcons } = collectCredits(state.doc);
@@ -461,7 +461,7 @@ function openExportDialog() {
   const upd = () => {
     const p = selOnly.checked && fmt.value !== 'pdf' && fmt.value !== 'pptx' ? selectionPage() : page();
     selRow.classList.toggle('hidden', fmt.value === 'pdf' || fmt.value === 'pptx');
-    const raster = fmt.value === 'png' || fmt.value === 'jpg';
+    const raster = fmt.value === 'png' || fmt.value === 'jpg' || fmt.value === 'tiff';
     rasterRows.forEach((r) => r.classList.toggle('hidden', !raster));
     scopeRow.classList.toggle('hidden', fmt.value !== 'pdf');
     trRow.classList.toggle('hidden', !(fmt.value === 'png' || fmt.value === 'svg'));
@@ -508,6 +508,9 @@ function openExportDialog() {
       } else if (fmt.value === 'pdf') {
         const pages = scope.value === 'all' ? state.doc.pages : [p];
         out = await window.native.exportPdf({ defaultName: (scope.value === 'all' ? base.replace(/-[^-]*$/, '') : base) + '.pdf', pages: pages.map((pg) => ({ svg: pageSvgString(pg), width: pg.width, height: pg.height })) });
+      } else if (fmt.value === 'tiff') {
+        const r = await tiffDataUrl(p, +widthIn.value || p.width / 96, +dpi.value);
+        out = await window.native.exportFile({ defaultName: `${base}.tif`, ext: 'tif', data: r.url });
       } else {
         const win = +widthIn.value || p.width / 96, d = +dpi.value;
         const sc = maxScale(p, (win * d) / p.width);

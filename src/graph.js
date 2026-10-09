@@ -364,7 +364,7 @@ function renderChart(cfg, w, h) {
         out += `<text x="${m.l + pw - 4}" y="${m.t + 14 + si * 14}" text-anchor="end" fill="${col}">R² = ${pf.r2.toFixed(3)}</text>`;
       } else if (cfg.kind === 'scatter' && cfg.test !== 'none' && cfg.fit !== 'none' && sr.pts.length > 2) {
         const lr = Stats.linreg(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1]));
-        if (typeof Stats.spearman === 'function') { const sp = Stats.spearman(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1])); report.push(`${sr.name}: Spearman ρ = ${sp.rho.toFixed(3)}, ${fmtP(sp.p)}`); }
+        if (typeof Stats.spearman === 'function') { const sp = Stats.spearman(sr.pts.map((p) => p[0]), sr.pts.map((p) => p[1])); report.push(`${sr.name}: Spearman ρ = ${sp.rho.toFixed(3)}, ${fmtP(sp.p)}${sp.exact ? ' (exact permutation p)' : ''}`); }
         out += `<line x1="${X(xa)}" y1="${Y(lr.intercept + lr.slope * xa)}" x2="${X(xb)}" y2="${Y(lr.intercept + lr.slope * xb)}" stroke="${col}" stroke-width="1.5" stroke-dasharray="5 3"/>`;
         report.push(`${sr.name}: y = ${lr.slope.toPrecision(3)}x + ${lr.intercept.toPrecision(3)}, R² = ${lr.r2.toFixed(3)}, Pearson r = ${lr.r.toFixed(3)}, ${fmtP(lr.p)} (n = ${sr.pts.length})`);
         out += `<text x="${m.l + pw - 4}" y="${m.t + 14 + si * 14}" text-anchor="end" fill="${col}">R² = ${lr.r2.toFixed(3)}</text>`;

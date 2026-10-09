@@ -73,6 +73,8 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Import Image…', accelerator: 'CmdOrCtrl+I', click: send('importImage') },
         { label: 'Export…', accelerator: 'CmdOrCtrl+E', click: send('export') },
+        { label: 'Check Figure for Journal…', accelerator: 'Shift+CmdOrCtrl+J', click: send('checkFigure') },
+        { label: 'Export for Journal…', click: send('exportJournal') },
         { label: 'Export Animation (MP4 / GIF)…', click: send('exportAnimation') },
         { label: 'Credits & Licences…', click: send('credits') },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: send('settings') },
