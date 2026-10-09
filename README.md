@@ -3,9 +3,14 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.0.1
+## Version 1.1
 
-**Latest: [SciCanvas 1.0.1](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below). The app itself is the same as 1.0.
+**Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.1**
+- **All ~21,500 icons built in**: the installers now include the four icon libraries (Bioicons, Reactome, Health Icons, PhyloPic), so nothing extra to download.
+- **Snapping**: resizing snaps to the width / height of other objects (shown with matching dimension marks), including icons and images that keep their proportions; new shapes snap to existing sizes as you draw; rotation locks onto 0°, 45°, 90°… and onto other tilted objects' angles, with an angle readout; lines, arrows and connectors straighten near 0° / 45° / 90°. Hold ⌘ (Ctrl on Windows) to turn snapping off; Shift still gives 15° rotation steps.
+- **Smoother**: dragging and resizing redraw only what moves, clicking to select no longer rebuilds the Layers list, and the icon library draws fewer thumbnails up front and loads more as you scroll. On a busy test page (636 objects): moving one icon ~4.7 → ~2 ms per step, moving everything ~19 → ~10 ms, typing in icon search ~61 → ~36 ms per key.
 
 SciCanvas 1.0 brings together everything built so far: drawing and design tools (v0.8), about 21,500 icons (including 1,500 soft-style icons) with new soft-style sets for anatomy, microbes, model organisms, plants, lab and clinical items, graphs with publication-grade statistics (follow-up tests, curve fitting, ROC, contingency tables, regression, factorial ANOVA), a diagram builder with 19 diagram types and flowcharts from Mermaid / JSON / steps, templates, a journal-figure checker, and AI drafting from your own PDFs, Word files, slides and tables. The sections below describe each release in detail.
 
@@ -16,7 +21,7 @@ Get the installer from the [latest release](https://github.com/AbdulmateenAderin
 - **Windows**: `SciCanvas-Setup-<version>.exe`. Double-click to install. Windows may show "Windows protected your PC" because the app isn't signed with a paid certificate: click **More info → Run anyway**.
 - **Mac**: `SciCanvas-<version>-arm64.dmg` for Apple-silicon Macs (M1 and later) or `-x64.dmg` for Intel Macs. Open it and drag SciCanvas to Applications. The first time, right-click the app and choose **Open** (or allow it under System Settings › Privacy & Security), because it isn't notarised by Apple.
 
-The installers include the 1,567 built-in icons (about 1,500 soft-style). The four optional icon libraries (about 19,900 more icons) aren't included; add them from **Insert › Icon Libraries…** in the app.
+From 1.1 the installers include all ~21,500 icons: the 1,567 built-in ones and the four icon libraries (about 19,900 more), so they're bigger downloads (a few hundred MB). Library updates can still be installed from **Insert › Icon Libraries…** in the app.
 
 ## Run (from the source code)
 
@@ -41,7 +46,7 @@ Anyone with write access to the repo can publish; GitHub builds the installers (
 2. On GitHub: **Releases › Draft a new release**. Type the tag (`v1.0.2`, matching the version), choose **Create new tag** on `main`, add a title and notes, and click **Publish release**.
 3. A few minutes later the Windows `.exe` and both Mac `.dmg` files appear on the release (progress is under the **Actions** tab). Each build is started once as a smoke test before it's attached.
 
-Publishing any release, including a pre-release, starts the build, so only publish releases you want installers for.
+Only releases whose tag starts with `v` (like `v1.1.0`) get installers; others, such as the `icon-libraries` release, are left alone. The build downloads the icon libraries from that `icon-libraries` release (`iconpacks.tar.gz`) and puts them inside the installers. To refresh them: run `npm run icons`, then `tar -czf iconpacks.tar.gz -C assets iconpacks` and replace the file on that release.
 
 ## Checks
 

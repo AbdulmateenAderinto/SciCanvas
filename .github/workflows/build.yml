@@ -1,7 +1,8 @@
 name: Build installers
 
-# Builds the Windows installer (.exe) and the Mac disk images (.dmg).
-# - When a release is published on GitHub, the installers are attached to that release page.
+# Builds the Windows installer (.exe) and the Mac disk images (.dmg), with all four icon libraries inside.
+# - When a version release (tag starting with "v", e.g. v1.1.0) is published, the installers are attached
+#   to that release page. Other releases (like "icon-libraries") are left alone.
 # - On pull requests that touch the build setup, and when run by hand from the Actions tab,
 #   they're saved as downloadable "artifacts" on the run instead.
 on:
@@ -20,6 +21,7 @@ permissions:
 
 jobs:
   build:
+    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'v')
     strategy:
       fail-fast: false
       matrix:
@@ -43,10 +45,25 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # The big optional icon libraries aren't in the repo; users can add them from
-      # Insert › Icon Libraries… inside the app. An empty folder keeps the build config happy.
-      - run: mkdir -p assets/iconpacks
+      # The icon libraries (Bioicons, Reactome, Health Icons, PhyloPic: ~19,900 icons) aren't in the repo.
+      # They're kept as one archive on the "icon-libraries" release and unpacked into assets/iconpacks,
+      # which electron-builder copies into the app. If the archive can't be fetched the build still works,
+      # just without them (users can add them from Insert › Icon Libraries…).
+      - name: Add the icon libraries
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p assets/iconpacks
+          if gh release download icon-libraries --repo "${{ github.repository }}" --pattern iconpacks.tar.gz --dir "$RUNNER_TEMP"; then
+            tar -xzf "$RUNNER_TEMP/iconpacks.tar.gz" -C assets
+            echo "Icon libraries: $(ls assets/iconpacks | tr '\n' ' ')"
+            echo "Icon files: $(find assets/iconpacks -type f | wc -l)"
+          elif [ "${{ github.event_name }}" = release ]; then
+            echo "::error::Couldn't download the icon libraries (release 'icon-libraries', file iconpacks.tar.gz)."; exit 1
+          else
+            echo "::warning::Couldn't download the icon libraries; building without them."
+          fi
       - run: ${{ matrix.cmd }}
         shell: bash
 
@@ -64,6 +81,8 @@ jobs:
           Get-Content smoke.log -ErrorAction SilentlyContinue | Select-Object -Last 60
           if (-not $alive) { Write-Error 'The app closed or crashed on start'; exit 1 }
           if (Select-String -Path smoke.log -Pattern 'Uncaught' -Quiet) { Write-Error 'Script error while loading'; exit 1 }
+          $n = (Get-ChildItem -Recurse -File 'dist\win-unpacked\resources\iconpacks' -ErrorAction SilentlyContinue | Measure-Object).Count
+          Write-Output "::notice::Windows app: $n bundled icon files" 
       - name: Smoke test (Mac)
         if: matrix.name == 'mac'
         shell: bash
@@ -76,6 +95,7 @@ jobs:
           tail -60 smoke.log || true
           [ "$ALIVE" = 1 ] || { echo "::error::The app closed or crashed on start"; exit 1; }
           if grep -q 'Uncaught' smoke.log; then echo "::error::Script error while loading"; exit 1; fi
+          echo "::notice::Mac app: $(find "$APP/Contents/Resources/iconpacks" -type f 2>/dev/null | wc -l | tr -d ' ') bundled icon files"
 
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'release'
