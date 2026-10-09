@@ -441,4 +441,4 @@ function openBlotDialog() {
 ARRANGE_COMMANDS.flowPlot = () => openFlowDialog();
 ARRANGE_COMMANDS.blotQuant = openBlotDialog;
 const _openGraphDialog = openGraphDialog;
-openGraphDialog = function (o) { return o && o.cfg && o.cfg.kind === 'flow' ? openFlowDialog(o) : _openGraphDialog(o); };
+openGraphDialog = function (o, preset) { return o && o.cfg && o.cfg.kind === 'flow' ? openFlowDialog(o) : _openGraphDialog(o, preset); };

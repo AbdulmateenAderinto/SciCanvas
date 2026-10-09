@@ -12,16 +12,22 @@ function scaledNodes(o) {
     x: n.x * sx, y: n.y * sy,
     ix: n.ix != null ? n.ix * sx : null, iy: n.iy != null ? n.iy * sy : null,
     ox: n.ox != null ? n.ox * sx : null, oy: n.oy != null ? n.oy * sy : null,
+    ...(n.move ? { move: true } : {}),
   }));
 }
 function nodesToD(ns, closed) {
   if (!ns.length) return '';
-  let d = `M${ns[0].x} ${ns[0].y}`;
+  // A node with `move: true` starts a new subpath (compound shapes from boolean operations).
+  let d = `M${ns[0].x} ${ns[0].y}`, start = 0;
   const seg = (a, b) => (a.ox != null || b.ix != null)
     ? ` C${a.ox ?? a.x} ${a.oy ?? a.y} ${b.ix ?? b.x} ${b.iy ?? b.y} ${b.x} ${b.y}`
     : ` L${b.x} ${b.y}`;
-  for (let i = 1; i < ns.length; i++) d += seg(ns[i - 1], ns[i]);
-  if (closed && ns.length > 2) d += seg(ns[ns.length - 1], ns[0]) + ' Z';
+  const close = (end) => { if (closed && end - start > 1) d += seg(ns[end], ns[start]) + ' Z'; };
+  for (let i = 1; i < ns.length; i++) {
+    if (ns[i].move) { close(i - 1); start = i; d += ` M${ns[i].x} ${ns[i].y}`; continue; }
+    d += seg(ns[i - 1], ns[i]);
+  }
+  close(ns.length - 1);
   return d;
 }
 // Ramer–Douglas–Peucker simplification.
@@ -58,7 +64,7 @@ function makePathFromNodes(nodes, extra = {}) {
   for (const n of nodes) { xs.push(n.x, n.ix ?? n.x, n.ox ?? n.x); ys.push(n.y, n.iy ?? n.y, n.oy ?? n.y); }
   const x = Math.min(...xs), y = Math.min(...ys);
   const w = Math.max(1, Math.max(...xs) - x), h = Math.max(1, Math.max(...ys) - y);
-  const rel = nodes.map((n) => ({ x: n.x - x, y: n.y - y, ...(n.ix != null ? { ix: n.ix - x, iy: n.iy - y } : {}), ...(n.ox != null ? { ox: n.ox - x, oy: n.oy - y } : {}) }));
+  const rel = nodes.map((n) => ({ x: n.x - x, y: n.y - y, ...(n.ix != null ? { ix: n.ix - x, iy: n.iy - y } : {}), ...(n.ox != null ? { ox: n.ox - x, oy: n.oy - y } : {}), ...(n.move ? { move: true } : {}) }));
   return { id: uid(), type: 'path', x, y, w, h, w0: w, h0: h, rot: 0, nodes: rel, closed: false, fill: 'none', stroke: '#222222', strokeWidth: 2.5, cap: 'round', ...extra };
 }
 // Re-fit bbox after node edits, keeping the drawing fixed on the page (handles rotation).
@@ -142,7 +148,7 @@ function pathSvg(o) {
     dd = nodesToD(trimmed, false);
   }
   if (o.tube && !o.closed && stroke !== 'none') body += `<path d="${d}" fill="none" stroke="${o.tubeOutline || Color.dark(stroke, 0.36)}" stroke-width="${sw + 2 * (o.tubeOutlineWidth ?? 2.2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  body += `<path d="${dd}" fill="${paint.fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="${o.cap || 'round'}" stroke-linejoin="round"${dash}${o.strokeOpacity != null ? ` stroke-opacity="${o.strokeOpacity}"` : ''}${o.blur ? ` filter="url(#bl-${o.id})"` : ''}/>`;
+  body += `<path d="${dd}"${ns.some((n) => n.move) ? ' fill-rule="evenodd"' : ''} fill="${paint.fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="${o.cap || 'round'}" stroke-linejoin="round"${dash}${o.strokeOpacity != null ? ` stroke-opacity="${o.strokeOpacity}"` : ''}${o.blur ? ` filter="url(#bl-${o.id})"` : ''}/>`;
   body += paint.overlay;
   if (o.pathText) { // label that follows the drawn curve
     defs += `<path id="ptx-${o.id}" d="${d}"/>`;

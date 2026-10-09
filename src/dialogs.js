@@ -19,9 +19,14 @@ $('#modal').addEventListener('pointerdown', (e) => { if (e.target.id === 'modal'
 const field = (label, input) => el('div', { class: 'row' }, el('label', { textContent: label }), input);
 
 // ---------- Graphing ----------
-function openGraphDialog(existing) {
+// `preset` (new graphs only) picks the chart kind, data and size, e.g. from Insert › Omics & Clinical Plot.
+function openGraphDialog(existing, preset) {
   const cfg = existing ? deep(existing.cfg) : { kind: 'bar', data: SAMPLE_DATA.bar, title: '', xLabel: '', yLabel: 'Measurement', error: 'sd', showPoints: true, test: 'auto', pStyle: 'stars', grid: false };
-  const W = existing ? existing.w : 380, H = existing ? existing.h : 300;
+  if (!existing && preset) {
+    const { w: _w, h: _h, ...rest } = preset, meta = (typeof CHART_META !== 'undefined' && CHART_META[rest.kind]) || {};
+    Object.assign(cfg, { data: SAMPLE_DATA[rest.kind] || cfg.data, xLabel: meta.labels ? meta.labels[0] : '', yLabel: meta.labels ? meta.labels[1] : '' }, rest);
+  }
+  const W = existing ? existing.w : (preset && preset.w) || 380, H = existing ? existing.h : (preset && preset.h) || 300;
   const preview = el('div', { class: 'preview' });
   const report = el('div', { class: 'report', style: 'margin-top:10px' });
   const GROUP = ['bar', 'box', 'violin', 'dotplot'];
@@ -46,7 +51,8 @@ function openGraphDialog(existing) {
     preview.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:380px">${r.svg}</svg>`;
     report.textContent = r.report.join('\n');
     lastSuggestion = r.suggestion;
-    const k = cfg.kind, axes = !['pie', 'plate', 'heatmap'].includes(k);
+    const k = cfg.kind, meta = (typeof CHART_META !== 'undefined' && CHART_META[k]) || {}, axes = !['pie', 'plate', 'heatmap'].includes(k) && !meta.noAxes;
+    buildExtraOpts(k, meta);
     show(errRow, ['bar', 'dotplot', 'groupedbar', 'growth', 'tumour'].includes(k));
     show(ptsRow, ['bar', 'box', 'violin', 'groupedbar', 'tumour'].includes(k));
     show(centerRow, k === 'dotplot');
@@ -57,18 +63,43 @@ function openGraphDialog(existing) {
     show(heatRow, k === 'heatmap' || k === 'plate');
     show(donutRow, k === 'pie');
     show(bandRow, k === 'growth');
-    show(transformRow, !['pie', 'plate', 'heatmap', 'survival', 'standard', 'logistic', 'tumour'].includes(k));
+    show(transformRow, !['pie', 'plate', 'heatmap', 'survival', 'standard', 'logistic', 'tumour'].includes(k) && !meta.noTransform);
     show(axisRow, axes && !['survival', 'logistic'].includes(k));
     show(logRow, ['scatter', 'line'].includes(k));
     show(pRow, GROUP.includes(k) || k === 'tumour');
     show(useSuggested, GROUP.includes(k) && lastSuggestion && cfg.test !== 'auto' && cfg.test !== lastSuggestion);
-    hint.textContent = 'Paste CSV or tab-separated data (e.g. from Excel), or import a file. ' + (HINTS[k] || '');
+    hint.textContent = 'Paste CSV or tab-separated data (e.g. from Excel), or import a file. ' + (HINTS[k] || meta.hint || '');
   };
   const bind = (key, input, prop = 'value') => { if (cfg[key] != null || input.tagName !== 'SELECT') input[prop] = cfg[key] ?? (prop === 'checked' ? false : ''); input.addEventListener(prop === 'checked' ? 'change' : 'input', () => { cfg[key] = input[prop]; update(); }); return input; };
   const opts = (pairs) => pairs.map(([v, l]) => el('option', { value: v, textContent: l }));
   const cb = (key, label) => el('label', { style: 'width:auto;color:inherit' }, bind(key, el('input', { type: 'checkbox' }), 'checked'), ' ' + label);
   const data = bind('data', el('textarea', { rows: 10, spellcheck: false }));
-  const kind = bind('kind', el('select', {}, ...opts(CHART_KINDS)));
+  // Kinds with a third element are listed under that heading (e.g. "Omics & clinical").
+  const kindOpts = () => {
+    const out = opts(CHART_KINDS.filter((k) => !k[2])), heads = [...new Set(CHART_KINDS.filter((k) => k[2]).map((k) => k[2]))];
+    heads.forEach((g) => out.push(el('optgroup', { label: g }, ...opts(CHART_KINDS.filter((k) => k[2] === g)))));
+    return out;
+  };
+  const kind = bind('kind', el('select', {}, ...kindOpts()));
+  // Per-kind options declared by add-on chart kinds (CHART_META[kind].opts), rebuilt when the kind changes.
+  const extraRow = el('div', {});
+  let extraKind = null;
+  const buildExtraOpts = (k, meta) => {
+    if (extraKind === k) return;
+    extraKind = k;
+    extraRow.innerHTML = '';
+    for (const op of meta.opts || []) {
+      if (cfg[op.key] == null && op.def != null) cfg[op.key] = op.def;
+      let input;
+      if (op.type === 'select') input = el('select', {}, ...opts(op.options));
+      else if (op.type === 'check') { extraRow.append(field('', cb(op.key, op.label))); continue; }
+      else if (op.type === 'textarea') input = el('textarea', { rows: op.rows || 3, spellcheck: false, placeholder: op.placeholder || '' });
+      else input = el('input', { type: op.type || 'number', step: op.step || 'any', placeholder: op.placeholder || '', style: op.type === 'text' ? '' : 'width:90px' });
+      input.value = cfg[op.key] ?? '';
+      input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => { cfg[op.key] = op.type === 'number' || !op.type ? (input.value === '' ? '' : +input.value) : input.value; update(); });
+      extraRow.append(field(op.label, input));
+    }
+  };
   const hint = el('div', { class: 'note', style: 'margin:4px 0 6px' });
   const errRow = field('Error bars', bind('error', el('select', {}, ...opts([['sd', 'SD'], ['sem', 'SEM'], ['ci95', '95% CI']]))));
   const ptsRow = field('', cb('showPoints', 'Show individual points'));
@@ -107,7 +138,7 @@ function openGraphDialog(existing) {
         el('div', { class: 'btnrow', style: 'margin:6px 0 10px' },
           btn('Load example', () => {
             cfg.data = SAMPLE_DATA[cfg.kind]; data.value = cfg.data;
-            const L = { survival: ['Time (days)', 'Survival probability'], dose: ['Dose (µM)', 'Response (%)'], growth: ['Time (h)', 'OD600'], standard: ['Concentration (pg/mL)', 'OD450'], logistic: ['Dose', 'P(response)'], groupedbar: ['', 'Value'], tumour: ['Days after inoculation', 'Tumour volume (mm³)'] }[cfg.kind];
+            const L = { survival: ['Time (days)', 'Survival probability'], dose: ['Dose (µM)', 'Response (%)'], growth: ['Time (h)', 'OD600'], standard: ['Concentration (pg/mL)', 'OD450'], logistic: ['Dose', 'P(response)'], groupedbar: ['', 'Value'], tumour: ['Days after inoculation', 'Tumour volume (mm³)'] }[cfg.kind] || ((typeof CHART_META !== 'undefined' && CHART_META[cfg.kind]) || {}).labels;
             if (L) { cfg.xLabel = L[0]; cfg.yLabel = L[1]; }
             syncText(); update();
           }),
@@ -116,7 +147,7 @@ function openGraphDialog(existing) {
         field('Title', bind('title', el('input', { type: 'text' }))),
         field('X label', bind('xLabel', el('input', { type: 'text' }))),
         field('Y label', bind('yLabel', el('input', { type: 'text' }))),
-        errRow, ptsRow, centerRow, testRow, statsRow, fitRow, stdFitRow, heatRow, donutRow, bandRow, transformRow, axisRow, logRow, pRow,
+        extraRow, errRow, ptsRow, centerRow, testRow, statsRow, fitRow, stdFitRow, heatRow, donutRow, bandRow, transformRow, axisRow, logRow, pRow,
         field('', cb('grid', 'Gridlines'))),
       el('div', {}, preview, report,
         el('div', { class: 'note', style: 'margin-top:8px' }, 'The software cannot tell from a table which observations are independent, paired, or technical vs biological replicates — choose the test to match your design. Outlier flags are prompts to investigate, not reasons to exclude.'))),

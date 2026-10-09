@@ -154,6 +154,16 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - Insert › Western Blot Quantification…: box the target and loading-control bands on a blot image, get per-lane densitometry with local background subtraction, normalised ratios, a copyable table and a bar chart with statistics.
 - Insert › Protein Domain Map…: domains and modification sites (P, Ub, Ac, Me, glycosylation, mutations) drawn to scale with an amino-acid axis.
 
+## New in v0.7
+
+**Omics & clinical plots** (Insert › Omics & Clinical Plot, or the Graph dialog): volcano and MA plots straight from DESeq2 / edgeR / limma tables (columns detected by name, top genes labelled without overlaps, "always label" list); UMAP / t-SNE coloured by cluster or by a gene; marker dot plots (% expressing × scaled expression); oncoprints; lollipop mutation plots on protein domains; forest plots with subgroup headings; Venn (2–3 sets) and UpSet plots; waterfall plots coloured by RECIST; swimmer plots; sequence alignments with a sequence logo.
+
+**Microscopy** (Insert › Microscopy): split / merge channels from ImageJ / Fiji hyperstacks, OME-TIFF or one image per channel (8-, 16- and 32-bit, max projection or a single z-slice, per-channel colour and display range); calibrated scale bars that stay correct when the image is resized or cropped (pixel size read from the TIFF); zoom insets with outline and connecting lines; image grids with condition and marker labels; brightness / contrast applied equally to several images, with the original kept.
+
+**Drawing**: Arrange › Combine Shapes (union, subtract, intersect, exclude) with holes kept; Split Brush into Pieces (each lipid of a membrane becomes its own small group); receptors snap into a membrane (or onto DNA) when dropped on it, turn to follow its curve and move with it (hold ⌘ to skip, depth slider in the panel, "Spread evenly along membrane"); Arrange › Tidy Pathway lays out a selected pathway top-down or left-right; Insert › Pathway from Text builds one from lines like `PD-1 -> SHP2 -| ZAP70`.
+
+**Molecular biology** (Insert › Molecular Biology): plasmid maps (typed features or a GenBank file); construct diagrams with presets for CARs (CD28 / 4-1BB), lentiviral vectors, floxed alleles and HDR donors; gene structures with UTRs, shortened introns and CRISPR guides (spacer, PAM, cut site).
+
 ## New in v0.5
 
 **Icons**: per-layer borders (colour, width, dashed / dotted) beside each colour layer; one colour overlay for many selected icons, including library icons; "Replace all like this" swaps every copy of an icon on the page; favourite / replace from the right-click menu; "request this icon" link when a search finds nothing.

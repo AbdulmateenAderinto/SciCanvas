@@ -576,6 +576,7 @@ function renderParts(o, objects, forExport) {
         const vx = c.l * o.nw, vy = c.t * o.nh, vw = Math.max(1, (1 - c.l - c.r) * o.nw), vh = Math.max(1, (1 - c.t - c.b) * o.nh);
         inner = `<svg width="${o.w}" height="${o.h}" viewBox="${vx} ${vy} ${vw} ${vh}" preserveAspectRatio="none"><image href="${o.src}" width="${o.nw}" height="${o.nh}"/></svg>`;
       } else inner = `<image href="${o.src}" width="${o.w}" height="${o.h}" preserveAspectRatio="none"/>`;
+      if (o.scaleBar && typeof scaleBarSvg === 'function') inner += scaleBarSvg(o);
       break;
     }
     case 'brush':
