@@ -68,7 +68,12 @@ jobs:
           else
             echo "::warning::Couldn't download the icon libraries; building without them."
           fi
-      - run: ${{ matrix.cmd }}
+      # macOS runners allow only 256 open files by default; copying ~19,900 icon files into the
+      # Apple-silicon and Intel apps at once can hit that ("EMFILE: too many open files").
+      - run: |
+          ulimit -n 65536 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+          echo "Open-file limit: $(ulimit -n)"
+          ${{ matrix.cmd }}
         shell: bash
 
       # Smoke test: start the built app, give it 25 seconds, and fail if it crashed or the
