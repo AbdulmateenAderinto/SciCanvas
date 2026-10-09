@@ -152,6 +152,7 @@ function iconToParts(o) {
         const bb = el.getBBox(), map = toPage(m), c = map({ x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 });
         const t = Make.text(txt, 0, 0, { fontSize: +((parseFloat(cs.fontSize) || 12) * scale).toFixed(1), color: cssToHex(cs.fill) || '#222222', bold: parseInt(cs.fontWeight, 10) >= 600, align: 'center' });
         t.x = c.x - t.w / 2; t.y = c.y - t.h / 2; t.rot = o.rot || 0;
+        t.partEl = el.closest('[data-part]');
         parts.push(t);
         continue;
       }
@@ -163,11 +164,28 @@ function iconToParts(o) {
       if (nodes.length < 2) continue;
       const p = makePathFromNodes(nodes, { ...st, closed: st.fill !== 'none' || closedAny });
       p.name = `Part ${parts.length + 1}`;
+      p.partEl = el.closest('[data-part]');
       parts.push(p);
     }
   } finally { host.remove(); }
   if (!parts.length) return null;
-  const g = makeGroup(parts, `${layerName(o)} (parts)`);
+  // Icons built from named parts (<g data-part="nucleus">) ungroup into one sub-group per named part, so the
+  // nucleus or membrane can be picked, recoloured or moved as a whole.
+  const out = [], seen = new Map();
+  for (const p of parts) {
+    const pe = p.partEl;
+    delete p.partEl;
+    if (!pe) { out.push(p); continue; }
+    if (!seen.has(pe)) { const list = []; seen.set(pe, list); out.push(list); }
+    seen.get(pe).push(p);
+  }
+  const kids = out.map((x) => {
+    if (!Array.isArray(x)) return x;
+    const name = [...seen.entries()].find(([, l]) => l === x)[0].getAttribute('data-part');
+    if (x.length === 1) { x[0].name = name; return x[0]; }
+    return makeGroup(x, name);
+  });
+  const g = makeGroup(kids, `${layerName(o)} (parts)`);
   g.id = o.id; // arrows glued to the icon stay glued to its parts
   if (o.opacity != null && o.opacity < 1) g.opacity = o.opacity;
   return g;

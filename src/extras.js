@@ -31,8 +31,22 @@ function renderLibrary() {
   foot.innerHTML = '';
   foot.append(el('span', { textContent: `${total.toLocaleString()} icon${total === 1 ? '' : 's'}` }));
   if (total > items.length) foot.append(btn(`Show more (${(total - items.length).toLocaleString()})`, () => { libLimit += LIB_MORE; renderLibrary(); }));
-  foot.append(el('div', { class: 'btnrow' }, btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog)));
+  foot.append(el('div', { class: 'btnrow' }, btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog), iconStyleButton()));
   foot.append(el('div', { class: 'note', style: 'margin-top:4px' }, `${(ICONS.length + Packs.all.length).toLocaleString()} icons from ${Packs.list.filter((p) => p.id !== 'mine').length + 1} libraries (CC0 / CC BY / MIT). Non-commercial icons are marked NC. File › Credits drafts your attributions.`));
+}
+// Refined / Classic finish for the built-in icons (src/iconstyle.js); redraws the library and the canvas.
+function iconStyleButton() {
+  if (typeof IconStyle === 'undefined') return '';
+  const refined = IconStyle.mode !== 'classic';
+  const b = btn(refined ? 'Style: Refined' : 'Style: Classic', () => {
+    IconStyle.set(refined ? 'classic' : 'refined');
+    nativeThumbCache.clear();
+    renderLibrary();
+    if (typeof elCache !== 'undefined') for (const c of elCache.values()) c.key = null; // force icons to redraw
+    if (typeof renderScene === 'function') renderScene();
+  });
+  b.title = 'Switch the built-in icons between the refined finish (thin, soft outlines) and the original drawings';
+  return b;
 }
 function renderLibraryBanner() {
   const b = $('#libBanner');
