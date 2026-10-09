@@ -687,7 +687,12 @@ function handlePointerMove(e) {
       return;
     case 'move': {
       let dx = p.x - drag.start.x, dy = p.y - drag.start.y;
-      if (!drag.moved) { if (Math.hypot(dx, dy) * state.zoom < 3) return; if (!e.altKey) checkpoint(); drag.moved = true; }
+      if (!drag.moved) {
+        if (Math.hypot(dx, dy) * state.zoom < 3) return;
+        if (!e.altKey) checkpoint();
+        drag.moved = true;
+        if (typeof moveStartHook === 'function') moveStartHook(drag); // e.g. docked receptors follow their membrane
+      }
       let guides = '';
       if (!e.metaKey) ({ dx, dy, guides } = snapMove(dx, dy));
       for (const r of drag.orig) {
@@ -790,6 +795,7 @@ window.addEventListener('pointerup', (e) => {
       break;
     case 'move':
       if (!d.moved && !e.shiftKey && state.sel.length > 1) state.sel = [d.clickedId];
+      if (d.moved && typeof moveEndHook === 'function') moveEndHook(d, e); // e.g. snap into a membrane
       break;
     case 'create': {
       const o = d.o;
