@@ -1,7 +1,7 @@
 // Refined icons, part 3: lab instruments & consumables, and computational biology (drawn with src/refinedkit.js).
 (() => {
-  const K = globalThis.RefinedKit;
-  if (!K) return;
+  const K = globalThis.RefinedKit, LK = globalThis.LabKit;
+  if (!K || !LK) return;
   const { f, PAL, line, path, rect, circ, ell, stroke, flat, dot, text, part, G, poly, smooth, speckle, glass, glint, box3, screen, button, plate, helix, wave, add } = K;
   const LAB = 'Lab instruments', CON = 'Lab consumables', CMP = 'Computational biology';
   const P = PAL.plastic, PS = PAL.plasticSide, DK = PAL.dark;
@@ -39,8 +39,10 @@
     part('instrument', box3(6, 20, 54, 56, 12, '#e9ecef') + rect(12, 28, 18, 12, 2, '#dfe4e8') + circ(21, 34, 4, '#c3cad1') + rect(38, 28, 16, 40, 2, '#dfe4e8') + rect(12, 46, 20, 24, 2, '#d0d6db'))
     + part('laptop', path('M62 46 H102 V74 H62 Z', '#3c4148') + rect(65, 49, 34, 22, 1, '#f7f9fb', { w: 0.6 }) + path('M56 74 H108 L104 80 H60 Z', '#5b6168')
       + stroke('M67 68 H97 M70 68 V62 M74 68 V54 M78 68 V64 M84 68 V58 M90 68 V66 M94 68 V63', c, 1)));
-  add('Flow cytometer', LAB, 'flow cytometer FACS cytometry analyser sorter', '#5b8fd6', [100, 80], (c) =>
-    part('instrument', box3(8, 22, 76, 50, 12, '#e9ecef') + rect(14, 30, 30, 34, 2, '#dfe4e8') + rect(50, 30, 28, 18, 2, '#3c4148') + flat('M52 32 h24 v4 h-24 Z', c, 0.9) + circ(29, 46, 6, '#c3cad1') + rect(28, 6, 3, 20, 1, '#cfe0e6') + rect(26, 4, 7, 6, 1.5, '#f2c94c')));
+  add('Flow cytometer', LAB, 'flow cytometer FACS cytometry analyser sorter BD FACSLyric FACSCanto', '#3f73c4', [100, 86], (c) =>
+    part('cabinet', box3(12, 20, 52, 58, 16, '#e9ecef') + rect(16, 24, 44, 14, 1.5, '#c3cad1') + rect(16, 42, 44, 32, 1.5, '#dfe4e8') + Array.from({ length: 8 }, (_, k) => stroke(`M20 ${46 + k * 2} h18`, '#9aa5ae', 0.6)).join(''))
+    + part('loader', box3(66, 54, 24, 24, 10, '#dfe4e8') + path('M68 54 L73.5 49.5 H94.5 L90 54 Z', c) + rect(68, 60, 20, 10, 1.5, c, { op: 0.9 }))
+    + part('tray', [72, 77, 82].map((x) => rect(x, 46, 3.4, 6, 1, '#9fd1ec', { w: 0.5 })).join('')));
   add('Confocal microscope', LAB, 'confocal microscope fluorescence imaging laser scanning', '#3c4148', [100, 100], (c) =>
     part('stand', path('M14 90 H86 V96 H14 Z', '#5b6168') + rect(60, 20, 14, 70, 3, '#e9ecef') + path('M24 60 H72 V68 H24 Z', '#c3cad1'))
     + part('head', rect(20, 14, 54, 16, 3, c) + rect(30, 30, 10, 14, 2, '#5b6168') + rect(32, 44, 6, 8, 1, '#8d969e') + rect(76, 10, 18, 22, 3, '#e9ecef') + circ(85, 21, 4, '#e36d6d'))
@@ -57,9 +59,11 @@
   add('CO₂ incubator', LAB, 'CO2 incubator cell culture incubator 37 degrees', '#e9ecef', [80, 100], (c) =>
     part('cabinet', box3(8, 12, 56, 84, 10, c)) + part('door', rect(12, 16, 48, 76, 2, '#f4f6f7') + rect(54, 40, 3, 20, 1.5, '#9aa5ae'))
     + part('panel', screen(18, 22, 22, 9) + text(29, 29, '37°', 6, '#ffffff') + button(48, 26, 2.2, '#7fd17f')));
-  add('−80 °C freezer', LAB, 'ultra low freezer -80 minus eighty storage', '#e9ecef', [70, 110], (c) =>
-    part('cabinet', box3(8, 10, 50, 96, 10, c)) + part('door', rect(12, 14, 42, 88, 2, '#f4f6f7') + rect(46, 44, 4, 26, 2, '#5b6168'))
-    + part('panel', screen(16, 18, 18, 8) + text(25, 24.5, '-80', 5.5, '#ffffff')));
+  add('−80 °C freezer', LAB, 'ultra low freezer -80 minus eighty storage', '#e9ecef', [80, 116], (c) =>
+    part('cabinet', box3(8, 14, 58, 96, 14, c, { side: '#d5dbe0', top: '#f7f8f9' }))
+    + part('door', rect(11, 17, 52, 76, 1.5, '#f6f7f8') + flat('M13 19 H61 V21 H13 Z', '#ffffff', 0.7) + rect(54, 40, 4, 30, 2, '#5b6168') + rect(55, 42, 2, 26, 1, '#7c848c', { w: 0 }))
+    + part('panel', rect(15, 22, 26, 13, 1.5, '#3c4148') + screen(17, 24, 15, 9) + text(24.5, 30.6, '-80', 5, '#9be59b') + button(36.5, 26, 1.4, '#7fd17f') + button(36.5, 31, 1.4, '#e36d6d'))
+    + part('base', rect(11, 95, 52, 12, 1.2, '#5b6168') + Array.from({ length: 6 }, (_, k) => stroke(`M14 ${97.5 + k * 1.6} h46`, '#3c4148', 0.6)).join('') + rect(10, 107, 6, 3, 1, '#3c4148') + rect(58, 107, 6, 3, 1, '#3c4148')));
   add('Plate reader', LAB, 'microplate reader spectrophotometer absorbance fluorescence ELISA', '#4d74c9', [100, 70], (c) =>
     part('instrument', box3(8, 18, 80, 44, 12, '#e9ecef') + rect(14, 24, 40, 14, 2, '#dfe4e8') + screen(62, 24, 20, 12) + stroke('M65 33 l4 -4 3 2 5 -6 3 3', '#9be59b', 0.9))
     + part('drawer', path('M14 50 H54 L58 56 H10 Z', '#c3cad1') + plate(16, 44, 34, 8, 2, 8, { well: c, fill: 0.3 })));
@@ -84,9 +88,12 @@
   add('Water bath', LAB, 'water bath heating incubation', '#9fcbea', [100, 70], (c) =>
     part('bath', box3(8, 22, 78, 40, 10, '#e9ecef') + path('M14 22 L18 16 H86 L82 22 Z', c, { op: 0.8 }) + rect(14, 44, 18, 8, 1.5, '#3c4148'))
     + part('tubes', [30, 40, 50, 60, 70].map((x) => rect(x, 6, 5, 14, 2, '#f6fafb', { stroke: PAL.glassLine })).join('')));
-  add('Magnetic stirrer', LAB, 'magnetic stirrer hotplate stir bar beaker', '#e36d6d', [80, 90], (c) =>
-    part('plate', box3(8, 64, 60, 18, 10, '#e9ecef') + circ(22, 73, 4, '#5b6168') + circ(52, 73, 4, '#5b6168') + path('M14 64 L19 58 H73 L68 64 Z', '#c3cad1'))
-    + part('beaker', glass('M24 18 H56 V56 Q56 60 52 60 H28 Q24 60 24 56 Z') + path('M24.6 34 H55.4 V56 Q55.4 59 52 59 H28 Q24.6 59 24.6 56 Z', c, { op: 0.6 }) + rect(34, 54, 12, 3, 1.5, '#ffffff')));
+  add('Magnetic stirrer', LAB, 'magnetic stirrer hotplate stir bar beaker', '#9fd1ec', [96, 92], (c) =>
+    part('body', path('M6 62 L18 46 H90 L84 62 Z', '#f4f6f7') + path('M6 62 H84 V80 Q84 84 80 84 H10 Q6 84 6 80 Z', '#e9ecef') + path('M84 62 L90 46 V64 L84 80 Z', '#d5dbe0'))
+    + part('panel', path('M10 64.5 H58 V80 H10 Z', '#2b4a8f', { stroke: '#1d2f5c' }) + circ(22, 72, 4.6, '#2a2e33') + circ(22, 72, 1.4, '#5b6168', { w: 0 }) + circ(42, 72, 4.6, '#2a2e33') + circ(42, 72, 1.4, '#5b6168', { w: 0 }) + rect(68, 70, 6, 4, 1, '#3c4148'))
+    + part('plate', path('M22 56 L28 48 H76 L70 56 Z', '#ffffff', { stroke: '#a9b6bf' }) + path('M22 56 H70 V58.5 H22 Z', '#dfe4e8', { stroke: '#a9b6bf', w: 0.8 }))
+    + part('beaker', G(LK.beaker({ x: 0, y: 0, w: 28, h: 34, level: 0.8, c }), 'translate(35 18)') + rect(44, 47, 10, 2.6, 1.3, '#ffffff', { stroke: '#9aa5ae', w: 0.6 })
+      + stroke('M41 26 q8 3 16 0 M44 29 q5 6 10 0 M47 32 q2 8 4 0', '#ffffff', 0.9, { op: 0.8 })));
   add('Analytical balance', LAB, 'analytical balance scale weighing', '#e9ecef', [90, 90], (c) =>
     part('base', box3(8, 64, 70, 20, 10, c) + screen(16, 70, 22, 8) + text(27, 76, '0.000', 4.8, '#ffffff'))
     + part('draft shield', glass('M18 14 H70 V62 H18 Z', { op: 0.55 }) + path('M18 14 L23 8 H75 L70 14 Z', '#e6f2f6', { stroke: PAL.glassLine, op: 0.7 }) + glint(22, 18, 58, 2))
@@ -118,25 +125,20 @@
   add('Eppendorf tube', CON, 'Eppendorf tube microcentrifuge tube 1.5 mL microtube', '#9fd1ec', [60, 110], (c) =>
     part('cap', path('M16 18 H44 V24 H16 Z', '#eef4f7', { stroke: PAL.glassLine }) + path('M16 18 C10 12 10 4 18 2 L22 6 C16 8 16 12 20 16 Z', '#eef4f7', { stroke: PAL.glassLine }) + rect(10, 2, 14, 6, 2, '#eef4f7', { stroke: PAL.glassLine, tf: 'rotate(-35 17 5)' }))
     + part('tube', glass('M18 24 H42 V60 L32 104 H28 L18 60 Z')) + part('liquid', path('M18.6 66 H41.4 L32 103 H28 Z', c, { op: 0.8 })) + part('marks', stroke('M36 40 h4 M36 48 h4 M36 56 h4', '#8fa9b8', 0.8)) + part('glint', glint(22, 28, 60, 1.8)));
-  add('Conical tube (50 mL)', CON, 'Falcon tube 50 mL conical tube centrifuge tube', '#f2c94c', [50, 120], (c) =>
-    part('cap', rect(10, 2, 30, 14, 2, '#3f73c4') + Array.from({ length: 6 }, (_, k) => stroke(`M${14 + k * 4.4} 4 V14`, '#2f5ea3', 0.8)).join(''))
-    + part('tube', glass('M11 16 H39 V96 L28 116 H22 L11 96 Z')) + part('liquid', path('M11.6 60 H38.4 V96 L28 115 H22 L11.6 96 Z', c, { op: 0.75 }))
-    + part('label', rect(14, 26, 22, 20, 1, '#ffffff', { stroke: '#c3cad1', op: 0.9 }) + stroke('M17 32 h16 M17 37 h12 M17 42 h14', '#9aa5ae', 0.8)) + part('glint', glint(16, 50, 94, 2)));
+  add('Conical tube (50 mL)', CON, 'Falcon tube 50 mL conical tube centrifuge tube', '#f2c94c', [LK.falcon(50).w, LK.falcon(50).h], (c) => LK.falcon(50, { level: 0.6, c, cap: '#3f73c4', label: ' ' }).svg);
   add('Cryovial', CON, 'cryovial cryotube freezing vial liquid nitrogen', '#e36d6d', [40, 100], (c) =>
     part('cap', rect(8, 2, 24, 18, 3, c) + Array.from({ length: 5 }, (_, k) => stroke(`M${12 + k * 4} 4 V18`, D(c, 0.2), 0.8)).join(''))
     + part('tube', glass('M10 20 H30 V90 Q30 96 24 96 H16 Q10 96 10 90 Z')) + part('liquid', path('M10.6 70 H29.4 V90 Q29.4 95 24 95 H16 Q10.6 95 10.6 90 Z', '#f3e2ef', { op: 0.9 })) + part('label', rect(12, 30, 16, 26, 1, '#ffffff', { stroke: '#c3cad1' })));
-  add('Cell culture flask (T75)', CON, 'T75 T25 tissue culture flask cell culture vented cap', '#e98bb0', [120, 70], (c) =>
-    part('flask', path('M8 20 L70 12 Q76 12 78 16 L84 26 V44 L78 54 Q76 58 70 58 L8 50 Q4 50 4 46 V24 Q4 20 8 20 Z', '#eef4f7', { stroke: PAL.glassLine, op: 0.8 }))
-    + part('medium', path('M5 38 L80 40 L78 52 Q76 56 70 56 L8 48 Q5 48 5 46 Z', c, { op: 0.75 })) + part('neck', path('M84 28 L100 30 V40 L84 42 Z', '#eef4f7', { stroke: PAL.glassLine }))
-    + part('cap', rect(100, 26, 16, 18, 2, '#3f73c4')) + part('glint', stroke('M12 24 L64 18', '#ffffff', 2.4, { op: 0.7 })));
+  add('Cell culture flask (T75)', CON, 'T75 T25 tissue culture flask cell culture vented cap', '#e98bb0', [LK.tflask(75).w, LK.tflask(75).h], (c) => LK.tflask(75, { medium: true, c }).svg);
   add('Tissue culture dish', CON, 'tissue culture dish 10 cm dish cell culture plate medium', '#e98bb0', [100, 60], (c) =>
     part('dish', path('M6 26 V36 C6 50 94 50 94 36 V26 Z', '#e4eef2', { stroke: PAL.glassLine, op: 0.9 }) + ell(50, 26, 44, 18, '#eef5f8', { stroke: PAL.glassLine }))
     + part('medium', ell(50, 28, 40, 15, c, { op: 0.75 })) + part('glint', stroke('M18 18 C28 12 40 10 52 10', '#ffffff', 2, { op: 0.7 })));
-  add('6-well plate', CON, '6 well plate tissue culture plate multiwell', '#e98bb0', [110, 80], (c) => part('plate', plate(8, 16, 92, 56, 2, 3, { skew: 8, well: c, fill: 0.42 })));
-  add('12-well plate', CON, '12 well plate tissue culture plate multiwell editable', '#e98bb0', [110, 80], (c) => part('plate', plate(8, 16, 92, 56, 3, 4, { skew: 8, well: (i, j) => ((i + j) % 2 ? '#8fc5ea' : c), fill: 0.42 })));
-  add('24-well plate', CON, '24 well plate tissue culture plate multiwell', '#9fd1ec', [110, 80], (c) => part('plate', plate(8, 16, 92, 56, 4, 6, { skew: 8, well: c, fill: 0.4 })));
-  add('48-well plate', CON, '48 well plate multiwell assay plate', '#9bd8c2', [110, 80], (c) => part('plate', plate(8, 16, 92, 56, 6, 8, { skew: 8, well: (i) => ['#9bd8c2', '#9fcbea', '#dcc3b8', '#d9c2ec', '#f1dfb1', '#e8a9b6'][i] || c, fill: 0.4 })));
-  add('384-well plate', CON, '384 well plate high-throughput screening HTS microplate', '#9fcbea', [110, 80], (c) => part('plate', plate(8, 16, 92, 56, 16, 24, { skew: 8, well: c, fill: 0.36 })));
+  const plateIcon = (n, well, o = {}) => { const pl = K.sbsPlate(n, { well, ...o }); return part('plate', pl.svg); };
+  add('6-well plate', CON, '6 well plate tissue culture plate multiwell', '#e98bb0', [104, 46], (c) => plateIcon(6, c));
+  add('12-well plate', CON, '12 well plate tissue culture plate multiwell editable', '#e98bb0', [104, 46], (c) => plateIcon(12, (i, j) => ((i + j) % 2 ? '#8fc5ea' : c)));
+  add('24-well plate', CON, '24 well plate tissue culture plate multiwell', '#9fd1ec', [104, 46], (c) => plateIcon(24, c));
+  add('48-well plate', CON, '48 well plate multiwell assay plate', '#9bd8c2', [104, 46], (c) => plateIcon(48, (i) => ['#9bd8c2', '#9fcbea', '#dcc3b8', '#d9c2ec', '#f1dfb1', '#e8a9b6'][i] || c));
+  add('384-well plate', CON, '384 well plate high-throughput screening HTS microplate', '#9fcbea', [104, 46], (c) => plateIcon(384, c));
   add('PCR plate', CON, 'PCR plate 96 well skirted thermocycler plate', '#e9ecef', [110, 60], (c) => {
     let s = path('M6 40 L24 20 H104 L86 40 Z', '#f2f4f6', { stroke: '#a9b6bf' }) + path('M6 40 H86 V48 H6 Z', '#dfe4e8', { stroke: '#a9b6bf' }) + path('M86 40 L104 20 V28 L86 48 Z', '#cfd5da', { stroke: '#a9b6bf' });
     for (let i = 0; i < 8; i++) for (let j = 0; j < 12; j++) { const x = 13 + j * 6 + (7 - i) * 2.2, y = 37 - i * 2.4; s += ell(x, y, 2.2, 1, c === '#e9ecef' ? '#ffffff' : c, { stroke: '#a9b6bf', w: 0.4 }); }
@@ -151,14 +153,9 @@
     for (let i = 0; i < 6; i++) for (let j = 0; j < 10; j++) tips += ell(22 + j * 6.4 - i * 2.4, 24 + i * 4, 2.2, 1.1, L(c, 0.45), { stroke: c, w: 0.5 });
     return part('box', path('M8 42 L20 18 H84 L72 42 Z', L(c, 0.65), { stroke: c }) + path('M8 42 H72 V70 H8 Z', c, { op: 0.9 }) + path('M72 42 L84 18 V46 L72 70 Z', D(c, 0.12), { op: 0.9 })) + part('tips', tips);
   });
-  add('Beaker', CON, 'beaker glassware graduated', '#9fd1ec', [70, 90], (c) =>
-    part('beaker', glass('M12 10 H58 V80 Q58 86 52 86 H18 Q12 86 12 80 Z') + path('M12 10 L8 6 H16 Z', '#e6f2f6', { stroke: PAL.glassLine }))
-    + part('liquid', path('M12.6 42 H57.4 V80 Q57.4 85.4 52 85.4 H18 Q12.6 85.4 12.6 80 Z', c, { op: 0.75 })) + part('marks', stroke('M44 24 h10 M48 32 h6 M44 40 h10 M48 48 h6 M44 56 h10', '#8fa9b8', 0.8)) + part('glint', glint(17, 16, 78, 2.4)));
-  add('Erlenmeyer flask', CON, 'Erlenmeyer flask conical flask glassware', '#9bd8c2', [80, 100], (c) =>
-    part('flask', glass('M31 6 H49 V34 L72 84 C74 90 70 94 64 94 H16 C10 94 6 90 8 84 L31 34 Z') + rect(29, 4, 22, 4, 1.5, '#e6f2f6', { stroke: PAL.glassLine }))
-    + part('liquid', path('M20 62 H60 L70 84 C72 89 68 92 63 92 H17 C12 92 8 89 10 84 Z', c, { op: 0.8 })) + part('bubbles', circ(36, 74, 2, '#ffffff', { stroke: line(c), w: 0.5 }) + circ(46, 80, 1.4, '#ffffff', { stroke: line(c), w: 0.5 }) + circ(40, 54, 1.6, c, { w: 0.5 }) + circ(44, 46, 1.2, c, { w: 0.5 })) + part('glint', stroke('M26 48 L16 76', '#ffffff', 2.4, { op: 0.7 })));
-  add('Round-bottom flask', CON, 'round bottom flask chemistry glassware boiling', '#f2c94c', [80, 100], (c) =>
-    part('flask', glass('M33 4 H47 V36 C64 40 74 52 74 66 C74 82 60 96 40 96 C20 96 6 82 6 66 C6 52 16 40 33 36 Z')) + part('liquid', path('M7.5 70 H72.5 C71 84 58 94.6 40 94.6 C22 94.6 9 84 7.5 70 Z', c, { op: 0.8 })) + part('glint', stroke('M18 54 C14 60 14 70 16 76', '#ffffff', 2.4, { op: 0.7 })));
+  add('Beaker', CON, 'beaker glassware graduated', '#9fd1ec', [58, 70], (c) => LK.beaker({ level: 0.55, c }));
+  add('Erlenmeyer flask', CON, 'Erlenmeyer flask conical flask glassware', '#9bd8c2', [60, 82], (c) => LK.erlenmeyer({ cx: 30, y: 6, s: 0.48, level: 0.4, c }));
+  add('Round-bottom flask', CON, 'round bottom flask chemistry glassware boiling', '#f2c94c', [60, 88], (c) => LK.roundBottom({ cx: 30, R: 24, y: 4, level: 0.4, c }).svg);
   add('Graduated cylinder', CON, 'graduated cylinder measuring cylinder glassware', '#9fcbea', [50, 120], (c) =>
     part('cylinder', glass('M14 8 H36 V108 H14 Z') + path('M14 8 L10 4 H18 Z', '#e6f2f6', { stroke: PAL.glassLine }) + path('M6 108 H44 V116 H6 Z', '#dfe6ea', { stroke: PAL.glassLine }))
     + part('liquid', path('M14.6 54 H35.4 V107.4 H14.6 Z', c, { op: 0.75 })) + part('marks', Array.from({ length: 10 }, (_, k) => stroke(`M26 ${16 + k * 9} h${k % 2 ? 6 : 10}`, '#8fa9b8', 0.8)).join('')) + part('glint', glint(18, 12, 104, 2)));
