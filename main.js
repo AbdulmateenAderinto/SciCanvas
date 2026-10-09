@@ -41,12 +41,21 @@ function createWindow() {
 
 // Menu commands go to the focused window; if every window was closed (the app stays running on macOS),
 // open a fresh one and deliver the command once it has loaded.
-const send = (cmd) => () => {
+const send = (cmd) => Object.assign(() => {
   const w = BrowserWindow.getFocusedWindow() || (win && !win.isDestroyed() ? win : null);
   if (w) { w.webContents.send('menu', cmd); return; }
   createWindow();
   win.webContents.once('did-finish-load', () => win.webContents.send('menu', cmd));
-};
+}, { cmd });
+// Flattened menu commands for the command palette.
+let menuCommandList = [];
+function flattenMenu(items, trail = []) {
+  return items.flatMap((it) => {
+    if (it.submenu && Array.isArray(it.submenu)) return flattenMenu(it.submenu, it.label ? [...trail, it.label] : trail);
+    return it.click && it.click.cmd ? [{ path: [...trail, it.label], cmd: it.click.cmd, accel: (it.accelerator || '').replace('CmdOrCtrl', process.platform === 'darwin' ? '⌘' : 'Ctrl').replace(/Shift\+/g, '⇧').replace(/Alt\+/g, process.platform === 'darwin' ? '⌥' : 'Alt+').replace(/\+/g, '') }] : [];
+  });
+}
+ipcMain.handle('menu-commands', () => menuCommandList);
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';
@@ -64,6 +73,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Import Image…', accelerator: 'CmdOrCtrl+I', click: send('importImage') },
         { label: 'Export…', accelerator: 'CmdOrCtrl+E', click: send('export') },
+        { label: 'Export Animation (MP4 / GIF)…', click: send('exportAnimation') },
         { label: 'Credits & Licences…', click: send('credits') },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: send('settings') },
         { type: 'separator' },
@@ -80,6 +90,11 @@ function buildMenu() {
         { label: 'Duplicate', accelerator: 'CmdOrCtrl+D', click: send('duplicate') },
         { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: send('selectAll') },
         { label: 'Copy as Image', accelerator: 'CmdOrCtrl+Shift+C', click: send('copyImage') },
+        { label: 'Copy Style', accelerator: 'Alt+CmdOrCtrl+C', click: send('copyStyle') },
+        { label: 'Paste Style', accelerator: 'Alt+CmdOrCtrl+V', click: send('pasteStyle') },
+        { type: 'separator' },
+        { label: 'Find and Replace…', accelerator: 'CmdOrCtrl+F', click: send('find') },
+        { label: 'Check Spelling…', click: send('spellCheck') },
         { label: 'Select Matching', submenu: [{ label: 'Same Icon', click: send('selectSameIcon') }, { label: 'Same Type', click: send('selectSameType') }, { label: 'Same Colour', click: send('selectSameColour') }] },
       ],
     },
@@ -124,6 +139,8 @@ function buildMenu() {
           { label: 'Sequence Alignment & Logo…', click: send('alignmentChart') },
         ] },
         { label: 'Pathway from Text…', click: send('pathwayText') },
+        { label: 'Components…', click: send('componentsDialog') },
+        { label: 'Image Trace…', click: send('imageTrace') },
         { type: 'separator' },
         { label: 'Brand Logo', click: send('insertLogo') },
         { label: 'Comment', click: send('commentTool') },
@@ -186,6 +203,19 @@ function buildMenu() {
         { label: 'Snap Objects into Membranes when Dropped', click: send('toggleMembraneSnap') },
         { label: 'Tidy Pathway', submenu: [{ label: 'Top to Bottom', click: send('layoutTB') }, { label: 'Left to Right', click: send('layoutLR') }] },
         { type: 'separator' },
+        { label: 'Create Component', accelerator: 'Alt+CmdOrCtrl+K', click: send('createComponent') },
+        { label: 'Detach Instance', click: send('detachInstance') },
+        { label: 'Colour & Text Styles…', click: send('stylesDialog') },
+        { label: 'Recolour Artwork…', click: send('recolour') },
+        { label: 'Repeat', submenu: [
+          { label: 'Radial (around a cell)…', click: send('repeatRadial') }, { label: 'Grid (plate, cohort)…', click: send('repeatGrid') },
+          { label: 'Along a Path…', click: send('repeatPath') },
+        ] },
+        { label: 'Blend…', click: send('blend') },
+        { label: 'Shape Builder', accelerator: 'Shift+CmdOrCtrl+M', click: send('shapeBuilder') },
+        { label: 'Add Auto Layout', accelerator: 'Alt+CmdOrCtrl+A', click: send('autoLayout') },
+        { label: 'Magic Resize…', click: send('magicResize') },
+        { type: 'separator' },
         { label: 'Arrange as Figure Panels (A, B, C…)', click: send('panelLayout') },
         { label: 'Arrange as Poster Columns…', click: send('posterLayout') },
         { label: 'Flip Horizontally', accelerator: 'Shift+H', click: send('flipH') },
@@ -215,6 +245,8 @@ function buildMenu() {
         { label: 'Toggle Rulers', accelerator: 'CmdOrCtrl+R', click: send('toggleRulers') },
         { label: 'Toggle Smart Alignment', click: send('toggleSnap') },
         { label: 'Snap to Grid', click: send('toggleSnapGrid') },
+        { label: 'Outline View', accelerator: 'CmdOrCtrl+Y', click: send('outlineView') },
+        { label: 'Command Palette…', accelerator: 'CmdOrCtrl+/', click: send('commandPalette') },
         { type: 'separator' },
         { label: 'Colour Preview', submenu: [
           { label: 'Normal', click: send('visionNormal') },
@@ -234,6 +266,7 @@ function buildMenu() {
       ],
     },
   ];
+  menuCommandList = flattenMenu(template);
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
