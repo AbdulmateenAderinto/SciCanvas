@@ -119,6 +119,7 @@ function renderScene() {
     if (c.transform !== transform) { transform ? c.el.setAttribute('transform', transform) : c.el.removeAttribute('transform'); c.transform = transform; }
     const op = o.opacity ?? 1;
     if (c.opacity !== op) { c.el.setAttribute('opacity', op); c.opacity = op; }
+    if ((c.blend || '') !== (o.blend || '')) { c.el.style.mixBlendMode = o.blend || ''; c.blend = o.blend || ''; }
     c.el.classList.toggle('dimmed', !!groupEdit && !groupEdit.ids.has(o.id));
     const want = prev ? prev.nextSibling : scene.firstChild;
     if (want !== c.el) scene.insertBefore(c.el, want);
