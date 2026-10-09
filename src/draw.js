@@ -241,11 +241,10 @@ function drawMove(e, p, d) {
       return;
     }
     case 'line': {
-      let q = p;
-      if (e.shiftKey) { const a = Math.round(Math.atan2(p.y - d.start.y, p.x - d.start.x) / (Math.PI / 4)) * (Math.PI / 4), r = Math.hypot(p.x - d.start.x, p.y - d.start.y); q = { x: d.start.x + Math.cos(a) * r, y: d.start.y + Math.sin(a) * r }; }
+      const { p: q, guides } = snapLinePoint(d.start, p, e); // straight lines lock to 0° / 45° / 90°
       d.cur = q;
       const tmp = makePathFromNodes([d.start, q], { headEnd: state.tool === 'arrow' ? 'arrow' : 'none' });
-      renderOverlay(`<g transform="translate(${tmp.x} ${tmp.y})">${pathSvg(tmp)}</g>`);
+      renderOverlay(`<g transform="translate(${tmp.x} ${tmp.y})">${pathSvg(tmp)}</g>${guides}`);
       return;
     }
     case 'pen-node': {
@@ -286,7 +285,7 @@ function drawUp(e, p, d) {
       if (Math.hypot(d.cur.x - d.start.x, d.cur.y - d.start.y) * state.zoom < 4) { renderOverlay(); return true; }
       const o = makePathFromNodes([d.start, d.cur], { headEnd: state.tool === 'arrow' ? 'arrow' : 'none', name: state.tool === 'arrow' ? 'Arrow' : 'Line' });
       checkpoint(); objs().push(o); state.sel = [o.id];
-      setTool('select');
+      toolStaysHint(); // stays on the line / arrow tool
       return true;
     }
     case 'pen-node': return false; // keep drawing
@@ -316,8 +315,8 @@ function finishPen(close) {
       ? { closed: true, fill: DRAW_DEFAULTS.fill, shade: 'soft', stroke: Color.dark(DRAW_DEFAULTS.fill, 0.35), strokeWidth: 2 }
       : { stroke: DRAW_DEFAULTS.stroke, strokeWidth: DRAW_DEFAULTS.strokeWidth });
     checkpoint(); objs().push(o); state.sel = [o.id];
+    toolStaysHint(); // stays on the pen tool for the next path
   }
-  setTool('select');
   render({ props: true });
 }
 function cancelPen() { pen = null; renderOverlay(); }
