@@ -12,7 +12,8 @@
     "dist:intel": "electron-builder --mac dmg --x64",
     "lint": "eslint .",
     "test": "node --test \"test/**/*.test.js\"",
-    "mcp": "node scripts/mcp-server.js"
+    "mcp": "node scripts/mcp-server.js",
+    "dist:win": "electron-builder --win nsis --x64"
   },
   "license": "MIT",
   "devDependencies": {
@@ -70,12 +71,34 @@
       "title": "SciCanvas ${version}",
       "artifactName": "SciCanvas-${version}-${arch}.dmg"
     },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SciCanvas",
+      "artifactName": "SciCanvas-Setup-${version}.exe",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
     "fileAssociations": [
       {
         "ext": "scifig",
         "name": "SciCanvas Figure",
         "role": "Editor",
-        "icon": "build/icon.png"
+        "icon": "build/icon"
       },
       {
         "ext": "scitemplate",
