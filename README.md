@@ -22,7 +22,7 @@ Icon libraries live in `assets/iconpacks/` (about 640 MB in total). Reinstall or
 
 ```bash
 npm run lint   # ESLint
-npm test       # unit tests: statistics (checked against SciPy), every chart type, chemical-formula text
+npm test       # unit tests: statistics (checked against SciPy), every chart type, diagrams and templates, chemical-formula text
 ```
 
 Both run on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`).
@@ -183,6 +183,18 @@ Every result is checked against SciPy in the automatic tests (`test/fixtures/sta
 - *Multiple linear regression*: coefficients with CIs and p-values, R², adjusted R², F test, variance inflation factors, and automatic coding of text columns (e.g. Sex).
 - *Three-way (factorial) ANOVA*: 2–4 factors with all interactions (Type III sums of squares), drawn as grouped bars in panels.
 
+## New in v0.9: diagram builder and templates
+
+**Insert › Diagram › Diagram Builder…** (⇧⌘D): type a few lines and get an editable diagram made of ordinary shapes, text, icons and arrows, with a live preview. 19 types:
+- *Cycles & processes*: cycle / life cycle (boxes, icons or an arrow ring), radial hub-and-spoke with two levels, process chevrons
+- *Hierarchies & layers*: funnel, pyramid (labels move outside slices that are too narrow), concentric layers, hierarchy / flowchart levels / decision tree from indented text (lines ending in ? become decision diamonds; [Yes] labels an arrow)
+- *Time*: timeline (line with markers or coloured segments, horizontal or vertical), Gantt chart with milestones
+- *Biology*: phylogenetic tree from Newick (rectangular or circular, phylogram or cladogram, clades coloured), food web from "prey -> predator" lines stacked by trophic level, Punnett square with phenotype and genotype ratios, ELISA formats (direct, indirect, sandwich, competitive; colorimetric, fluorescent or chemiluminescent)
+- *Clinical*: trial designs (parallel, crossover, 2 × 2 factorial, single-arm, basket, umbrella, platform, 3 + 3 dose escalation), risk matrix (3 × 3 to 5 × 5)
+- *Layouts*: figure panels with row and column headings, Venn layout (2–4 sets), callout layout (a subject with circular zoom-ins), 2 × 2 quadrant
+
+**18 new templates**: mRNA delivery by lipid nanoparticle, mRNA vaccine immune response, CRISPR–Cas9 editing, haematopoiesis, EMT, extracellular vesicles, gut–brain axis, bulk and single-cell RNA-seq workflows (with live volcano and UMAP charts), proteomics (LC-MS/MS), machine learning (with a live ROC curve), 2D vs 3D culture, wound-healing phases, antibiotic resistance, hybridoma antibodies, the drug development pipeline, clinical trial phases and 3D bioprinting.
+
 ## New in v0.8: design tools from Illustrator, Figma and Canva
 
 **Components with variants** (Figma components, Illustrator symbols): select a protein, cell or labelled group and choose Arrange › Create Component (⌥⌘K). Every copy stays linked: double-click any copy to edit the main component and all copies on every page update. Add variants for biological states (Unbound / Bound / Phosphorylated, Naive / Activated / Exhausted) and switch them per copy from Properties. Each copy can override its own colours and text, and Detach instance makes it independent. Insert › Components… lists them.
@@ -280,6 +292,8 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/graph2.js`: extended statistics, new chart types, data import
 - `src/stats3.js`: v0.9 statistics: post-hoc tests, distributions, contingency, ROC, method comparison, regression, factorial ANOVA, curve fitting
 - `src/statcharts.js`: Statistics & Models chart types (curve fit, contingency, ROC, Bland–Altman, Deming, multiple regression, three-way ANOVA)
+- `src/diagrams.js`: diagram builder (19 generated diagram types) and icon lookup by name
+- `src/templates2.js`: v0.9 templates (drug delivery, genome editing, omics and ML workflows, physiology, microbiology, clinical)
 - `src/ai.js`: AI planner, generators, restyle / edit / remove text, smart search, narration
 - `src/bio.js`: antibody builder, disease-mechanism templates
 - `src/files.js`: folder gallery, version history, change detection, templates, slide sorter, poster layout
