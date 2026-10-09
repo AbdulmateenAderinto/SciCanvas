@@ -20,7 +20,7 @@ function loadIcons() {
   // Built-in icons (parsed from the source so this script needs no browser code).
   // Built-in + soft-style icons: evaluate the icon scripts in a sandbox (they only build data).
   try {
-    const code = ['icons.js', 'softicons.js', 'immunoicons.js'].map((f) => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n') + '\n;ICONS.map((i) => ({ id: i.id, name: i.name, cat: i.cat, tags: i.tags }));';
+    const code = ['icons.js', 'softicons.js', 'softicons2.js', 'immunoicons.js'].map((f) => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n') + '\n;ICONS.map((i) => ({ id: i.id, name: i.name, cat: i.cat, tags: i.tags }));';
     for (const i of require('vm').runInNewContext(code, {})) out.push({ key: i.id, name: i.name, category: i.cat, tags: i.tags || '', library: i.cat.startsWith('Soft') ? 'soft style' : 'built-in', license: 'built-in' });
   } catch (e) { log('Could not index built-in icons:', e.message); }
   // Installed packs: bundled with the source, inside an installed app, and downloaded into user data.
