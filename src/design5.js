@@ -27,7 +27,7 @@ function parsePathD(d) {
       case 'T': { const q = lq ? [2 * x - lq[0], 2 * y - lq[1]] : [x, y]; const a = [ox + num(), oy + num()]; out.push(['Q', q[0], q[1], ...a]); lq = q; x = a[0]; y = a[1]; lc = null; break; }
       case 'A': {
         const rx = num(), ry = num(), rot = num(), large = num(), sweep = num(), ex = ox + num(), ey = oy + num();
-        out.push(...arcToCubics(x, y, rx, ry, rot, large, sweep, ex, ey)); x = ex; y = ey; lc = lq = null; break;
+        out.push(...pathArcToCubics(x, y, rx, ry, rot, large, sweep, ex, ey)); x = ex; y = ey; lc = lq = null; break;
       }
       default: i++;
     }
@@ -35,7 +35,7 @@ function parsePathD(d) {
   return out;
 }
 // SVG elliptical arc → cubic Béziers (SVG spec F.6.5 / F.6.6).
-function arcToCubics(x1, y1, rx, ry, phi, fa, fs, x2, y2) {
+function pathArcToCubics(x1, y1, rx, ry, phi, fa, fs, x2, y2) {
   if (!rx || !ry || (x1 === x2 && y1 === y2)) return [['L', x2, y2]];
   rx = Math.abs(rx); ry = Math.abs(ry);
   const p = (phi * Math.PI) / 180, cp = Math.cos(p), sp = Math.sin(p);
