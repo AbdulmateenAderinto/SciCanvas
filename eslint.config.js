@@ -8,6 +8,8 @@ module.exports = [
     // Electron main process, preload, build scripts and tests run in Node.
     files: ['main.js', 'preload.js', 'scripts/**/*.js', 'test/**/*.js', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs', globals: { ...globals.node } },
+    // `const { team: _t, ...data } = tpl` drops a field on purpose; don't flag the dropped one.
+    rules: { 'no-unused-vars': ['error', { ignoreRestSiblings: true }] },
   },
   {
     // Renderer files are classic <script> tags sharing one global scope, so
