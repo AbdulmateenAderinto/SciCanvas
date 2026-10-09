@@ -110,23 +110,120 @@ function snapMove(dx, dy) {
   return { dx, dy, guides: g };
 }
 
-// Snap the edges being dragged while resizing (unrotated objects, free aspect).
-function snapResize(d, r, keepAspect) {
-  if (!state.view.snap || keepAspect || (d.start.rot || 0) % 360) return '';
-  const th = 6 / state.zoom, others = guideTargets(), P = page();
+// ---------- Resize snapping ----------
+// Edges snap to other objects' edges / centres, the page and ruler guides; the size snaps to the width or
+// height of other objects (shown with matching dimension lines). Works with locked proportions too
+// (icons and images), where the whole size scales to the nearest match. Hold ⌘ / Ctrl to resize freely.
+const snapOff = (e) => !!e && (e.metaKey || e.ctrlKey);
+function sizeTargets() {
+  if (typeof drag !== 'undefined' && drag && drag.sizeTargets) return drag.sizeTargets;
+  const ids = new Set(state.sel);
+  const out = objs().filter((o) => !ids.has(o.id) && o.type !== 'connector' && !o.hidden && o.w > 1 && o.h > 1 && !((o.rot || 0) % 360) && !(groupEdit && !groupEdit.ids.has(o.id)))
+    .map((o) => ({ w: o.w, h: o.h, b: bounds(o) }));
+  if (typeof drag !== 'undefined' && drag) drag.sizeTargets = out;
+  return out;
+}
+// Keep the side or corner opposite the dragged handle in place while changing the size.
+function resizeFromAnchor(r, h, nw, nh) {
+  const x = h.includes('w') ? r.x + r.w - nw : h.includes('e') ? r.x : r.x + r.w / 2 - nw / 2;
+  const y = h.includes('n') ? r.y + r.h - nh : h.includes('s') ? r.y : r.y + r.h / 2 - nh / 2;
+  Object.assign(r, { x, y, w: nw, h: nh });
+}
+// Equal-size marks: a dimension line on the resized box and on up to three matching objects.
+function sizeMatchGuides(r, dim, value) {
+  const z = state.zoom, off = 12 / z;
+  const same = sizeTargets().filter((t) => Math.abs(t[dim] - value) < 0.5)
+    .sort((a, b) => Math.hypot(a.b.x - r.x, a.b.y - r.y) - Math.hypot(b.b.x - r.x, b.b.y - r.y)).slice(0, 3);
+  const mark = (b) => (dim === 'w' ? hDim(b.x, b.x + b.w, b.y - off) : vDim(b.y, b.y + b.h, b.x - off));
+  return mark(r) + same.map((t) => mark(t.b)).join('');
+}
+function nearestWithin(v, list, th) {
+  let best = null;
+  for (const t of list) if (Math.abs(t - v) <= th && (best === null || Math.abs(t - v) < Math.abs(best - v))) best = t;
+  return best;
+}
+function snapResize(d, r, keepAspect, e) {
+  const z = state.zoom;
+  const sizeLabel = () => label(r.x + r.w / 2, r.y + r.h + 14 / z, `${Math.round(r.w)} × ${Math.round(r.h)}`);
+  if (!state.view.snap || snapOff(e) || (d.start.rot || 0) % 360) return sizeLabel();
+  const th = 6 / z, others = guideTargets(), P = page();
   const xs = [0, P.width / 2, P.width, ...((P.guides && P.guides.v) || [])], ys = [0, P.height / 2, P.height, ...((P.guides && P.guides.h) || [])];
   for (const b of others) { xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h); }
-  const near = (v, list) => list.reduce((m, t) => (Math.abs(t - v) <= th && (m === null || Math.abs(t - v) < Math.abs(m - v)) ? t : m), null);
-  let g = '';
-  const z = state.zoom;
+  const sizes = sizeTargets(), widths = sizes.map((t) => t.w), heights = sizes.map((t) => t.h);
+  const hx = d.h.includes('e') ? 'e' : d.h.includes('w') ? 'w' : null, hy = d.h.includes('s') ? 's' : d.h.includes('n') ? 'n' : null;
   const line = (axis, t) => (axis === 'x' ? `<line x1="${t}" y1="-100000" x2="${t}" y2="100000" stroke="${GUIDE_ALIGN}" stroke-width="${1 / z}"/>` : `<line x1="-100000" y1="${t}" x2="100000" y2="${t}" stroke="${GUIDE_ALIGN}" stroke-width="${1 / z}"/>`);
-  if (d.h.includes('e')) { const t = near(r.x + r.w, xs); if (t !== null && t - r.x > 6) { r.w = t - r.x; g += line('x', t); } }
-  if (d.h.includes('w')) { const t = near(r.x, xs); if (t !== null && r.x + r.w - t > 6) { r.w += r.x - t; r.x = t; g += line('x', t); } }
-  if (d.h.includes('s')) { const t = near(r.y + r.h, ys); if (t !== null && t - r.y > 6) { r.h = t - r.y; g += line('y', t); } }
-  if (d.h.includes('n')) { const t = near(r.y, ys); if (t !== null && r.y + r.h - t > 6) { r.h += r.y - t; r.y = t; g += line('y', t); } }
-  // Show the size while resizing.
-  g += label(r.x + r.w / 2, r.y + r.h + 14 / z, `${Math.round(r.w)} × ${Math.round(r.h)}`);
-  return g;
+  let g = '';
+  if (!keepAspect) {
+    let doneX = false, doneY = false;
+    if (hx === 'e') { const t = nearestWithin(r.x + r.w, xs, th); if (t !== null && t - r.x > 6) { r.w = t - r.x; g += line('x', t); doneX = true; } }
+    if (hx === 'w') { const t = nearestWithin(r.x, xs, th); if (t !== null && r.x + r.w - t > 6) { r.w += r.x - t; r.x = t; g += line('x', t); doneX = true; } }
+    if (hy === 's') { const t = nearestWithin(r.y + r.h, ys, th); if (t !== null && t - r.y > 6) { r.h = t - r.y; g += line('y', t); doneY = true; } }
+    if (hy === 'n') { const t = nearestWithin(r.y, ys, th); if (t !== null && r.y + r.h - t > 6) { r.h += r.y - t; r.y = t; g += line('y', t); doneY = true; } }
+    if (hx && !doneX) { const w = nearestWithin(r.w, widths, th); if (w !== null) { resizeFromAnchor(r, hx + (hy || ''), w, r.h); g += sizeMatchGuides(r, 'w', w); } }
+    if (hy && !doneY) { const h = nearestWithin(r.h, heights, th); if (h !== null) { resizeFromAnchor(r, (hx || '') + hy, r.w, h); g += sizeMatchGuides(r, 'h', h); } }
+  } else {
+    // Proportions locked: collect the widths that would land on something, pick the closest.
+    const ratio = r.w / r.h, cands = [];
+    if (hx) {
+      for (const t of xs) cands.push({ w: hx === 'e' ? t - r.x : r.x + r.w - t, d: Math.abs(t - (hx === 'e' ? r.x + r.w : r.x)), kind: 'edge', axis: 'x', t });
+      for (const w of widths) cands.push({ w, d: Math.abs(w - r.w), kind: 'w', v: w });
+    }
+    if (hy) {
+      for (const t of ys) cands.push({ w: (hy === 's' ? t - r.y : r.y + r.h - t) * ratio, d: Math.abs(t - (hy === 's' ? r.y + r.h : r.y)), kind: 'edge', axis: 'y', t });
+      for (const h of heights) cands.push({ w: h * ratio, d: Math.abs(h - r.h), kind: 'h', v: h });
+    }
+    let best = null;
+    for (const c of cands) if (c.d <= th && c.w > 6 && (!best || c.d < best.d)) best = c;
+    if (best) {
+      resizeFromAnchor(r, d.h, best.w, best.w / ratio);
+      g += best.kind === 'edge' ? line(best.axis, best.t) : sizeMatchGuides(r, best.kind, best.v);
+    }
+  }
+  return g + sizeLabel();
+}
+// New shapes drawn with the rectangle / ellipse / shape tools snap to the sizes of existing objects.
+function snapCreateSize(w, h, e) {
+  if (!state.view.snap || snapOff(e)) return { w, h, guides: '' };
+  const th = 6 / state.zoom, sizes = sizeTargets();
+  const W = nearestWithin(Math.abs(w), sizes.map((t) => t.w), th), H = nearestWithin(Math.abs(h), sizes.map((t) => t.h), th);
+  return { w: W !== null ? Math.sign(w || 1) * W : w, h: H !== null ? Math.sign(h || 1) * H : h, W, H };
+}
+
+// ---------- Angle snapping ----------
+// Rotation and straight lines lock onto 0°, 45°, 90°… when within a few degrees (and rotation also onto
+// the angle of any other tilted object). Shift gives 15° steps for rotation, 45° for lines; ⌘ / Ctrl turns it off.
+const ANGLE_MAGNET = 4;
+const angleGap = (a, b) => { const d = Math.abs((((a - b) % 360) + 540) % 360 - 180); return d; };
+function snapAngle(a, e, extra = []) {
+  if (e && e.shiftKey) return { a: ((Math.round(a / 15) * 15) % 360 + 360) % 360, snapped: true };
+  if (!state.view.snap || snapOff(e)) return { a, snapped: false };
+  let best = null;
+  for (const c of [0, 45, 90, 135, 180, 225, 270, 315, ...extra]) { const d = angleGap(a, c); if (d <= ANGLE_MAGNET && (!best || d < best.d)) best = { c, d }; }
+  return best ? { a: ((best.c % 360) + 360) % 360, snapped: true, matched: !(best.c % 45 === 0) } : { a, snapped: false };
+}
+function rotationTargets() {
+  if (drag && drag.rotTargets) return drag.rotTargets;
+  const out = [...new Set(objs().filter((o) => o.id !== (drag && drag.o && drag.o.id) && o.type !== 'connector' && o.rot && o.rot % 45).map((o) => Math.round(o.rot * 10) / 10))];
+  if (drag) drag.rotTargets = out;
+  return out;
+}
+// Readout and guide while rotating: the object's axis through its centre, plus the angle.
+function rotateGuides(o, snapped, matched) {
+  const z = state.zoom, c = { x: o.x + o.w / 2, y: o.y + o.h / 2 }, L = Math.max(o.w, o.h) * 0.75 + 30 / z;
+  const rad = ((o.rot || 0) - 90) * Math.PI / 180, dx = Math.cos(rad) * L, dy = Math.sin(rad) * L;
+  let g = snapped ? `<line x1="${c.x - dx}" y1="${c.y - dy}" x2="${c.x + dx}" y2="${c.y + dy}" stroke="${GUIDE_ALIGN}" stroke-width="${1 / z}" stroke-dasharray="${5 / z} ${3 / z}"/>` : '';
+  if (matched) for (const x of objs()) if (x.id !== o.id && x.type !== 'connector' && Math.abs((x.rot || 0) - o.rot) < 0.05) g += `<rect x="${x.x}" y="${x.y}" width="${x.w}" height="${x.h}" transform="rotate(${x.rot} ${x.x + x.w / 2} ${x.y + x.h / 2})" fill="none" stroke="${GUIDE_SPACE}" stroke-width="${1.5 / z}" stroke-dasharray="${4 / z}"/>`;
+  return g + label(c.x, c.y + Math.hypot(o.w, o.h) / 2 + 22 / z, `${Math.round((o.rot || 0) * 10) / 10}°`); // below the turning box
+}
+// Straighten a line from `a` to `p`: returns the snapped end point and a small angle readout.
+function snapLinePoint(a, p, e) {
+  const ang = (Math.atan2(p.y - a.y, p.x - a.x) * 180) / Math.PI, len = Math.hypot(p.x - a.x, p.y - a.y);
+  if (len * state.zoom < 8) return { p, guides: '' };
+  const s = e && e.shiftKey ? { a: Math.round(ang / 45) * 45, snapped: true } : snapAngle(ang, e);
+  if (!s.snapped) return { p, guides: '' };
+  const r = (s.a * Math.PI) / 180, q = { x: a.x + Math.cos(r) * len, y: a.y + Math.sin(r) * len };
+  const z = state.zoom, shown = ((Math.round(-s.a) % 180) + 180) % 180;
+  return { p: q, guides: `<line x1="${a.x}" y1="${a.y}" x2="${q.x}" y2="${q.y}" stroke="${GUIDE_ALIGN}" stroke-width="${1 / z}" stroke-dasharray="${5 / z} ${3 / z}"/>` + label(q.x + 18 / z, q.y - 14 / z, `${shown}°`) };
 }
 
 // ---------- Arrange commands ----------

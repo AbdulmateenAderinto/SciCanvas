@@ -21,7 +21,7 @@ ctx.document = new Proxy({ createElement: (t) => (t === 'canvas' ? canvas() : bl
 ctx.window = ctx; ctx.globalThis = ctx; ctx.self = ctx;
 ctx.window.native = blob(); ctx.addEventListener = () => {};
 const extra = (process.env.EXTRA_SRC || '').split(',').filter(Boolean);
-const code = [...order, ...extra].map((f) => `/* ${f} */\n` + fs.readFileSync(path.join(dir, f), 'utf8')).join('\n;\n') + '\n;({ Make, makeGroup, pageSvgString, ICONS, ICON_MAP, TEMPLATES, Color, measureText, textMetrics, DIAGRAMS, findIcon, parseNewick, gametes, dgParseIndented, parseFlowText, buildFlowchart, docxXmlToText, pptxSlidesToText, pdfPageCount, referencesForRequest, aiChartFromTables })';
+const code = [...order, ...extra].map((f) => `/* ${f} */\n` + fs.readFileSync(path.join(dir, f), 'utf8')).join('\n;\n') + '\n;({ Make, makeGroup, pageSvgString, ICONS, ICON_MAP, TEMPLATES, Color, measureText, textMetrics, DIAGRAMS, findIcon, parseNewick, gametes, dgParseIndented, parseFlowText, buildFlowchart, docxXmlToText, pptxSlidesToText, pdfPageCount, referencesForRequest, aiChartFromTables, state, snapAngle, snapLinePoint, snapResize, resizeFromAnchor, snapCreateSize, nativeSearchList, searchIcons })';
 let R;
 try { R = vm.runInNewContext(code, ctx, { filename: 'app-bundle.js' }); } catch (e) { console.error('LOAD ERROR', e.message, e.stack.split('\n').slice(1, 3).join(' ')); throw e; }
 module.exports = R;

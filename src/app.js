@@ -713,7 +713,7 @@ function handlePointerMove(e) {
         if (typeof moveStartHook === 'function') moveStartHook(drag); // e.g. docked receptors follow their membrane
       }
       let guides = '';
-      if (!e.metaKey) ({ dx, dy, guides } = snapMove(dx, dy));
+      if (!e.metaKey && !e.ctrlKey) ({ dx, dy, guides } = snapMove(dx, dy));
       for (const r of drag.orig) {
         if (r.o.type === 'connector') {
           if (!r.o.from.id) r.o.from = { x: r.from.x + dx, y: r.from.y + dy };
@@ -729,7 +729,7 @@ function handlePointerMove(e) {
       const o = drag.o;
       const lock = ['icon', 'image'].includes(o.type) ? !e.shiftKey : e.shiftKey;
       const r = computeResize(drag, p, o.type === 'text' ? true : lock);
-      $('#guides').innerHTML = o.type === 'text' || o.type === 'protocol' ? '' : snapResize(drag, r, lock);
+      $('#guides').innerHTML = o.type === 'text' || o.type === 'protocol' ? '' : snapResize(drag, r, lock, e);
       if (o.type === 'text') {
         o.fontSize = Math.max(4, Math.round(drag.font * (r.h / drag.start.h) * 2) / 2);
         postEdit(o); o.x = r.x; o.y = r.y;
@@ -740,10 +740,11 @@ function handlePointerMove(e) {
       return;
     }
     case 'rotate': {
-      let a = (Math.atan2(p.y - drag.c.y, p.x - drag.c.x) * 180) / Math.PI + 90;
-      if (e.shiftKey) a = Math.round(a / 15) * 15;
-      drag.o.rot = ((a % 360) + 360) % 360;
-      renderScene(); renderOverlay();
+      const raw = ((((Math.atan2(p.y - drag.c.y, p.x - drag.c.x) * 180) / Math.PI + 90) % 360) + 360) % 360;
+      const s = snapAngle(raw, e, rotationTargets());
+      drag.o.rot = Math.round(s.a * 10) / 10 % 360;
+      $('#guides').innerHTML = rotateGuides(drag.o, s.snapped, s.matched);
+      renderSceneOnly(new Set([drag.o.id])); renderOverlay();
       return;
     }
     case 'guide': {
@@ -753,10 +754,18 @@ function handlePointerMove(e) {
       renderUserGuides();
       return;
     }
-    case 'endpoint':
-      drag.o[drag.end] = { x: p.x, y: p.y };
-      renderScene(); renderOverlay(portsOverlay(objectAtPoint(e.clientX, e.clientY, drag.o.id)));
+    case 'endpoint': {
+      const over = objectAtPoint(e.clientX, e.clientY, drag.o.id);
+      let q = p, guides = '';
+      if (!over) { // a free end pulls straight (horizontal / vertical / 45°) relative to the other end
+        const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
+        ({ p: q, guides } = snapLinePoint(drag.end === 'to' ? a : b, p, e));
+      }
+      drag.o[drag.end] = { x: q.x, y: q.y };
+      $('#guides').innerHTML = guides;
+      renderScene(); renderOverlay(portsOverlay(over));
       return;
+    }
     case 'curve': {
       const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
@@ -774,17 +783,25 @@ function handlePointerMove(e) {
     case 'create': {
       const o = drag.o;
       let w = p.x - drag.start.x, h = p.y - drag.start.y;
+      let guides = '';
       if (e.shiftKey) { const m = Math.max(Math.abs(w), Math.abs(h)); w = Math.sign(w || 1) * m; h = Math.sign(h || 1) * m; }
+      else { const s = snapCreateSize(w, h, e); w = s.w; h = s.h; const b = { x: Math.min(drag.start.x, drag.start.x + w), y: Math.min(drag.start.y, drag.start.y + h), w: Math.abs(w), h: Math.abs(h) }; if (s.W !== null) guides += sizeMatchGuides(b, 'w', s.W); if (s.H !== null) guides += sizeMatchGuides(b, 'h', s.H); }
       o.x = Math.min(drag.start.x, drag.start.x + w); o.y = Math.min(drag.start.y, drag.start.y + h);
       o.w = Math.abs(w); o.h = Math.abs(h);
+      $('#guides').innerHTML = guides;
       renderScene();
       return;
     }
-    case 'connect':
-      drag.o.to = { x: p.x, y: p.y };
+    case 'connect': {
+      const over = objectAtPoint(e.clientX, e.clientY, drag.o.id);
+      let q = p, guides = '';
+      if (!over) { const [a] = connectorEnds({ ...drag.o, style: 'straight' }, objs()); ({ p: q, guides } = snapLinePoint(a, p, e)); }
+      drag.o.to = { x: q.x, y: q.y };
+      $('#guides').innerHTML = guides;
       renderScene();
-      renderOverlay(portsOverlay(objectAtPoint(e.clientX, e.clientY, drag.o.id)));
+      renderOverlay(portsOverlay(over));
       return;
+    }
     case 'brush': {
       drag.cur = p;
       const last = drag.pts[drag.pts.length - 1];
@@ -1411,7 +1428,7 @@ function renderPageProps(P) {
     btn('◀ Move', () => movePage(-1)), btn('Move ▶', () => movePage(1)),
     state.doc.pages.length > 1 ? btn('Delete page', () => { if (!confirm(`Delete “${p.name}”?`)) return; checkpoint(); state.doc.pages.splice(state.pageIndex, 1); gotoPage(Math.max(0, state.pageIndex - 1)); }, 'danger') : null)));
   P.append(sect('Tips', el('div', { class: 'note', innerHTML:
-    'Drag icons from the library · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Hold ⌘ while dragging to disable snapping.' })));
+    'Drag icons from the library · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Moving, resizing and rotating snap to other objects’ edges, sizes and angles (and lines to 0° / 45° / 90°); hold ⌘ (Ctrl on Windows) to turn snapping off.' })));
 }
 function movePage(d) {
   const i = state.pageIndex, j = i + d;
