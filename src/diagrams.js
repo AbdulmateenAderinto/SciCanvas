@@ -773,7 +773,7 @@ function openDiagramDialog(startKey) {
     listEl.append(el('div', { class: 'note', style: 'margin-top:8px;font-weight:700', textContent: g }));
     Object.entries(DIAGRAMS).filter(([, d]) => d.group === g).forEach(([k, d]) => { const b = btn(d.label, () => { key = k; showForm(); }); b.dataset.key = k; b.style.textAlign = 'left'; listEl.append(b); });
   });
-  openModal('Diagram builder', el('div', { style: 'width:1100px;max-width:94vw;display:grid;grid-template-columns:230px 330px 1fr;gap:14px' },
+  openModal('Diagram builder', el('div', { style: 'width:100%;display:grid;grid-template-columns:200px minmax(240px,300px) minmax(0,1fr);gap:14px' },
     listEl, el('div', {}, desc, form),
     el('div', {}, prev, el('div', { class: 'note', style: 'margin-top:6px' }, 'Everything is inserted as ordinary shapes, text, icons and arrows, so you can edit any part afterwards.'),
       el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Insert diagram', () => {
