@@ -252,7 +252,7 @@ function drawUp(e, p, d) {
     case 'pencil': {
       d.pts.push(p);
       if (d.pts.length < 3) { renderOverlay(); return true; }
-      const close = d.pts.length > 8 && Math.hypot(p.x - d.start.x, p.y - d.start.y) * state.zoom < 14;
+      const close = d.pts.length > 8 && (DRAW_DEFAULTS.autoClose || Math.hypot(p.x - d.start.x, p.y - d.start.y) * state.zoom < 14);
       const pts = simplify(close ? d.pts.slice(0, -1) : d.pts, 1.6 / state.zoom);
       const o = makePathFromNodes(smoothNodes(pts, close), close
         ? { closed: true, fill: DRAW_DEFAULTS.fill, shade: 'soft', stroke: Color.dark(DRAW_DEFAULTS.fill, 0.35), strokeWidth: 2 }

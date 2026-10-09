@@ -24,7 +24,7 @@ function renderLibrary() {
     const tip = it.native ? it.name : `${it.name} — ${it.author} (${LICENSE_NAMES[it.license] || it.license})${it.kb > 1024 ? ` · ${(it.kb / 1024).toFixed(1)} MB` : ''}`;
     const nc = isNonCommercial(it.license) ? '<em class="nc" title="Non-commercial licence">NC</em>' : '';
     return `<div class="icon-cell" draggable="true" data-key="${esc(it.key)}" title="${esc(tip)}">${nc}<button class="fav${favs.has(it.key) ? ' on' : ''}" data-fav="${esc(it.key)}" title="Favourite">${favs.has(it.key) ? '★' : '☆'}</button>${pic}<span>${esc(it.name)}</span></div>`;
-  }).join('') || `<div class="note" style="grid-column:1/-1">${activeCat === '★ Favorites' ? 'No favourites yet — click the ☆ on any icon.' : activeCat === 'Recent' ? 'Icons you use will appear here.' : `No icons match “${esc(q)}”. Try a broader term, upload your own SVG, or insert a structure from PubChem / PDB.`}</div>`;
+  }).join('') || `<div class="note" style="grid-column:1/-1">${activeCat === '★ Favorites' ? 'No favourites yet — click the ☆ on any icon.' : activeCat === 'Recent' ? 'Icons you use will appear here.' : `No icons match “${esc(q)}”. Try a broader term, upload your own SVG, insert a structure from PubChem / PDB, or <a href="#" data-request-icon="${esc(q)}">request this icon</a>.`}</div>`;
   const foot = $('#libfoot');
   foot.innerHTML = '';
   foot.append(el('span', { textContent: `${total.toLocaleString()} icon${total === 1 ? '' : 's'}` }));
@@ -37,7 +37,7 @@ function renderLibraryBanner() {
   if (!replaceTarget) { b.classList.add('hidden'); return; }
   b.classList.remove('hidden');
   b.innerHTML = '';
-  b.append(el('span', { textContent: 'Replace mode — click an icon to swap it in.' }), btn('Cancel', () => { replaceTarget = null; renderLibraryBanner(); }));
+  b.append(el('span', { textContent: replaceAll ? 'Replace all — click an icon to swap it in for every matching icon on this page.' : 'Replace mode — click an icon to swap it in.' }), btn('Cancel', () => { replaceTarget = null; replaceAll = false; renderLibraryBanner(); }));
 }
 function setupLibrary() {
   let t;
@@ -45,6 +45,8 @@ function setupLibrary() {
   $('#cats').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { activeCat = b.dataset.cat; libLimit = 240; renderLibrary(); } });
   $('#catSel').addEventListener('change', (e) => { activeCat = e.target.value || 'All'; libLimit = 240; renderLibrary(); });
   $('#icongrid').addEventListener('click', (e) => {
+    const req = e.target.closest('[data-request-icon]');
+    if (req) { e.preventDefault(); requestContent('icon', req.dataset.requestIcon); return; }
     const f = e.target.closest('[data-fav]');
     if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); renderLibrary(); return; }
     const c = e.target.closest('[data-key]');
@@ -247,6 +249,11 @@ async function openSettingsDialog() {
   const author = el('input', { type: 'text', value: appSettings.author, placeholder: 'Your name (for comments)' });
   const field = el('select', {}, ...RESEARCH_FIELDS.map((f) => el('option', { value: f, textContent: f || 'Not set', selected: f === appSettings.field })));
   const key = el('input', { type: 'password', placeholder: appSettings.hasApiKey ? (appSettings.keyFromEnv ? 'Using ANTHROPIC_API_KEY from environment' : '•••••••• saved — type to replace') : 'sk-ant-…', autocomplete: 'off', style: 'flex:1' });
+  let teamFolder = appSettings.teamFolder || '';
+  const teamLabel = el('span', { class: 'note', style: 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', textContent: teamFolder || 'Not set' });
+  const limit = el('input', { type: 'number', min: 0, step: 10, value: appSettings.aiLimit || '', placeholder: 'No limit', style: 'width:110px' });
+  const month = new Date().toISOString().slice(0, 7), u = (appSettings.usage || {})[month] || { requests: 0, input: 0, output: 0 };
+  const months = Object.entries(appSettings.usage || {}).sort().reverse().slice(0, 6);
   let gpu = '';
   try {
     const g = await window.native.gpuStatus();
@@ -259,13 +266,24 @@ async function openSettingsDialog() {
     field_('Research field', field),
     el('div', { class: 'note', style: 'margin:-2px 0 12px 84px' }, 'Used to rank library search results toward your field.'),
     brandKitSection(),
+    el('h3', { class: 'dlg-sub', textContent: 'Team templates' }),
+    field_('Folder', el('span', { style: 'display:flex;gap:6px;align-items:center;flex:1;min-width:0' }, teamLabel,
+      btn('Choose…', async () => { const f = await window.native.pickFolderPath(); if (f) { teamFolder = f; teamLabel.textContent = f; } }),
+      btn('Clear', () => { teamFolder = ''; teamLabel.textContent = 'Not set'; }))),
+    el('div', { class: 'note', style: 'margin:0 0 12px 84px' }, 'A shared folder (Dropbox, OneDrive, Google Drive, network drive). Templates published there appear under “Team templates” for everyone who points SciCanvas at the same folder.'),
     el('h3', { class: 'dlg-sub', textContent: 'AI figure drafting' }),
     field_('API key', key),
     el('div', { class: 'note', style: 'margin:0 0 8px 84px' }, 'An Anthropic API key (console.anthropic.com). It is encrypted with your system keychain and only sent to Anthropic when you generate a figure. Usage is billed to your account.'),
     appSettings.hasApiKey && !appSettings.keyFromEnv ? el('div', { style: 'margin-left:84px' }, btn('Remove saved key', async () => { await window.native.saveSettings({ clearKey: true }); toast('Key removed'); openSettingsDialog(); }, 'danger')) : null,
+    el('h3', { class: 'dlg-sub', textContent: 'AI usage' }),
+    el('div', { class: 'note', style: 'margin-bottom:6px' }, `This month: ${u.requests} request${u.requests === 1 ? '' : 's'}${appSettings.aiLimit ? ` of ${appSettings.aiLimit}` : ''} · ${(u.input / 1000).toFixed(1)}k input + ${(u.output / 1000).toFixed(1)}k output tokens.`),
+    appSettings.aiLimit ? el('div', { class: 'meter', style: 'height:6px;background:var(--line);border-radius:3px;margin:0 0 8px;overflow:hidden' }, el('div', { style: `height:100%;width:${Math.min(100, (100 * u.requests) / appSettings.aiLimit)}%;background:${u.requests >= appSettings.aiLimit ? '#d64545' : 'var(--accent)'}` })) : null,
+    months.length > 1 ? el('div', { class: 'note', style: 'margin-bottom:6px' }, months.map(([m, x]) => `${m}: ${x.requests}`).join(' · ')) : null,
+    field_('Monthly limit', el('span', { style: 'display:flex;gap:6px;align-items:center' }, limit, el('span', { class: 'note', textContent: 'requests (blank = no limit)' }))),
+    el('div', { class: 'note', style: 'margin:0 0 8px 84px' }, 'AI features stop for the rest of the month once the limit is reached — a simple way to cap spending. Exact costs are on console.anthropic.com.'),
     el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Save', async () => {
       try {
-        await window.native.saveSettings({ author: author.value.trim(), field: field.value, apiKey: key.value.trim() || undefined });
+        await window.native.saveSettings({ author: author.value.trim(), field: field.value, apiKey: key.value.trim() || undefined, teamFolder, aiLimit: +limit.value || 0 });
         appSettings = await window.native.getSettings();
         renderLibrary(); closeModal(); toast('Settings saved');
       } catch (e) { toast(e.message.replace(/^Error invoking remote method[^:]*: (Error: )?/, ''), 4000); }

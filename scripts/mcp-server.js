@@ -55,7 +55,7 @@ function searchIcons(query, limit = 20) {
 }
 function listTemplates() {
   const out = [];
-  for (const f of ['model.js', 'files.js']) {
+  for (const f of ['model.js', 'files.js', 'bio.js']) {
     const src = fs.readFileSync(path.join(ROOT, 'src', f), 'utf8');
     for (const m of src.matchAll(/name: '([^']+)',\s*desc: '([^']+)'/g)) out.push({ name: m[1], description: m[2] });
   }

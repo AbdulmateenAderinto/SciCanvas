@@ -381,11 +381,13 @@ const RESTYLES = {
   lineart: 'minimal line art: uniform 3 px strokes, no fills, round caps',
   sketch: 'graphite pencil sketch: grey loose strokes and light shading',
   silhouette: 'solid silhouette: a single dark fill colour, no internal detail',
+  realistic: 'realistic scientific illustration: naturalistic colours, layered gradients for volume, fine surface texture and subtle ambient-occlusion shadows (still vector, no photo)',
+  flat2d: 'flat 2D: solid flat fills only, no gradients or shadows, simplified geometric shapes, thin uniform outlines',
 };
 async function restyleSelection() {
   const sel = selected().filter((o) => o.type !== 'connector');
   if (!sel.length) { toast('Select an icon or image to restyle'); return; }
-  const style = el('select', {}, ...Object.keys(RESTYLES).map((k) => el('option', { value: k, textContent: { scientific: 'Apply SciCanvas house style', textbook: 'Textbook', watercolor: 'Watercolour', pencil: 'Coloured pencil', '3d': '3D', ink: 'Pen & ink', lineart: 'Line art', sketch: 'Pencil sketch', silhouette: 'Silhouette' }[k] })));
+  const style = el('select', {}, ...Object.keys(RESTYLES).map((k) => el('option', { value: k, textContent: { scientific: 'Apply SciCanvas house style', textbook: 'Textbook', watercolor: 'Watercolour', pencil: 'Coloured pencil', '3d': '3D', ink: 'Pen & ink', lineart: 'Line art', sketch: 'Pencil sketch', silhouette: 'Silhouette', realistic: 'Realistic', flat2d: 'Flat 2D' }[k] })));
   const grid = el('div', { class: 'ai-icon-grid' }), status = el('div', { class: 'note' });
   const go = btn('Restyle', async () => {
     const done = busy(go, 'Redrawing…'); grid.innerHTML = '';
@@ -540,8 +542,100 @@ async function removeBackgroundSelection() {
 const AI_COMMANDS = {
   ai: () => openAIDialog(), aiPlan: openPlanner, aiProtocol: generateProtocol, aiTimeline: generateTimeline, aiFlowchart: generateFlowchart,
   aiIcon: () => openAIIconDialog(), aiRestyle: restyleSelection, aiEdit: editWithAI, aiRemoveText: removeTextFromSelection, removeBg: removeBackgroundSelection,
-  aiNarrate: narrateFigure, aiSmartSearch: smartSearch,
+  aiNarrate: narrateFigure, aiSmartSearch: smartSearch, aiNarrateSlides: narrateSlides, upscale: upscaleSelection,
 };
+
+// ---------- Image upscale (on-device, no AI): high-quality resample + unsharp mask ----------
+async function upscaleImage(src, factor, amount = 0.6) {
+  const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  let w = im.naturalWidth, h = im.naturalHeight, cur = im;
+  const target = Math.min(factor, Math.floor(8192 / Math.max(w, h)) || 1);
+  // Upscale in ×2 steps — sharper than one big jump.
+  for (let f = 1; f < target; f *= 2) {
+    const k = Math.min(2, target / f), c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(cur, 0, 0, c.width, c.height);
+    cur = c; w = c.width; h = c.height;
+  }
+  const c = cur instanceof HTMLCanvasElement ? cur : (() => { const x = document.createElement('canvas'); x.width = w; x.height = h; x.getContext('2d').drawImage(cur, 0, 0); return x; })();
+  if (amount > 0) {
+    const g = c.getContext('2d'), orig = g.getImageData(0, 0, w, h);
+    const blur = document.createElement('canvas'); blur.width = w; blur.height = h;
+    const bg = blur.getContext('2d'); bg.filter = `blur(${Math.max(1, target / 2)}px)`; bg.drawImage(c, 0, 0);
+    const b = bg.getImageData(0, 0, w, h).data, d = orig.data;
+    for (let i = 0; i < d.length; i += 4) for (let j = 0; j < 3; j++) d[i + j] = Math.max(0, Math.min(255, d[i + j] + amount * (d[i + j] - b[i + j])));
+    g.putImageData(orig, 0, 0);
+  }
+  return { src: c.toDataURL('image/png'), w, h };
+}
+function upscaleSelection() {
+  const o = selected()[0];
+  if (!o || o.type !== 'image') { toast('Select an image to upscale'); return; }
+  const factor = el('select', {}, el('option', { value: 2, textContent: '2× (recommended)' }), el('option', { value: 4, textContent: '4×' }));
+  const sharp = el('input', { type: 'range', min: 0, max: 1.5, step: 0.1, value: 0.6 });
+  const info = el('div', { class: 'note' });
+  loadImageSize(o.src).then((s) => { info.textContent = `Current resolution: ${s.w} × ${s.h} px (${Math.round((s.w / o.w) * 72)} ppi at this size on a 72-ppi page).`; });
+  const go = btn('Upscale', async () => {
+    const done = busy(go, 'Upscaling…');
+    try {
+      const r = await upscaleImage(o.src, +factor.value, +sharp.value);
+      checkpoint(); o.src = r.src; o.nw = r.w; o.nh = r.h; o.crop = null;
+      closeModal(); render({ props: true }); toast(`Upscaled to ${r.w} × ${r.h} px`);
+    } catch (e) { toast('Could not upscale: ' + e.message); }
+    done();
+  }, 'primary');
+  openModal('Upscale image', el('div', { style: 'max-width:440px' }, info, field_('Scale', factor), field_('Sharpen', sharp),
+    el('div', { class: 'note', style: 'margin:8px 0' }, 'Smooth resampling with sharpening — done on this computer, no AI. It makes pixels smaller and edges crisper for print, but cannot add real detail; for micrographs, export from the original data at higher resolution instead.'),
+    el('div', { class: 'actions' }, btn('Cancel', closeModal), go)));
+}
+
+// ---------- Narrated slides: AI writes a script per slide; presenter reads it aloud ----------
+async function narrateSlides() {
+  const pages = state.doc.pages;
+  const texts = pages.map((p) => p.narration || '');
+  const list = el('div', { style: 'max-height:46vh;overflow:auto;display:grid;gap:8px' });
+  const drawList = () => {
+    list.innerHTML = '';
+    pages.forEach((p, i) => list.append(el('div', {}, el('b', { textContent: `${i + 1}. ${p.name}` }),
+      el('textarea', { rows: 3, style: 'width:100%;font-family:inherit;font-size:13px', value: texts[i], placeholder: 'Narration for this slide (read aloud when presenting)…', oninput: (e) => { texts[i] = e.target.value; } }))));
+  };
+  drawList();
+  const audience = el('select', {}, ...['Conference talk (scientific peers)', 'Lab meeting (informal)', 'Students (teaching)', 'General public'].map((v) => el('option', { value: v, textContent: v })));
+  const length = el('select', {}, el('option', { value: '2-3 sentences', textContent: 'Short (2–3 sentences)' }), el('option', { value: '4-6 sentences', textContent: 'Medium (4–6 sentences)' }));
+  const voices = speechSynthesis.getVoices().filter((v) => /^en/i.test(v.lang));
+  const voice = el('select', {}, el('option', { value: '', textContent: 'System default voice' }), ...voices.map((v) => el('option', { value: v.name, textContent: `${v.name} (${v.lang})`, selected: v.name === state.doc.narrationVoice })));
+  const rate = el('input', { type: 'range', min: 0.7, max: 1.4, step: 0.05, value: state.doc.narrationRate || 1 });
+  const status = el('div', { class: 'note' });
+  const apply = () => { checkpoint(); pages.forEach((p, i) => { p.narration = texts[i].trim() || undefined; }); state.doc.narrationVoice = voice.value || undefined; state.doc.narrationRate = +rate.value; markDirty(); };
+  const gen = btn('✦ Write narration', async () => {
+    const done = busy(gen, 'Writing…');
+    try {
+      const outline = pages.map((p, i) => `Slide ${i + 1} "${p.name}": text on slide: ${p.objects.flatMap((o) => [o.text, o.label, o.title, o.cfg && o.cfg.title].filter(Boolean)).join(' | ').slice(0, 800) || '(no text)'}${p.notes ? ` · speaker notes: ${p.notes.slice(0, 600)}` : ''}`).join('\n');
+      const r = await aiCall({
+        system: 'You write spoken narration scripts for scientific slide decks. Explain only what each slide shows or what its notes say; never invent data, results or claims. Write for the ear: short sentences, no markdown, spell out abbreviations on first use. Respond with the JSON schema, one entry per slide in order.',
+        prompt: `Audience: ${audience.value}. Length: ${length.value} per slide.\n${outline}`,
+        image: await pageImage(page()),
+        schema: sObj({ slides: sArr(sObj({ index: sNum, narration: sStr })) }),
+      });
+      r.slides.forEach((s) => { const i = Math.round(s.index) - 1; if (i >= 0 && i < pages.length) texts[i] = s.narration; });
+      drawList(); status.textContent = 'Review every line — narration should match what the slide actually shows.';
+    } catch (e) { status.textContent = cleanErr(e); }
+    done();
+  });
+  openModal('Narrated slides', el('div', { style: 'max-width:720px' },
+    el('div', { class: 'row' }, el('label', { textContent: 'Audience' }), audience, length, gen), status, list,
+    el('div', { class: 'row', style: 'margin-top:8px' }, el('label', { textContent: 'Voice' }), voice, el('span', { textContent: 'Speed', style: 'color:var(--muted)' }), rate),
+    el('div', { class: 'note' }, 'Present (F5) and press P to play narration — slides advance automatically when each one finishes. Export audio saves one .m4a per slide (Mac) for adding to PowerPoint or video.'),
+    el('div', { class: 'actions' },
+      btn('▶ Preview this slide', () => { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(texts[state.pageIndex] || 'No narration for this slide yet.'); const v = voices.find((x) => x.name === voice.value); if (v) u.voice = v; u.rate = +rate.value; speechSynthesis.speak(u); }),
+      btn('Export audio…', async () => {
+        apply();
+        try { const n = await window.native.ttsExport({ slides: pages.map((p, i) => ({ index: i + 1, name: p.name, text: texts[i] })), rate: Math.round(175 * +rate.value) }); if (n != null) toast(`Saved ${n} audio file${n === 1 ? '' : 's'}`); }
+        catch (e) { toast(cleanErr(e), 4000); }
+      }),
+      btn('Cancel', () => { speechSynthesis.cancel(); closeModal(); }),
+      btn('Save narration', () => { speechSynthesis.cancel(); apply(); closeModal(); toast('Narration saved — present and press P to play'); }, 'primary'))));
+}
 function showAIMenu(anchor) {
   const pop = $('#pop');
   pop.innerHTML = '';

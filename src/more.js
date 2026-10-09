@@ -168,7 +168,7 @@ function resizeTable(o, rows, cols) {
   const rh = o.h / o.rows, cw = o.w / o.cols;
   o.cells = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => (o.cells[r] && o.cells[r][c]) || ''));
   if (o.cellFill) o.cellFill = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => (o.cellFill[r] && o.cellFill[r][c]) || null));
-  o.h = rh * rows; o.w = cw * cols; o.rows = rows; o.cols = cols; o.colW = null;
+  o.h = rh * rows; o.w = cw * cols; o.rows = rows; o.cols = cols; o.colW = null; o.rowH = null;
   render({ props: true });
 }
 function tableSection(o) {
@@ -188,7 +188,7 @@ function tableSection(o) {
     row('Align', select(L, 'align', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])));
 }
 function openTableEditor(o) {
-  const draft = { cells: o.cells.map((r) => [...r]), fill: o.cellFill ? o.cellFill.map((r) => [...r]) : Array.from({ length: o.rows }, () => Array(o.cols).fill(null)), colW: o.colW ? [...o.colW] : Array(o.cols).fill(1 / o.cols) };
+  const draft = { cells: o.cells.map((r) => [...r]), fill: o.cellFill ? o.cellFill.map((r) => [...r]) : Array.from({ length: o.rows }, () => Array(o.cols).fill(null)), colW: o.colW ? [...o.colW] : Array(o.cols).fill(1 / o.cols), rowH: o.rowH && o.rowH.length === o.rows ? [...o.rowH] : Array(o.rows).fill(1 / o.rows) };
   const selCells = new Set();
   let anchor = null;
   const grid = el('div', { class: 'tgrid', style: `grid-template-columns:repeat(${o.cols}, minmax(70px, 1fr))` });
@@ -219,6 +219,7 @@ function openTableEditor(o) {
       btn('Colour selected', () => { selCells.forEach((k) => { const [r, c] = k.split(',').map(Number); draft.fill[r][c] = fillIn.value; }); drawGrid(); }),
       btn('Clear colour', () => { selCells.forEach((k) => { const [r, c] = k.split(',').map(Number); draft.fill[r][c] = null; }); drawGrid(); })),
     widths,
+    el('div', { class: 'row', style: 'flex-wrap:wrap' }, el('label', { textContent: 'Row heights %' }), ...draft.rowH.map((f, i) => el('input', { type: 'number', value: Math.round(f * 100), style: 'width:56px', title: `Row ${i + 1}`, oninput: (e) => { draft.rowH[i] = Math.max(1, +e.target.value) / 100; } }))),
     paste, btn('Fill from paste', () => {
       const rows = paste.value.replace(/\r/g, '').split('\n').filter((l) => l.length).map((l) => l.split('\t'));
       if (!rows.length) return;
@@ -237,6 +238,8 @@ function openTableEditor(o) {
       o.cellFill = draft.fill.some((r) => r.some(Boolean)) ? draft.fill : null;
       const tot = draft.colW.reduce((a, b) => a + b, 0);
       o.colW = draft.colW.map((f) => f / tot);
+      const totH = draft.rowH.reduce((a, b) => a + b, 0);
+      o.rowH = draft.rowH.every((f) => Math.abs(f - draft.rowH[0]) < 1e-6) ? null : draft.rowH.map((f) => f / totH);
       render({ props: true }); closeModal();
     }, 'primary'))));
 }
@@ -245,7 +248,10 @@ function editTableCellAt(o, e) {
   const p = toWorld(e);
   const c0 = { x: o.x + o.w / 2, y: o.y + o.h / 2 }, q = rotPt(p, c0, -(o.rot || 0));
   const lx = q.x - o.x, ly = q.y - o.y;
-  const r = Math.min(o.rows - 1, Math.max(0, Math.floor(ly / (o.h / o.rows))));
+  const heights = o.rowH && o.rowH.length === o.rows ? o.rowH : Array(o.rows).fill(1 / o.rows);
+  let r = 0, accY = heights[0] * o.h;
+  while (r < o.rows - 1 && ly > accY) { r++; accY += heights[r] * o.h; }
+  const rowTop = accY - heights[r] * o.h;
   const widths = o.colW && o.colW.length === o.cols ? o.colW : Array(o.cols).fill(1 / o.cols);
   let acc = 0, c = 0;
   for (; c < o.cols - 1; c++) { acc += widths[c] * o.w; if (lx < acc) break; }
@@ -255,7 +261,7 @@ function editTableCellAt(o, e) {
   // Re-position the editor over the cell.
   const ta = $('#textEditor'), z = state.zoom, sr = stage.getBoundingClientRect(), svr = svg.getBoundingClientRect();
   const x0 = widths.slice(0, c).reduce((a, b) => a + b, 0) * o.w;
-  Object.assign(ta.style, { left: (o.x + x0) * z + state.panX + svr.left - sr.left + 'px', top: (o.y + (r * o.h) / o.rows) * z + state.panY + svr.top - sr.top + 'px', width: Math.max(60, widths[c] * o.w * z) + 'px', fontSize: (o.fontSize || 13) * z + 'px', textAlign: o.align || 'center' });
+  Object.assign(ta.style, { left: (o.x + x0) * z + state.panX + svr.left - sr.left + 'px', top: (o.y + rowTop) * z + state.panY + svr.top - sr.top + 'px', width: Math.max(60, widths[c] * o.w * z) + 'px', fontSize: (o.fontSize || 13) * z + 'px', textAlign: o.align || 'center' });
 }
 
 // ---------- Brush path editing ----------
@@ -314,3 +320,122 @@ function panelLayout() {
   toast(`Arranged ${n} panels in a ${rows} × ${cols} grid`);
 }
 ARRANGE_COMMANDS.panelLayout = panelLayout;
+
+// ---------- Colour presets (coordinated fill + border + text) ----------
+const COLOUR_PRESETS = [
+  ['Blue', '#e8f0fb', '#4a7fd6', '#1d3f78'], ['Teal', '#e3f4ef', '#3fa58b', '#1f5a4b'], ['Orange', '#fdf0e6', '#e8743b', '#7a3512'],
+  ['Red', '#fbe9e9', '#d64545', '#7a1f1f'], ['Purple', '#f1ecfa', '#9b7fd1', '#4b3480'], ['Yellow', '#fdf6e0', '#e8b33c', '#6e5310'],
+  ['Grey', '#f1f3f5', '#7a8a96', '#2c3740'], ['Dark', '#2c3740', '#2c3740', '#ffffff'], ['Solid blue', '#4a7fd6', '#2f5fae', '#ffffff'], ['Solid teal', '#3fa58b', '#2b7f6a', '#ffffff'],
+];
+function colourPresets(o) {
+  return el('div', { class: 'row' }, el('label', { textContent: 'Preset' }),
+    el('span', { style: 'display:flex;gap:3px;flex-wrap:wrap' }, ...COLOUR_PRESETS.map(([name, fill, stroke, text]) => el('button', {
+      class: 'swatch', title: name, style: `background:${fill};border:2px solid ${stroke};color:${text};font-size:9px;font-weight:700;width:22px;height:22px;line-height:16px`, textContent: 'A',
+      onclick: () => { checkpoint(); Object.assign(o, { fill, stroke, labelColor: text, fill2: null }); render({ props: true }); },
+    }))));
+}
+
+// ---------- Transform dialog: exact size / rotation, each object about its own centre ----------
+function openTransformDialog() {
+  const sel = selected().filter((o) => o.type !== 'connector' && !o.locked);
+  if (!sel.length) { toast('Select objects to transform'); return; }
+  const unit = el('select', {}, el('option', { value: '%', textContent: '% of current' }), el('option', { value: 'px', textContent: 'px' }));
+  const w = el('input', { type: 'number', value: 100, style: 'width:80px' }), h = el('input', { type: 'number', value: 100, style: 'width:80px' });
+  const rot = el('input', { type: 'number', value: 0, style: 'width:80px' }), rotMode = el('select', {}, el('option', { value: 'add', textContent: 'rotate by' }), el('option', { value: 'set', textContent: 'set to' }));
+  const lock = el('input', { type: 'checkbox', checked: true });
+  unit.onchange = () => { const one = sel[0]; if (unit.value === 'px') { w.value = Math.round(one.w); h.value = Math.round(one.h); } else { w.value = 100; h.value = 100; } };
+  w.oninput = () => { if (!lock.checked) return; h.value = unit.value === '%' ? w.value : Math.round((+w.value * sel[0].h) / sel[0].w); };
+  h.oninput = () => { if (!lock.checked) return; w.value = unit.value === '%' ? h.value : Math.round((+h.value * sel[0].w) / sel[0].h); };
+  openModal('Transform', el('div', { style: 'max-width:420px' },
+    el('div', { class: 'note', style: 'margin-bottom:8px' }, `${sel.length} object${sel.length > 1 ? 's' : ''} — each is transformed about its own centre, so they stay in place.`),
+    field_('Units', unit), field_('Width', w), field_('Height', h), field_('', el('label', { style: 'width:auto;color:inherit' }, lock, ' Keep proportions')),
+    field_('Rotation', el('span', { style: 'display:flex;gap:6px;align-items:center' }, rotMode, rot, '°')),
+    el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Apply', () => {
+      checkpoint();
+      for (const o of sel) {
+        const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+        const nw = unit.value === '%' ? (o.w * +w.value) / 100 : +w.value, nh = unit.value === '%' ? (o.h * +h.value) / 100 : +h.value;
+        if (nw > 0 && nh > 0 && o.type !== 'text') { o.w = nw; o.h = nh; }
+        if (o.type === 'text' && unit.value === '%') o.fontSize = Math.max(4, (o.fontSize || 16) * (+w.value / 100));
+        o.x = cx - o.w / 2; o.y = cy - o.h / 2;
+        if (+rot.value || rotMode.value === 'set') o.rot = (((rotMode.value === 'set' ? 0 : o.rot || 0) + +rot.value) % 360 + 360) % 360;
+        if (o.type === 'text') { const m = textMetrics(o); o.w = m.w; o.h = m.h; o.x = cx - o.w / 2; o.y = cy - o.h / 2; }
+      }
+      closeModal(); render({ props: true });
+    }, 'primary'))));
+}
+// ---------- Crop to shape: the top closed shape becomes a custom crop of the object under it ----------
+function localOutline(m) {
+  if (m.type === 'ellipse') return `M${m.w / 2} 0 A${m.w / 2} ${m.h / 2} 0 1 1 ${m.w / 2} ${m.h} A${m.w / 2} ${m.h / 2} 0 1 1 ${m.w / 2} 0 Z`;
+  if (m.type === 'rect') { const r = Math.min(m.radius || 0, m.w / 2, m.h / 2); return `M${r} 0 H${m.w - r} A${r} ${r} 0 0 1 ${m.w} ${r} V${m.h - r} A${r} ${r} 0 0 1 ${m.w - r} ${m.h} H${r} A${r} ${r} 0 0 1 0 ${m.h - r} V${r} A${r} ${r} 0 0 1 ${r} 0 Z`; }
+  if (m.type === 'shape' && !OPEN_SHAPES.has(m.kind)) return shapePath(m.kind, m.w, m.h);
+  if (m.type === 'path' && m.closed) return nodesToD(scaledNodes(m), true);
+  return null;
+}
+function cropToShape() {
+  const sel = selected();
+  if (sel.length !== 2) { toast('Select two objects: the shape to crop with, on top of the object to crop'); return; }
+  const list = objs();
+  const [lower, mask] = [...sel].sort((a, b) => list.indexOf(a) - list.indexOf(b));
+  const d = localOutline(mask);
+  if (!d) { toast('The top object must be a closed shape — rectangle, ellipse, shape or closed drawing'); return; }
+  if (lower.type === 'connector') { toast('Connectors can’t be cropped'); return; }
+  checkpoint();
+  // mask-local → world → lower-local (both objects may be rotated about their centres)
+  const tf = `rotate(${-(lower.rot || 0)} ${lower.w / 2} ${lower.h / 2}) translate(${mask.x - lower.x} ${mask.y - lower.y}) rotate(${mask.rot || 0} ${mask.w / 2} ${mask.h / 2})`;
+  lower.clipPath = { d, tf, w: lower.w, h: lower.h };
+  lower.clip = 'none';
+  if (mask.stroke && mask.stroke !== 'none' && (mask.strokeWidth ?? 2) > 0) { lower.clipStroke = mask.stroke; lower.clipStrokeWidth = mask.strokeWidth ?? 2; }
+  page().objects = list.filter((x) => x !== mask);
+  state.sel = [lower.id];
+  render({ props: true });
+  toast('Cropped to shape — remove it from Effects › Crop shape');
+}
+
+// ---------- Apply a brush (membrane, DNA…) along a drawn path ----------
+function flattenNodes(ns, closed, steps = 16) {
+  const out = [];
+  const seg = (a, b) => {
+    const c1 = { x: a.ox ?? a.x, y: a.oy ?? a.y }, c2 = { x: b.ix ?? b.x, y: b.iy ?? b.y };
+    for (let i = out.length ? 1 : 0; i <= steps; i++) {
+      const t = i / steps, u = 1 - t;
+      out.push({ x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y });
+    }
+  };
+  for (let i = 1; i < ns.length; i++) seg(ns[i - 1], ns[i]);
+  if (closed && ns.length > 2) seg(ns[ns.length - 1], ns[0]);
+  return out;
+}
+function applyBrushToPath(kind) {
+  const o = selected()[0];
+  if (!o || o.type !== 'path') { toast('Select a drawn line or curve first'); return; }
+  if (!kind) {
+    const pick = el('select', {}, ...[['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['microtubule', 'Microtubule'], ['epithelium', 'Epithelial layer'], ['cells', 'Row of cells'], ['vessel', 'Blood vessel'], ['vesicles', 'Vesicles']].map(([v, l]) => el('option', { value: v, textContent: l })));
+    openModal('Apply brush to path', el('div', { style: 'max-width:380px' }, el('div', { class: 'note', style: 'margin-bottom:8px' }, 'The drawing is replaced by a brush that follows it. You can still edit its points afterwards.'), field_('Brush', pick),
+      el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Apply', () => { closeModal(); applyBrushToPath(pick.value); }, 'primary'))));
+    return;
+  }
+  const pts = flattenNodes(scaledNodes(o), o.closed);
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(1, Math.max(...xs) - x0), h = Math.max(1, Math.max(...ys) - y0);
+  const b = Make.brush(kind, o.x + x0, o.y + y0, w, h, pts.map((p) => [(p.x - x0) / w, (p.y - y0) / h]), { closed: !!o.closed, rot: o.rot || 0 });
+  if (o.stroke && o.stroke !== 'none' && o.stroke !== '#222222') b.color = o.stroke;
+  checkpoint();
+  const list = objs(); list[list.indexOf(o)] = b;
+  state.sel = [b.id];
+  render({ props: true });
+}
+
+// ---------- Frames: empty outlines to drop images/icons into ----------
+function insertFrame(kind) {
+  const c = viewCenter(), s = 220;
+  const extra = { fill: 'none', stroke: '#7a8a96', strokeWidth: 3, dash: 'dashed', name: kind === 'circle' ? 'Circle frame' : 'Frame' };
+  addObjects([kind === 'circle' ? Make.ellipse(c.x - s / 2, c.y - s / 2, s, s, extra) : Make.rect(c.x - s * 0.7, c.y - s / 2, s * 1.4, s, { ...extra, radius: 6 })]);
+  toast('Frame added — put an image on top, select both and choose “Crop to shape” to fit it inside');
+}
+
+ARRANGE_COMMANDS.transform = openTransformDialog;
+ARRANGE_COMMANDS.cropToShape = cropToShape;
+ARRANGE_COMMANDS.brushToPath = () => applyBrushToPath();
+ARRANGE_COMMANDS.frameRect = () => insertFrame('rect');
+ARRANGE_COMMANDS.frameCircle = () => insertFrame('circle');

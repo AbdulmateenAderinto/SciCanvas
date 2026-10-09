@@ -125,6 +125,20 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - New-figure types and recent files with thumbnails.
 
 
+## New in v0.5
+
+**Icons**: per-layer borders (colour, width, dashed / dotted) beside each colour layer; one colour overlay for many selected icons, including library icons; "Replace all like this" swaps every copy of an icon on the page; favourite / replace from the right-click menu; "request this icon" link when a search finds nothing.
+
+**Shapes, lines & tables**: Arrange › Transform… (exact size in px or %, rotation, each object about its own centre); Crop to Shape (put any closed shape over an image or icon, select both, and the shape becomes its crop and border); Insert › Frame (rectangle / circle); colour presets (matching fill, border and text); pencil "Custom shape" mode that always closes into a filled shape; Apply Brush to Path (turn a drawn curve into a membrane, DNA, actin… brush); connector anchor points shown on hover, and a connector started on an anchor stays attached to it; table row heights; purple outline for selected groups.
+
+**Text**: "Chemical formula" mode: H2O → H₂O, SO42- → SO₄²⁻, Ca2+ → Ca²⁺, Fe(CN)63- → Fe(CN)₆³⁻.
+
+**Biology**: Insert › Antibody Builder…: IgG, Fab, F(ab′)₂, scFv, nanobody, heavy-chain antibody, bispecific, ADC, fluorophore-labelled, IgM pentamer and IgA dimer. Each chain colour can be set, and the result is a group of named domains you can edit. Five new "Disease mechanisms" templates: insulin resistance, Alzheimer's amyloid / tau, PD-1 / PD-L1 immune evasion, viral life cycle and atherosclerosis.
+
+**Templates & teams**: template authors, searchable by name; a team templates folder (Settings) with "Publish to team" when saving a template; "request this template" link.
+
+**AI & export**: AI › Narrate Slides…. Claude writes a spoken script for each slide from its text and notes; you edit it, and the presenter reads it aloud (press P, slides advance automatically). The narration can be exported as one .m4a file per slide (macOS voices). Restyle adds Realistic and Flat 2D. AI › Upscale Image… resamples 2× or 4× with sharpening, on-device and without AI. Settings › AI usage shows requests and tokens for the month, with an optional monthly request limit to cap spending.
+
 ## New in v0.4
 
 **Drawing & text**: eraser (X, non-destructive), eyedropper, figure palette + brand kit (colours, font, logo), grayscale and colour-blindness previews (View › Colour Preview), select matching (same icon / type / colour), tables (Excel paste, cell colours, column widths), brackets, braces, arc and cycle arrows, parallelogram, dotted / dash-dot lines, vessel / microtubule / cell-row brushes, editable brush paths, curved & circular text, text along a drawn path, bullet / numbered lists, underline / strikethrough, symbol picker, 13 fonts, hyperlinks (clickable in PDF / SVG), "For you" icon suggestions.
@@ -152,8 +166,8 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - Real-time multi-user editing. Today you share the `.scifig` file and review through comments.
 - A live-linked PowerPoint add-in. PPTX export embeds each page as a picture.
 - Brushes can't be split into individual editable units.
-- Text on a curve, eraser and boolean shape operations.
-- Two-way ANOVA and Cox regression.
+- Boolean shape operations (union / subtract) beyond crop-to-shape.
+- AI image generation in photographic styles; restyle produces vector reinterpretations.
 
 ## Layout
 
@@ -165,6 +179,7 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/more.js`: eraser, eyedropper, palettes & brand kit, colour-vision previews, tables, symbols, panel layout
 - `src/graph2.js`: extended statistics, new chart types, data import
 - `src/ai.js`: AI planner, generators, restyle / edit / remove text, smart search, narration
+- `src/bio.js`: antibody builder, disease-mechanism templates
 - `src/files.js`: folder gallery, version history, change detection, templates, slide sorter, poster layout
 - `scripts/mcp-server.js`: AI connector (Model Context Protocol server)
 - `src/creator.js`: drawing options, My icons, AI icon generation, library manager

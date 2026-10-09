@@ -21,7 +21,7 @@ if (!window.native) {
     listVersions: async () => [], readVersion: none, watchFile() {}, onFileChanged() {}, readFile: none, pickFolder: none, listFolder: none, makeFolder: none, reveal: none, onOpenFile() {}, pendingOpen: none, installPack: none, saveUserIcon: none, deleteUserIcon: none,
     readPackIcon: async (pack, file) => (await fetch(`../assets/iconpacks/${pack}/svg/${encodeURIComponent(file)}`)).text(),
     getSettings: async () => ({ hasApiKey: false, author: '', field: '' }), saveSettings: none, copyImage: none, openPath: none, aiGenerate: none,
-    onPackProgress() {},
+    onPackProgress() {}, pickFolderPath: none, ttsVoices: async () => [], ttsExport: none,
     fetchPdb: async (id) => (await fetch(`https://files.rcsb.org/download/${id}.pdb`)).text(),
     fetchImage: async (url) => { const b = await (await fetch(url)).blob(); return new Promise((r) => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); }); } };
 }
@@ -154,8 +154,9 @@ function renderOverlay(extra = '') {
       }
       continue;
     }
+    const selCol = o.type === 'group' ? '#8a4fff' : '#3b6fd6';
     const tf = `translate(${o.x} ${o.y}) rotate(${o.rot || 0} ${o.w / 2} ${o.h / 2})`;
-    s += `<g transform="${tf}"><rect width="${o.w}" height="${o.h}" fill="none" stroke="#3b6fd6" stroke-width="${sw}"${sel.length > 1 ? ` stroke-dasharray="${4 / z}"` : ''}/>`;
+    s += `<g transform="${tf}"><rect width="${o.w}" height="${o.h}" fill="none" stroke="${selCol}" stroke-width="${sw}"${sel.length > 1 ? ` stroke-dasharray="${4 / z}"` : ''}/>`;
     if (sel.length === 1 && !o.locked) {
       let handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
       if (o.type === 'text') handles = ['nw', 'ne', 'se', 'sw'];
@@ -164,11 +165,11 @@ function renderOverlay(extra = '') {
       const cursors = { n: 'ns', s: 'ns', e: 'ew', w: 'ew', nw: 'nwse', se: 'nwse', ne: 'nesw', sw: 'nesw' };
       for (const h of handles) {
         const [u, v] = pos[h];
-        s += `<rect data-handle="${h}" x="${u * o.w - hs / 2}" y="${v * o.h - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#3b6fd6" stroke-width="${sw}" style="cursor:${cursors[h]}-resize"/>`;
+        s += `<rect data-handle="${h}" x="${u * o.w - hs / 2}" y="${v * o.h - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="${selCol}" stroke-width="${sw}" style="cursor:${cursors[h]}-resize"/>`;
       }
       if (o.type !== 'protocol') {
-        s += `<line x1="${o.w / 2}" y1="0" x2="${o.w / 2}" y2="${-22 / z}" stroke="#3b6fd6" stroke-width="${sw}"/>`;
-        s += `<circle data-handle="rot" cx="${o.w / 2}" cy="${-24 / z}" r="${hs * 0.65}" fill="#fff" stroke="#3b6fd6" stroke-width="${sw}" style="cursor:grab"/>`;
+        s += `<line x1="${o.w / 2}" y1="0" x2="${o.w / 2}" y2="${-22 / z}" stroke="${selCol}" stroke-width="${sw}"/>`;
+        s += `<circle data-handle="rot" cx="${o.w / 2}" cy="${-24 / z}" r="${hs * 0.65}" fill="#fff" stroke="${selCol}" stroke-width="${sw}" style="cursor:grab"/>`;
       }
     }
     s += '</g>';
@@ -264,13 +265,18 @@ async function addIcon(key, at) {
   const iconId = ICON_MAP[key] ? key : entry.key;
   const ar = iconAspect(iconId);
   if (replaceTarget && byId(replaceTarget)) {
-    const o = byId(replaceTarget);
+    const t = byId(replaceTarget);
     checkpoint();
-    const cx = o.x + o.w / 2, cy = o.y + o.h / 2, size = Math.max(o.w, o.h);
-    Object.assign(o, { iconId, colorMap: null, tint: null, color: ICON_MAP[iconId] ? ICON_MAP[iconId].color : undefined });
-    if (ar >= 1) { o.w = size; o.h = size / ar; } else { o.h = size; o.w = size * ar; }
-    o.x = cx - o.w / 2; o.y = cy - o.h / 2;
-    replaceTarget = null;
+    // "Replace all like this" swaps every instance of the same icon on this page (incl. inside groups).
+    const targets = replaceAll ? allObjectsDeep(objs()).filter((x) => x.type === 'icon' && x.iconId === t.iconId) : [t];
+    for (const o of targets) {
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2, size = Math.max(o.w, o.h);
+      Object.assign(o, { iconId, colorMap: null, tint: null, layerStyle: null, color: ICON_MAP[iconId] ? ICON_MAP[iconId].color : undefined });
+      if (ar >= 1) { o.w = size; o.h = size / ar; } else { o.h = size; o.w = size * ar; }
+      o.x = cx - o.w / 2; o.y = cy - o.h / 2;
+    }
+    if (targets.length > 1) toast(`Replaced ${targets.length} icons`);
+    replaceTarget = null; replaceAll = false;
     renderLibraryBanner();
     render({ props: true });
     return;
@@ -279,7 +285,8 @@ async function addIcon(key, at) {
   const w = ar >= 1 ? size : size * ar, h = ar >= 1 ? size / ar : size;
   addObjects([{ id: uid(), type: 'icon', iconId, x: c.x - w / 2, y: c.y - h / 2, w, h, rot: 0, color: ICON_MAP[iconId] ? ICON_MAP[iconId].color : undefined }]);
 }
-let replaceTarget = null;
+let replaceTarget = null, replaceAll = false;
+const allObjectsDeep = (list) => list.flatMap((o) => (o.type === 'group' ? [o, ...allObjectsDeep(o.children)] : [o]));
 function loadImageSize(src) {
   return new Promise((res) => { const im = new Image(); im.onload = () => res({ w: im.naturalWidth || 300, h: im.naturalHeight || 200 }); im.onerror = () => res({ w: 300, h: 200 }); im.src = src; });
 }
@@ -603,7 +610,8 @@ svg.addEventListener('pointerdown', (e) => {
     }
     case 'connector': {
       checkpoint();
-      const from = hit && hit.type !== 'connector' ? { id: hit.id } : { x: p.x, y: p.y };
+      const fromPort = hit && hit.type !== 'connector' ? nearestPort(hit, p, 14 / state.zoom) : null;
+      const from = hit && hit.type !== 'connector' ? (fromPort ? { id: hit.id, port: fromPort } : { id: hit.id }) : { x: p.x, y: p.y };
       const o = Make.connector(from, { x: p.x, y: p.y });
       objs().push(o);
       drag = { mode: 'connect', o, start: p };
@@ -664,7 +672,11 @@ window.addEventListener('pointermove', (e) => {
 });
 function flushPointerMove() { if (pendingMove) { const ev = pendingMove; pendingMove = null; handlePointerMove(ev); } }
 function handlePointerMove(e) {
-  if (!drag) { if (pen && state.tool === 'pen') renderPenPreview(toWorld(e)); return; }
+  if (!drag) {
+    if (pen && state.tool === 'pen') renderPenPreview(toWorld(e));
+    else if (state.tool === 'connector' && e.target.closest && e.target.closest('#stage')) { const h = objectAtPoint(e.clientX, e.clientY); renderOverlay(h && h.type !== 'connector' ? portsOverlay(h) : ''); }
+    return;
+  }
   const p = toWorld(e);
   if (['pencil', 'airbrush', 'line', 'pen-node', 'node', 'erase'].includes(drag.mode)) return drawMove(e, p, drag);
   switch (drag.mode) {
@@ -897,7 +909,7 @@ window.addEventListener('keydown', (e) => {
   if (nodeEdit && (e.key === 'Delete' || e.key === 'Backspace')) { nodeDeleteSelected(); e.preventDefault(); return; }
   if (nodeEdit && (e.key === 'Escape' || e.key === 'Enter')) { exitNodeEdit(); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelection(); e.preventDefault(); return; }
-  if (e.key === 'Escape') { if (groupEdit) exitGroupEdit(); replaceTarget = null; renderLibraryBanner(); state.sel = []; setTool('select'); render({ props: true }); return; }
+  if (e.key === 'Escape') { if (groupEdit) exitGroupEdit(); replaceTarget = null; replaceAll = false; renderLibraryBanner(); state.sel = []; setTool('select'); render({ props: true }); return; }
   if (e.key.startsWith('Arrow') && state.sel.length) {
     e.preventDefault();
     checkpoint('nudge');
@@ -1123,10 +1135,17 @@ function renderProps() {
   const sel = selected();
   if (!sel.length) return renderPageProps(P);
   if (sel.length > 1) {
-    const icons = sel.filter((o) => o.type === 'icon' && ICON_MAP[o.iconId]);
-    P.append(sect(`${sel.length} objects`, el('div', { class: 'note', textContent: 'Group them (⌘G) to move, resize and rotate together.' })));
+    const icons = sel.filter((o) => o.type === 'icon');
+    P.append(sect(`${sel.length} objects`, el('div', { class: 'note', textContent: 'Group them (⌘G) to move, resize and rotate together.' }),
+      el('div', { class: 'btnrow', style: 'margin-top:6px' }, btn('Transform…', () => openTransformDialog()))));
     P.append(alignSection(sel));
-    if (icons.length) P.append(sect('Icon colour', row('Colour', color(icons, 'color')), swatches(icons, 'color')));
+    if (icons.length) {
+      const recolour = (c) => { checkpoint('mcol'); icons.forEach((o) => { if (ICON_MAP[o.iconId]) o.color = c || ICON_MAP[o.iconId].color; else o.tint = c; o.colorMap = null; }); renderScene(); };
+      P.append(sect(`Icon colour (${icons.length})`,
+        row('Overlay', el('input', { type: 'color', value: icons[0].tint || icons[0].color || '#4a7fd6', oninput: (e) => recolour(e.target.value) }), btn('Original', () => { recolour(null); renderProps(); })),
+        el('div', { class: 'swatches' }, ...SWATCHES.map((c) => el('button', { class: 'swatch', style: `background:${c}`, title: c, onclick: () => recolour(c) }))),
+        el('div', { class: 'note', textContent: 'Applies one colour to every selected icon, including library (pack) icons.' })));
+    }
     P.append(arrangeSection(sel));
     return;
   }
@@ -1156,6 +1175,7 @@ function renderProps() {
     case 'rect': case 'ellipse':
       P.append(sect('Style',
         o.type === 'shape' ? row('Shape', select(L, 'kind', SHAPES, false)) : null,
+        colourPresets(o),
         row('Fill', color(L, 'fill')), swatches(L, 'fill'),
         row('Shading', select(L, 'shade', SHADES)),
         row('Gradient to', color(L, 'fill2'), o.fill2 ? select(L, 'gradDir', [['v', '↓'], ['h', '→']]) : null),
@@ -1169,6 +1189,7 @@ function renderProps() {
         row('Content', textInput(L, 'text', true)),
         el('div', { class: 'note', textContent: 'Use ^{…} for superscript and _{…} for subscript, e.g. Ca^{2+}, CO_{2}. Double-click on canvas to edit.' }),
         el('div', { class: 'btnrow', style: 'margin-bottom:6px' }, btn('Ω Symbols', (e) => openSymbolPicker(e.target, o))),
+        row('', check(L, 'formula', 'Chemical formula (H2O → H₂O, SO42- → SO₄²⁻)')),
         row('Font', select(L, 'family', FONT_NAMES)),
         row('Size', num(L, 'fontSize', 1, 4)),
         row('Colour', color(L, 'color')), swatches(L, 'color'),
@@ -1280,7 +1301,8 @@ function iconColourSection(o) {
       : row('Tint', el('input', { type: 'color', value: o.tint || '#4a7fd6', oninput: (e) => setTint(e.target.value) }), btn('Original', () => setTint(null))),
     el('div', { class: 'swatches' }, ...SWATCHES.map((c) => el('button', { class: 'swatch', style: `background:${c}`, title: c, onclick: () => (native ? setProps(L, 'color', c, { rebuild: true }) : setTint(c)) }))),
     el('div', { class: 'btnrow' },
-      btn('Replace icon…', () => { replaceTarget = o.id; renderLibraryBanner(); $('#search').focus(); }),
+      btn('Replace icon…', () => { replaceTarget = o.id; replaceAll = false; renderLibraryBanner(); $('#search').focus(); }),
+      objs().filter((x) => x.type === 'icon' && x.iconId === o.iconId).length > 1 ? btn('Replace all like this…', () => { replaceTarget = o.id; replaceAll = true; renderLibraryBanner(); $('#search').focus(); }) : null,
       btn(getFavs().includes(o.iconId) ? '★ Favourite' : '☆ Favourite', () => { toggleFav(o.iconId); renderProps(); renderLibrary(); })),
     el('div', { class: 'btnrow', style: 'margin-top:6px' }, btn('✦ Restyle', () => restyleSelection()), btn('✦ Edit with AI', () => editWithAI()), btn('✦ Remove text', () => removeTextFromSelection())),
     a && a.pack !== 'upload' ? el('div', { class: 'note', style: 'margin-top:6px', textContent: `${a.name} — ${a.author} · ${LICENSE_NAMES[a.license] || a.license}${needsAttribution(a.license) ? ' (attribution required — see File › Credits)' : ''}` }) : null,
@@ -1291,13 +1313,25 @@ function iconLayersSection(o) {
   if (base.length < 2) return el('span');
   const map = o.colorMap || {};
   const setLayer = (c, v) => { checkpoint('layer' + o.id + c); o.colorMap = { ...(o.colorMap || {}), [c]: v }; if (v === c) delete o.colorMap[c]; renderScene(); };
+  const ls = o.layerStyle || {};
+  const setBorder = (c, k, v) => { checkpoint('lb' + o.id + c + k); const st = { ...(ls[c] || {}), [k]: v }; o.layerStyle = { ...(o.layerStyle || {}), [c]: st }; renderScene(); };
+  const open = new Set(Object.keys(ls));
   return sect('Colour layers',
-    el('div', { class: 'note', style: 'margin-bottom:6px', textContent: 'Each distinct colour in the icon is a layer — recolour it, or hide it.' }),
-    ...base.map((c) => el('div', { class: 'row' },
-      el('span', { class: 'swatch', style: `background:${c};cursor:default` }), el('span', { textContent: '→', style: 'color:var(--muted)' }),
-      el('input', { type: 'color', value: map[c] && map[c] !== 'none' ? map[c] : c, oninput: (e) => setLayer(c, e.target.value) }),
-      el('label', { style: 'width:auto;color:inherit;display:flex;gap:4px;align-items:center' }, el('input', { type: 'checkbox', checked: map[c] === 'none', onchange: (e) => { setLayer(c, e.target.checked ? 'none' : c); renderProps(); } }), 'Hide'))),
-    btn('Reset layers', () => { checkpoint(); o.colorMap = null; render({ props: true }); }));
+    el('div', { class: 'note', style: 'margin-bottom:6px', textContent: 'Each distinct colour in the icon is a layer — recolour it, hide it, or give it its own border (◫).' }),
+    ...base.flatMap((c) => {
+      const bd = ls[c] || {};
+      const border = el('div', { class: 'row', style: `padding-left:26px;${open.has(c) ? '' : 'display:none'}` },
+        el('input', { type: 'color', title: 'Border colour', value: bd.stroke || '#222222', oninput: (e) => setBorder(c, 'stroke', e.target.value) }),
+        el('input', { type: 'number', title: 'Border width', min: 0, step: 0.25, value: bd.width ?? '', placeholder: 'W', style: 'width:52px', oninput: (e) => setBorder(c, 'width', e.target.value === '' ? null : +e.target.value) }),
+        el('select', { title: 'Border style', onchange: (e) => setBorder(c, 'dash', e.target.value) }, ...[['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']].map(([v, l]) => el('option', { value: v, textContent: l, selected: (bd.dash || 'solid') === v }))),
+        btn('✕', () => { checkpoint(); const n = { ...(o.layerStyle || {}) }; delete n[c]; o.layerStyle = Object.keys(n).length ? n : null; render({ props: true }); }));
+      return [el('div', { class: 'row' },
+        el('span', { class: 'swatch', style: `background:${c};cursor:default` }), el('span', { textContent: '→', style: 'color:var(--muted)' }),
+        el('input', { type: 'color', value: map[c] && map[c] !== 'none' ? map[c] : c, oninput: (e) => setLayer(c, e.target.value) }),
+        el('label', { style: 'width:auto;color:inherit;display:flex;gap:4px;align-items:center' }, el('input', { type: 'checkbox', checked: map[c] === 'none', onchange: (e) => { setLayer(c, e.target.checked ? 'none' : c); renderProps(); } }), 'Hide'),
+        el('button', { textContent: '◫', title: 'Border for this layer', onclick: () => { border.style.display = border.style.display === 'none' ? '' : 'none'; } })), border];
+    }),
+    btn('Reset layers', () => { checkpoint(); o.colorMap = null; o.layerStyle = null; render({ props: true }); }));
 }
 function effectsSection(o) {
   const L = [o];
@@ -1306,7 +1340,9 @@ function effectsSection(o) {
     row('Glow', el('input', { type: 'color', value: o.glow || '#7cf2a8', oninput: (e) => setProps(L, 'glow', e.target.value) }), btn(o.glow ? 'Off' : 'On', () => setProps(L, 'glow', o.glow ? null : '#7cf2a8', { rebuild: true }))),
     o.glow ? row('Glow size', range(L, 'glowSize', 1, 20, 0.5)) : null,
     row('Shadow', select(L, 'shadow', [['', 'None'], ['soft', 'Soft'], ['strong', 'Strong']])),
-    clipable ? row('Crop shape', select(L, 'clip', [['none', 'None'], ['ellipse', 'Circle / ellipse'], ['round', 'Rounded rectangle'], ['rect', 'Rectangle']], true)) : null,
+    o.clipPath ? row('Custom crop', btn('Remove crop shape', () => { checkpoint(); o.clipPath = null; render({ props: true }); })) : null,
+    o.clipPath ? row('Crop border', color(L, 'clipStroke'), num(L, 'clipStrokeWidth', 0.5, 0)) : null,
+    clipable && !o.clipPath ? row('Crop shape', select(L, 'clip', [['none', 'None'], ['ellipse', 'Circle / ellipse'], ['round', 'Rounded rectangle'], ['rect', 'Rectangle']], true)) : null,
     clipable && o.clip && o.clip !== 'none' ? row('Crop border', color(L, 'clipStroke'), num(L, 'clipStrokeWidth', 0.5, 0)) : null,
     clipable ? el('div', { class: 'note', textContent: 'Tip: a circle crop with a border makes a “zoom-in” callout. Duplicate the object, enlarge it, and circle-crop it.' }) : null);
 }
@@ -1505,11 +1541,26 @@ function showSlide() {
   const k2 = Math.min(window.innerWidth / p.width, (window.innerHeight - notesH) / p.height) * 0.96;
   $('#presentStage').innerHTML = pageSvgString(p).replace('<svg ', `<svg style="width:${p.width * k2}px;height:${p.height * k2}px" `)
     + (notesH ? `<div class="pnotes">${esc(p.notes)}</div>` : '');
-  $('#presentHint').textContent = `${presentIndex + 1} / ${state.doc.pages.length} · ← → to navigate · N for speaker notes · Esc to exit`;
+  $('#presentHint').textContent = `${presentIndex + 1} / ${state.doc.pages.length} · ← → to navigate · N for speaker notes · P to ${narrating ? 'stop' : 'play'} narration · Esc to exit`;
+  if (narrating) speakSlide();
+}
+// Narrated slides: reads each page's narration (or speaker notes) aloud; auto-advances when it finishes.
+let narrating = false;
+function speakSlide() {
+  speechSynthesis.cancel();
+  const p = state.doc.pages[presentIndex], text = (p.narration || p.notes || '').trim();
+  if (!text) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const v = state.doc.narrationVoice && speechSynthesis.getVoices().find((x) => x.name === state.doc.narrationVoice);
+  if (v) u.voice = v;
+  u.rate = state.doc.narrationRate || 1;
+  u.onend = () => { if (narrating && presentIndex < state.doc.pages.length - 1 && !$('#present').classList.contains('hidden')) { presentIndex++; showSlide(); } };
+  speechSynthesis.speak(u);
 }
 let showNotes = false;
 function presentKey(e) {
-  if (e.key === 'Escape') { $('#present').classList.add('hidden'); if (document.fullscreenElement) document.exitFullscreen(); return; }
+  if (e.key.toLowerCase() === 'p') { narrating = !narrating; if (!narrating) speechSynthesis.cancel(); showSlide(); return; }
+  if (e.key === 'Escape') { narrating = false; speechSynthesis.cancel(); $('#present').classList.add('hidden'); if (document.fullscreenElement) document.exitFullscreen(); return; }
   if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) presentIndex = Math.min(presentIndex + 1, state.doc.pages.length - 1);
   if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) presentIndex = Math.max(presentIndex - 1, 0);
   if (e.key.toLowerCase() === 'n') showNotes = !showNotes;

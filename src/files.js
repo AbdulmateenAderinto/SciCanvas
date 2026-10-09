@@ -127,7 +127,7 @@ TEMPLATES.forEach((t) => { if (!t.category) t.category = TEMPLATE_CATEGORY[t.nam
 
 function userTemplate(t) {
   return {
-    name: t.name, desc: t.desc || '', category: 'My templates', user: true, file: t.file, raw: t,
+    name: t.name, desc: t.desc || '', category: t.team ? 'Team templates' : 'My templates', user: !t.team, team: !!t.team, author: t.author || '', file: t.file, raw: t,
     build() {
       if (t.assets) { if (!state.doc.assets) state.doc.assets = {}; Object.assign(state.doc.assets, t.assets); }
       const p = deep(t.page);
@@ -142,7 +142,7 @@ async function openTemplatesDialog() {
   const all = [...TEMPLATES, ...mine];
   const cats = ['All', ...new Set(all.map((t) => t.category))];
   let cat = 'All';
-  const q = el('input', { type: 'search', class: 'tpl-search', placeholder: 'Search templates (pathway, timeline, cycle, poster, slide…)' });
+  const q = el('input', { type: 'search', class: 'tpl-search', placeholder: 'Search templates by topic or author (pathway, timeline, poster, Alzheimer’s…)' });
   const chips = el('div', { class: 'chips', style: 'margin:0 0 10px' });
   const grid = el('div', { class: 'tpl-grid' });
   const draw = () => {
@@ -150,9 +150,9 @@ async function openTemplatesDialog() {
     cats.forEach((c) => chips.append(el('button', { class: c === cat ? 'on' : '', textContent: c, onclick: () => { cat = c; draw(); } })));
     const w = q.value.toLowerCase();
     grid.innerHTML = '';
-    for (const t of all.filter((x) => (cat === 'All' || x.category === cat) && (!w || `${x.name} ${x.desc} ${x.category}`.toLowerCase().includes(w)))) {
+    for (const t of all.filter((x) => (cat === 'All' || x.category === cat) && (!w || w.split(/\s+/).every((t) => `${x.name} ${x.desc} ${x.category} ${x.author || ''}`.toLowerCase().includes(t))))) {
       const thumb = el('div', { class: 'thumb' });
-      if (t.user && t.raw.thumb) thumb.append(el('img', { src: t.raw.thumb, style: 'max-width:100%;max-height:100%' }));
+      if (t.raw && t.raw.thumb) thumb.append(el('img', { src: t.raw.thumb, style: 'max-width:100%;max-height:100%' }));
       else { try { thumb.innerHTML = pageSvgString(t.build()).replace('<svg ', '<svg style="width:100%;height:100%" preserveAspectRatio="xMidYMid meet" '); } catch { thumb.textContent = t.name; } }
       const choice = el('div', { class: 'tpl-choice hidden' },
         btn('New page', (e) => { e.stopPropagation(); addTemplatePage(t, 'new'); closeModal(); }, 'primary'),
@@ -160,10 +160,10 @@ async function openTemplatesDialog() {
         btn('Add to page', (e) => { e.stopPropagation(); insertObjectsGrouped(t.build().objects, false); closeModal(); }),
         t.user ? btn('Share…', async (e) => { e.stopPropagation(); const f = await window.native.exportTemplate(t.raw); if (f) toast('Template exported — send the .scitemplate file to colleagues'); }) : null,
         t.user ? btn('Delete', async (e) => { e.stopPropagation(); if (confirm(`Delete “${t.name}”?`)) { await window.native.deleteTemplate(t.file); closeModal(); openTemplatesDialog(); } }, 'danger') : null);
-      const card = el('div', { class: 'tpl', onclick: () => { $$('.tpl-choice', grid).forEach((c) => c.classList.add('hidden')); choice.classList.remove('hidden'); } }, thumb, el('div', { class: 'cap' }, el('b', { textContent: t.name }), el('span', { textContent: t.desc })), choice);
+      const card = el('div', { class: 'tpl', onclick: () => { $$('.tpl-choice', grid).forEach((c) => c.classList.add('hidden')); choice.classList.remove('hidden'); } }, thumb, el('div', { class: 'cap' }, el('b', { textContent: t.name }), el('span', { textContent: t.desc }), t.author ? el('span', { class: 'tpl-author', textContent: `by ${t.author}`, style: 'color:var(--accent);cursor:pointer', onclick: (e) => { e.stopPropagation(); q.value = t.author; cat = 'All'; draw(); } }) : null), choice);
       grid.append(card);
     }
-    if (!grid.children.length) grid.append(el('div', { class: 'note', textContent: 'No templates match.' }));
+    if (!grid.children.length) grid.append(el('div', { class: 'note' }, 'No templates match. ', el('a', { href: '#', textContent: 'Request this template', onclick: (e) => { e.preventDefault(); requestContent('template', q.value); } }), ' — or build it and save it with “Save this page as a template”.'));
   };
   q.addEventListener('input', draw);
   draw();
@@ -175,16 +175,21 @@ async function openTemplatesDialog() {
 async function saveAsTemplate() {
   const p = page();
   const name = el('input', { type: 'text', value: p.name, style: 'flex:1' }), desc = el('input', { type: 'text', placeholder: 'Short description', style: 'flex:1' });
-  openModal('Save page as template', el('div', { style: 'max-width:520px' }, field_('Name', name), field_('Description', desc),
-    el('div', { class: 'note' }, 'Saved to “My templates” on this computer. Use Share… in Templates to send it to colleagues.'),
+  let st = {};
+  try { st = (await window.native.getSettings()) || {}; } catch { /* browser preview */ }
+  const author = el('input', { type: 'text', value: st.author || '', placeholder: 'Your name (searchable)', style: 'flex:1' });
+  const team = el('input', { type: 'checkbox', disabled: !st.teamFolder });
+  openModal('Save page as template', el('div', { style: 'max-width:520px' }, field_('Name', name), field_('Description', desc), field_('Author', author),
+    field_('', el('label', { style: 'width:auto;color:inherit' }, team, st.teamFolder ? ' Publish to team templates folder' : ' Publish to team (set a team folder in Settings first)')),
+    el('div', { class: 'note' }, 'Saved to “My templates” on this computer, or to the shared team folder. Use Share… in Templates to send a file to colleagues.'),
     el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Save template', async () => {
       const used = {};
       const walk = (o) => { if (o.type === 'icon' && state.doc.assets && state.doc.assets[o.iconId]) used[o.iconId] = state.doc.assets[o.iconId]; if (o.children) o.children.forEach(walk); };
       p.objects.forEach(walk);
       let thumb = '';
       try { thumb = await rasterize(p, Math.min(1, 300 / Math.max(p.width, p.height)), { mime: 'image/jpeg' }); } catch { /* none */ }
-      await window.native.saveTemplate({ name: name.value.trim() || 'My template', desc: desc.value.trim(), page: { ...deep(p), comments: [] }, assets: used, thumb });
-      closeModal(); toast('Template saved');
+      await window.native.saveTemplate({ name: name.value.trim() || 'My template', desc: desc.value.trim(), author: author.value.trim(), team: team.checked, page: { ...deep(p), comments: [] }, assets: used, thumb });
+      closeModal(); toast(team.checked ? 'Published to team templates' : 'Template saved');
     }, 'primary'))));
 }
 
@@ -294,6 +299,13 @@ async function applyAiDraft() {
 }
 
 // ---------- Commands & startup hooks ----------
+// "Request an icon / template": opens a pre-filled GitHub issue for the project.
+function requestContent(kind, query) {
+  const title = `Request ${kind}: ${query || ''}`.trim();
+  const body = `**What ${kind} do you need?**\n${query || ''}\n\n**What will you use it for?** (field, figure type)\n\n**Reference images or links** (optional)\n`;
+  const url = `https://github.com/AbdulmateenAderinto/SciCanvas/issues/new?labels=request&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+  window.open(url, '_blank'); // main process routes http(s) links to the default browser
+}
 const FILE_COMMANDS = { versions: openVersionHistory, saveTemplate: saveAsTemplate, slideSorter: openSlideSorter, posterLayout: posterLayoutDialog, templates: openTemplatesDialog };
 function setupFiles() {
   if (window.native.onFileChanged) window.native.onFileChanged((f) => { if (f === state.filePath) showChangedBanner(f); });

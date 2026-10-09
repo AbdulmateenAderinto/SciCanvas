@@ -21,8 +21,26 @@ const FONT_STACK = {
 const FONT_NAMES = [['sans', 'Helvetica (default)'], ['arial', 'Arial'], ['helvetica', 'Helvetica Neue'], ['times', 'Times New Roman'], ['serif', 'Georgia'], ['palatino', 'Palatino'], ['avenir', 'Avenir Next'], ['futura', 'Futura'], ['gill', 'Gill Sans'], ['verdana', 'Verdana'], ['trebuchet', 'Trebuchet MS'], ['mono', 'Menlo (mono)'], ['courier', 'Courier New']];
 
 // Lists: prefix each line with a bullet or number (blank lines are skipped in numbering).
+// Chemical-formula mode: H2O → H₂O, CO32- → CO₃²⁻, NH4+ → NH₄⁺, Ca2+ → Ca²⁺ (written with _{} / ^{} markup).
+function formulaMarkup(t) {
+  const subs = (body) => body.replace(/([A-Z][a-z]?|[\)\]])(\d+)/g, '$1_{$2}');
+  return t.split(/(\s+)/).map((word) => {
+    const m = word.match(/^(.*?[A-Za-z\)\]])(\d*)([+\-−])([,;.:)]?)$/);
+    if (!m) return subs(word);
+    let [, body, digits, sign, tail] = m;
+    sign = sign === '-' ? '−' : sign;
+    const mono = (body.match(/[A-Z]/g) || []).length === 1 && !/[\d\(\)\[\]]/.test(body);
+    let sub = '', charge;
+    if (mono) charge = digits + sign;
+    else if (digits.length >= 2) { sub = digits.slice(0, -1); charge = digits.slice(-1) + sign; }
+    else if (digits.length === 1) { sub = digits; charge = sign; }
+    else charge = sign;
+    return subs(body) + (sub ? `_{${sub}}` : '') + `^{${charge}}` + tail;
+  }).join('');
+}
 function displayText(o) {
-  const text = String(o.text ?? '');
+  let text = String(o.text ?? '');
+  if (o.formula) text = text.split('\n').map(formulaMarkup).join('\n');
   if (!o.list || o.list === 'none') return text;
   let n = 0;
   return text.split('\n').map((l) => (l.trim() ? (o.list === 'bullet' ? '•  ' : `${++n}.  `) + l : l)).join('\n');
@@ -444,6 +462,12 @@ function applyEffects(o, inner) {
   if (o.fill2 && o.fill2 !== 'none' && (o.type === 'rect' || o.type === 'ellipse' || o.type === 'shape')) {
     defs += `<linearGradient id="gr-${o.id}" x1="0" y1="0" x2="${o.gradDir === 'h' ? 1 : 0}" y2="${o.gradDir === 'h' ? 0 : 1}"><stop offset="0" stop-color="${o.fill || '#fff'}"/><stop offset="1" stop-color="${o.fill2}"/></linearGradient>`;
   }
+  if (o.clipPath) { // crop to a custom shape (path in the object's local box, scaled with it)
+    const sx = o.w / (o.clipPath.w || o.w), sy = o.h / (o.clipPath.h || o.h);
+    defs += `<clipPath id="cpx-${o.id}"><path d="${o.clipPath.d}" transform="scale(${sx} ${sy}) ${o.clipPath.tf || ''}"/></clipPath>`;
+    inner = `<g clip-path="url(#cpx-${o.id})">${inner}</g>`;
+    if (o.clipStroke) inner += `<path d="${o.clipPath.d}" transform="scale(${sx} ${sy}) ${o.clipPath.tf || ''}" fill="none" stroke="${o.clipStroke}" stroke-width="${(o.clipStrokeWidth || 3) / Math.min(sx, sy)}"/>`;
+  }
   if (o.clip && o.clip !== 'none') {
     const r = o.clip === 'round' ? Math.min(o.w, o.h) * 0.12 : 0;
     defs += `<clipPath id="cp-${o.id}">${o.clip === 'ellipse' ? `<ellipse cx="${o.w / 2}" cy="${o.h / 2}" rx="${o.w / 2}" ry="${o.h / 2}"/>` : `<rect width="${o.w}" height="${o.h}" rx="${r}"/>`}</clipPath>`;
@@ -474,7 +498,7 @@ function renderParts(o, objects, forExport) {
   switch (o.type) {
     case 'icon': {
       const { markup, vb } = iconMarkup(o);
-      inner = `<svg width="${o.w}" height="${o.h}" viewBox="${vb}" preserveAspectRatio="none" overflow="${ICON_MAP[o.iconId] ? 'visible' : 'hidden'}">${markup}</svg>`;
+      inner = `<svg class="ls-${o.id}" width="${o.w}" height="${o.h}" viewBox="${vb}" preserveAspectRatio="none" overflow="${ICON_MAP[o.iconId] ? 'visible' : 'hidden'}">${markup}</svg>`;
       break;
     }
     case 'path':
@@ -567,23 +591,24 @@ function tableSvg(o) {
   const R = o.rows, C = o.cols, fs = o.fontSize || 13, bw = o.borderWidth ?? 1;
   const widths = o.colW && o.colW.length === C ? o.colW : Array(C).fill(1 / C);
   const xs = [0]; widths.forEach((f, i) => xs.push(xs[i] + f * o.w));
-  const rh = o.h / R;
+  const heights = o.rowH && o.rowH.length === R ? o.rowH : Array(R).fill(1 / R);
+  const ys = [0]; heights.forEach((f, i) => ys.push(ys[i] + f * o.h));
   let s = `<rect width="${o.w}" height="${o.h}" fill="${o.fill || '#ffffff'}"/>`;
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < C; c++) {
       const head = o.header && r === 0;
       const cellFill = (o.cellFill && o.cellFill[r] && o.cellFill[r][c]) || (head ? o.headerFill || '#23395d' : o.stripe && r % 2 === (o.header ? 0 : 1) ? o.stripeFill || '#f1f4f9' : null);
-      if (cellFill) s += `<rect x="${xs[c]}" y="${r * rh}" width="${xs[c + 1] - xs[c]}" height="${rh}" fill="${cellFill}"/>`;
+      if (cellFill) s += `<rect x="${xs[c]}" y="${ys[r]}" width="${xs[c + 1] - xs[c]}" height="${ys[r + 1] - ys[r]}" fill="${cellFill}"/>`;
       const txt = (o.cells[r] && o.cells[r][c]) || '';
       if (txt) {
         const cw = xs[c + 1] - xs[c], align = o.align || 'center';
-        s += `<g transform="translate(${xs[c]} ${r * rh})">${textSvg(txt, { fontSize: fs, color: head ? o.headerColor || '#ffffff' : o.color || '#222', bold: head, family: o.family, w: cw, h: rh, align, vcenter: true })}</g>`;
+        s += `<g transform="translate(${xs[c]} ${ys[r]})">${textSvg(txt, { fontSize: fs, color: head ? o.headerColor || '#ffffff' : o.color || '#222', bold: head, family: o.family, w: cw, h: ys[r + 1] - ys[r], align, vcenter: true })}</g>`;
       }
     }
   }
   if (bw > 0) {
     let d = '';
-    for (let r = 0; r <= R; r++) d += `M0 ${r * rh}H${o.w}`;
+    for (let r = 0; r <= R; r++) d += `M0 ${ys[r]}H${o.w}`;
     for (let c = 0; c <= C; c++) d += `M${xs[c]} 0V${o.h}`;
     s += `<path d="${d}" stroke="${o.border || '#9aa5b4'}" stroke-width="${bw}" fill="none"/>`;
   }

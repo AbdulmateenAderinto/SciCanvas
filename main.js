@@ -94,6 +94,8 @@ function buildMenu() {
         { label: 'Save Page as Template…', click: send('saveTemplate') },
         { label: 'Numbered Badge', click: send('badgeTool') },
         { label: 'Table', click: send('insertTable') },
+        { label: 'Frame', submenu: [{ label: 'Rectangle Frame', click: send('frameRect') }, { label: 'Circle Frame', click: send('frameCircle') }] },
+        { label: 'Antibody Builder…', click: send('antibody') },
         { label: 'Brand Logo', click: send('insertLogo') },
         { label: 'Comment', click: send('commentTool') },
         { type: 'separator' },
@@ -115,8 +117,10 @@ function buildMenu() {
         { label: 'Edit Selection with AI…', click: send('aiEdit') },
         { label: 'Remove Text from Image', click: send('aiRemoveText') },
         { label: 'Remove Image Background', click: send('removeBg') },
+        { label: 'Upscale Image…', click: send('upscale') },
         { type: 'separator' },
         { label: 'Suggest Title & Legend…', click: send('aiNarrate') },
+        { label: 'Narrate Slides…', click: send('aiNarrateSlides') },
         { label: 'Smart Icon Search', click: send('aiSmartSearch') },
       ],
     },
@@ -135,6 +139,10 @@ function buildMenu() {
         ] },
         { label: 'Distribute', submenu: [{ label: 'Horizontally', click: send('distH') }, { label: 'Vertically', click: send('distV') }] },
         { label: 'Match Size', submenu: [{ label: 'Width', click: send('matchW') }, { label: 'Height', click: send('matchH') }, { label: 'Width and Height', click: send('matchSize') }] },
+        { label: 'Transform…', accelerator: 'Alt+CmdOrCtrl+T', click: send('transform') },
+        { label: 'Crop to Shape', click: send('cropToShape') },
+        { label: 'Apply Brush to Path…', click: send('brushToPath') },
+        { type: 'separator' },
         { label: 'Arrange as Figure Panels (A, B, C…)', click: send('panelLayout') },
         { label: 'Arrange as Poster Columns…', click: send('posterLayout') },
         { label: 'Flip Horizontally', accelerator: 'Shift+H', click: send('flipH') },
@@ -290,15 +298,23 @@ ipcMain.handle('reveal', (_e, p) => { if (typeof p === 'string' && fs.existsSync
 // ---------- User templates ----------
 const templatesDir = () => path.join(app.getPath('userData'), 'templates');
 ipcMain.handle('list-templates', () => {
-  const dir = templatesDir();
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => { try { return { file: f, ...JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')) }; } catch { return null; } }).filter(Boolean);
+  const read = (dir, team) => (fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json') || f.endsWith('.scitemplate')).map((f) => { try { const t = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); return t && t.page ? { file: f, ...t, team } : null; } catch { return null; } }).filter(Boolean) : []);
+  // Team templates: a shared folder (Dropbox, OneDrive, network drive…) chosen in Settings.
+  const team = readSettings().teamFolder;
+  return [...read(templatesDir(), false), ...(team ? read(team, true) : [])];
 });
 ipcMain.handle('save-template', (_e, tpl) => {
-  fs.mkdirSync(templatesDir(), { recursive: true });
-  const file = `tpl-${Date.now().toString(36)}.json`;
-  fs.writeFileSync(path.join(templatesDir(), file), JSON.stringify(tpl));
+  const team = tpl.team && readSettings().teamFolder;
+  const dir = team || templatesDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const file = team ? `${String(tpl.name || 'template').replace(/[^\w -]+/g, '').slice(0, 50)} ${Date.now().toString(36)}.scitemplate` : `tpl-${Date.now().toString(36)}.json`;
+  const { team: _t, ...data } = tpl;
+  fs.writeFileSync(path.join(dir, file), JSON.stringify(data));
   return file;
+});
+ipcMain.handle('pick-folder-path', async () => {
+  const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || win, { properties: ['openDirectory', 'createDirectory'] });
+  return r.canceled ? null : r.filePaths[0];
 });
 ipcMain.handle('delete-template', (_e, file) => { if (typeof file === 'string' && /^tpl-[a-z0-9]+\.json$/.test(file)) fs.rmSync(path.join(templatesDir(), file), { force: true }); return true; });
 ipcMain.handle('export-template', async (_e, tpl) => {
@@ -440,6 +456,27 @@ ipcMain.handle('pubchem-lookup', async (_e, name) => {
   const p = (await res.json()).PropertyTable.Properties[0];
   return { cid: p.CID, smiles: p.IsomericSMILES || p.SMILES, formula: p.MolecularFormula, mw: p.MolecularWeight, iupac: p.IUPACName };
 });
+// Narration audio: macOS text-to-speech ("say") → one .m4a per slide in a chosen folder.
+ipcMain.handle('tts-voices', () => new Promise((resolve) => {
+  if (process.platform !== 'darwin') return resolve([]);
+  require('child_process').execFile('say', ['-v', '?'], (err, out) => resolve(err ? [] : out.split('\n').map((l) => l.match(/^(.+?)\s{2,}(\w\w[_-]\w+)/)).filter(Boolean).filter((m) => m[2].startsWith('en')).map((m) => m[1].trim())));
+}));
+ipcMain.handle('tts-export', async (_e, { slides, voice, rate }) => {
+  if (process.platform !== 'darwin') throw new Error('Audio export uses macOS text-to-speech and is only available on Mac.');
+  const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || win, { title: 'Choose a folder for the narration audio', properties: ['openDirectory', 'createDirectory'] });
+  if (r.canceled) return null;
+  const { execFile } = require('child_process');
+  const run = (args) => new Promise((res, rej) => execFile('say', args, (err) => (err ? rej(err) : res())));
+  let n = 0;
+  for (const sl of slides) {
+    if (!sl.text || !sl.text.trim()) continue;
+    const file = path.join(r.filePaths[0], `${String(sl.index).padStart(2, '0')} ${sl.name.replace(/[^\w -]+/g, '').slice(0, 40)}.m4a`);
+    const args = ['-o', file, '--file-format=m4af', '--data-format=aac', ...(voice ? ['-v', voice] : []), ...(rate ? ['-r', String(rate)] : []), sl.text];
+    await run(args); n++;
+  }
+  shell.openPath(r.filePaths[0]);
+  return n;
+});
 ipcMain.handle('pack-catalog', () => catalog());
 ipcMain.handle('gpu-status', () => app.getGPUFeatureStatus());
 
@@ -503,9 +540,9 @@ function getApiKey() {
 }
 ipcMain.handle('get-settings', () => {
   const s = readSettings();
-  return { hasApiKey: !!getApiKey(), keyFromEnv: !s.apiKeyEnc && !!process.env.ANTHROPIC_API_KEY, author: s.author || '', field: s.field || '' };
+  return { hasApiKey: !!getApiKey(), keyFromEnv: !s.apiKeyEnc && !!process.env.ANTHROPIC_API_KEY, author: s.author || '', field: s.field || '', teamFolder: s.teamFolder || '', aiLimit: s.aiLimit || 0, usage: s.usage || {} };
 });
-ipcMain.handle('save-settings', (_e, { apiKey, clearKey, author, field }) => {
+ipcMain.handle('save-settings', (_e, { apiKey, clearKey, author, field, teamFolder, aiLimit }) => {
   const s = readSettings();
   if (clearKey) delete s.apiKeyEnc;
   if (apiKey) {
@@ -514,6 +551,8 @@ ipcMain.handle('save-settings', (_e, { apiKey, clearKey, author, field }) => {
   }
   if (author !== undefined) s.author = author;
   if (field !== undefined) s.field = field;
+  if (teamFolder !== undefined) s.teamFolder = teamFolder;
+  if (aiLimit !== undefined) s.aiLimit = Math.max(0, +aiLimit || 0);
   writeSettings(s);
   return true;
 });
@@ -522,6 +561,10 @@ ipcMain.handle('save-settings', (_e, { apiKey, clearKey, author, field }) => {
 ipcMain.handle('ai-generate', async (_e, { system, prompt, image, schema }) => {
   const key = getApiKey();
   if (!key) throw new Error('Add your Anthropic API key in Settings first.');
+  // Usage tracking + optional monthly request limit (Settings › AI usage).
+  const month = new Date().toISOString().slice(0, 7), st = readSettings();
+  const used = (st.usage && st.usage[month]) || { requests: 0, input: 0, output: 0 };
+  if (st.aiLimit && used.requests >= st.aiLimit) throw new Error(`Monthly AI limit reached (${st.aiLimit} requests). Raise it in Settings › AI usage.`);
   const Anthropic = require('@anthropic-ai/sdk').default;
   const client = new Anthropic({ apiKey: key });
   const content = [];
@@ -540,6 +583,12 @@ ipcMain.handle('ai-generate', async (_e, { system, prompt, image, schema }) => {
       output_config: { effort: 'medium', format: { type: 'json_schema', schema } },
       messages: [{ role: 'user', content }],
     });
+    try {
+      const st2 = readSettings(); st2.usage = st2.usage || {};
+      const u = st2.usage[month] || { requests: 0, input: 0, output: 0 };
+      u.requests++; u.input += response.usage?.input_tokens || 0; u.output += response.usage?.output_tokens || 0;
+      st2.usage[month] = u; writeSettings(st2);
+    } catch { /* tracking is best-effort */ }
     if (response.stop_reason === 'refusal') throw new Error('The request was declined. Try rephrasing the description.');
     if (response.stop_reason === 'max_tokens') throw new Error('The figure was too large to generate in one go. Try a simpler description.');
     const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');

@@ -9,8 +9,10 @@ function syncDrawOpts() {
   $('#drawWidth').value = er ? DRAW_DEFAULTS.eraserSize : shade ? DRAW_DEFAULTS.shadeSize : DRAW_DEFAULTS.strokeWidth;
   $('#drawFill').value = DRAW_DEFAULTS.fill;
   $('#drawFillWrap').classList.toggle('hidden', !['pencil', 'pen'].includes(state.tool));
+  $('#drawCloseWrap').classList.toggle('hidden', state.tool !== 'pencil');
+  $('#drawClose').checked = !!DRAW_DEFAULTS.autoClose;
   $('#drawHint').textContent = {
-    pencil: 'Draw freely. End near the start to make a filled shape.',
+    pencil: DRAW_DEFAULTS.autoClose ? 'Draw an outline — it closes into a filled custom shape.' : 'Draw freely. End near the start to make a filled shape.',
     pen: 'Click = corner · drag = curve · click first point to close · Enter to finish',
     line: 'Drag a line (Shift = 45°)', arrow: 'Drag an arrow (Shift = 45°)',
     airbrush: 'Paint soft shading over icons',
@@ -21,6 +23,7 @@ function setupDrawOpts() {
   $('#drawColor').addEventListener('input', (e) => { if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeColor = e.target.value; else DRAW_DEFAULTS.stroke = e.target.value; });
   $('#drawWidth').addEventListener('input', (e) => { if (state.tool === 'eraser') DRAW_DEFAULTS.eraserSize = +e.target.value; else if (state.tool === 'airbrush') DRAW_DEFAULTS.shadeSize = +e.target.value; else DRAW_DEFAULTS.strokeWidth = +e.target.value; });
   $('#drawFill').addEventListener('input', (e) => { DRAW_DEFAULTS.fill = e.target.value; });
+  $('#drawClose').addEventListener('change', (e) => { DRAW_DEFAULTS.autoClose = e.target.checked; syncDrawOpts(); });
 }
 
 // ---------- My icons ----------

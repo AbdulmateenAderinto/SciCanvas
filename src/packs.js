@@ -178,7 +178,22 @@ function iconMarkup(o) {
     if (o.tint) markup = applyTint(markup, o.tint);
   }
   if (o.colorMap) markup = applyColorMap(markup, o.colorMap);
+  if (o.layerStyle && Object.keys(o.layerStyle).length) markup = layerStyleCss(o) + markup;
   return { markup, vb };
+}
+// Per-layer border colour / width / dash, applied with CSS scoped to this icon. A layer is every element whose
+// fill or stroke uses that (possibly recoloured) colour.
+function layerStyleCss(o) {
+  const scope = `.ls-${o.id}`;
+  let css = '';
+  for (const [hex, st] of Object.entries(o.layerStyle)) {
+    const c = (o.colorMap && o.colorMap[hex]) || hex;
+    if (c === 'none') continue;
+    const sel = [`[fill="${c}"]`, `[style*="fill:${c}"]`, `[stroke="${c}"]`, `[style*="stroke:${c}"]`].map((x) => `${scope} ${x}`).join(',');
+    const decl = [st.stroke ? `stroke:${st.stroke} !important` : '', st.width != null && st.width !== '' ? `stroke-width:${st.width}px !important` : '', st.dash && st.dash !== 'solid' ? `stroke-dasharray:${st.dash === 'dotted' ? '0.5 3' : '6 4'} !important;stroke-linecap:round !important` : ''].filter(Boolean).join(';');
+    if (decl) css += `${sel}{${decl}}`;
+  }
+  return css ? `<style>${css}</style>` : '';
 }
 // Colours before any per-layer edits (what the layer panel lists).
 function iconBaseColors(o) {
