@@ -55,8 +55,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p assets/iconpacks
-          if gh release download icon-libraries --repo "${{ github.repository }}" --pattern iconpacks.tar.gz --dir "$RUNNER_TEMP"; then
-            tar -xzf "$RUNNER_TEMP/iconpacks.tar.gz" -C assets
+          # A relative path: on Windows, tar reads "D:\..." as a network address.
+          if gh release download icon-libraries --repo "${{ github.repository }}" --pattern iconpacks.tar.gz --dir .iconpacks-download; then
+            tar -xzf .iconpacks-download/iconpacks.tar.gz -C assets
+            rm -rf .iconpacks-download
+            # The archive was packed on a Mac: drop its hidden "._name" companion files (~19,900 of them).
+            find assets -name '._*' -delete
             echo "Icon libraries: $(ls assets/iconpacks | tr '\n' ' ')"
             echo "Icon files: $(find assets/iconpacks -type f | wc -l)"
           elif [ "${{ github.event_name }}" = release ]; then
