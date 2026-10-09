@@ -77,6 +77,16 @@ ART = {
     'liver-lobule': ('bioicons', 'liver lobule', True),
     'islet': ('bioicons', 'langerhans islet pancreas', False),
     'spinal-cord': ('bioicons', 'spinal cord anterior horn cells motor nerves muscles', False, {'fills': {'#4a5b77'}}),  # without the drawn motor pathway
+    'uterus-ovaries': ('reactome', 'Female reproductive system', False),
+    'femur': ('reactome', 'Femur', False),
+    # Enlarged, nodular thyroid: the Servier thyroid-cancer drawing without the tumour (its four red tones).
+    'goitre': ('bioicons', 'thyroid cancer', False, {'fills': {'#a04c48', '#d37467', '#e58a80', '#cc6f5f'}}),
+    'larynx': ('bioicons', 'larynx', False),
+    'aorta': ('bioicons', 'aorta', False),
+    'dvt': ('bioicons', 'venous thrombosis 5', False),
+    'heart-conduction': ('bioicons', 'heart conduction 1', False),
+    'pulmonary-embolism': ('bioicons', 'pulmonary embolism', False),
+    'brain-horizontal': ('bioicons', 'Horizontal plane of the brain', False),
 }
 ATTRIBUTION = {
     'Servier': 'Servier Medical Art (smart.servier.com)',

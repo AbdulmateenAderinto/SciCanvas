@@ -8,9 +8,19 @@ const art = A.ICONS.filter((i) => i.art);
 const LICENCES = new Set(['cc-by-3.0', 'cc-by-4.0', 'cc-0']);
 
 test('the organs use the professional artwork', () => {
-  assert.ok(art.length >= 60, `${art.length} art icons`);
-  for (const id of ['heart', 'lungs', 'liver', 'kidney', 'brain', 's-stomach', 's-small-intestine', 's-large-intestine-colon', 's-pancreas', 's-spleen', 's-urinary-bladder', 's-heart-four-chambers', 's-eye', 's-ear-outer-middle-inner', 'r-lateral-brain']) {
+  assert.ok(art.length >= 70, `${art.length} art icons`);
+  for (const id of ['heart', 'lungs', 'liver', 'kidney', 'brain', 's-stomach', 's-small-intestine', 's-large-intestine-colon', 's-pancreas', 's-spleen', 's-urinary-bladder', 's-heart-four-chambers', 's-eye', 's-ear-outer-middle-inner', 'r-lateral-brain',
+    's-thyroid', 's-goitre-enlarged-thyroid', 's-uterus-and-ovaries', 's-long-bone-femur', 's-aortic-aneurysm', 's-deep-vein-thrombosis']) {
     assert.ok(A.ICON_MAP[id] && A.ICON_MAP[id].art, `${id} uses artwork`);
+  }
+});
+
+test('organs that had no icon are added from the artwork, findable by name', () => {
+  for (const [id, q] of [['s-larynx', 'larynx'], ['s-aorta', 'aorta'], ['s-heart-conduction-system', 'conduction'], ['s-pulmonary-embolism', 'pulmonary embolism'], ['s-brain-horizontal-section', 'horizontal section']]) {
+    const ic = A.ICON_MAP[id];
+    assert.ok(ic && ic.art && ic.credit, `${id} exists and uses artwork`);
+    assert.ok(A.ICONS.includes(ic), `${id} is listed`);
+    assert.ok(A.searchIcons(q).items.some((r) => r.id === id), `searching "${q}" finds ${id}`);
   }
 });
 
