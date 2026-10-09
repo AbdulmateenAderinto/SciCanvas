@@ -8,7 +8,8 @@ library → canvas → relationships → data → review → export.
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
 
 **New in 1.1**
-- **All ~21,500 icons built in**: the installers now include the four icon libraries (Bioicons, Reactome, Health Icons, PhyloPic), so nothing extra to download.
+- **130 new icons** in 9 new soft-style groups: neuroscience (neuron types, synapse, myelin, brain views, retina), heart & circulation (four-chamber heart, plaque, clot, stent, ECG), channels, pumps & transporters (Na⁺/K⁺ channels and pumps, aquaporin, GLUT, ABC transporter, ATP synthase, junctions, endo-/exocytosis), metabolism & small molecules (skeletal structures of pyruvate, lactate, acetyl-CoA, glutamate, GABA, dopamine, serotonin, acetylcholine, testosterone; NADH, insulin, ions, enzyme–substrate), cell division & cell fate (every mitosis stage, crossing over, necrosis, migration, phagocytosis), tissues (epithelia, bone, cartilage, muscle, villus, alveoli, nephron, liver lobule, islet), people & places, data & computing, and environment & ecology.
+- **All ~21,600 icons built in**: the installers now include the four icon libraries (Bioicons, Reactome, Health Icons, PhyloPic), so nothing extra to download.
 - **Snapping**: resizing snaps to the width / height of other objects (shown with matching dimension marks), including icons and images that keep their proportions; new shapes snap to existing sizes as you draw; rotation locks onto 0°, 45°, 90°… and onto other tilted objects' angles, with an angle readout; lines, arrows and connectors straighten near 0° / 45° / 90°. Hold ⌘ (Ctrl on Windows) to turn snapping off; Shift still gives 15° rotation steps.
 - **Smoother**: dragging and resizing redraw only what moves, clicking to select no longer rebuilds the Layers list, and the icon library draws fewer thumbnails up front and loads more as you scroll. On a busy test page (636 objects): moving one icon ~4.7 → ~2 ms per step, moving everything ~19 → ~10 ms, typing in icon search ~61 → ~36 ms per key.
 
@@ -21,7 +22,7 @@ Get the installer from the [latest release](https://github.com/AbdulmateenAderin
 - **Windows**: `SciCanvas-Setup-<version>.exe`. Double-click to install. Windows may show "Windows protected your PC" because the app isn't signed with a paid certificate: click **More info → Run anyway**.
 - **Mac**: `SciCanvas-<version>-arm64.dmg` for Apple-silicon Macs (M1 and later) or `-x64.dmg` for Intel Macs. Open it and drag SciCanvas to Applications. The first time, right-click the app and choose **Open** (or allow it under System Settings › Privacy & Security), because it isn't notarised by Apple.
 
-From 1.1 the installers include all ~21,500 icons: the 1,567 built-in ones and the four icon libraries (about 19,900 more), so they're bigger downloads (a few hundred MB). Library updates can still be installed from **Insert › Icon Libraries…** in the app.
+From 1.1 the installers include all ~21,600 icons: the 1,697 built-in ones and the four icon libraries (about 19,900 more), so they're bigger downloads (a few hundred MB). Library updates can still be installed from **Insert › Icon Libraries…** in the app.
 
 ## Run (from the source code)
 
@@ -57,11 +58,11 @@ npm test       # unit tests: statistics (checked against SciPy), every chart typ
 
 Both run on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`).
 
-## Icon libraries (~21,500 icons)
+## Icon libraries (~21,600 icons)
 
 | Library | Icons | Licence | Content |
 |---|---|---|---|
-| Built-in | 1,567 | — | Core cells, molecules, lab and anatomy, plus about 1,500 soft-style proteins, complexes, cells, microbes, organisms and lab items (drawn in code, no download needed) |
+| Built-in | 1,697 | — | Core cells, molecules, lab and anatomy, plus about 1,650 soft-style proteins, complexes, cells, microbes, organisms, lab items, neuroscience, transporters, molecules, tissues, people and environment (drawn in code, no download needed) |
 | Bioicons | 2,793 | CC0 / CC BY / CC BY-SA | General life science |
 | Reactome | 2,569 | CC BY 4.0 | Proteins, receptors, transporters, compounds, cell types, tissues |
 | Health Icons | 1,498 | MIT | Body, devices, diagnostics, medications, people |
@@ -342,6 +343,7 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/creator.js`: drawing options, My icons, AI icon generation, library manager
 - `src/softicons.js`: soft-style icon set (proteins, degradation, immunology, cancer)
 - `src/softicons3.js`: v0.9 soft-style icons (organelles, anatomy, microbes, model organisms, plants, lab equipment, clinical)
+- `src/softicons4.js`: v1.1 soft-style icons (neuroscience, heart, transporters, small molecules, cell division, tissues, people, data, environment)
 - `src/richtext.js`: colour / bold / italic for selected words
 - `src/immuno.js`: protein shapes, lighter partner, degrade, domain maps
 - `src/immunotemplates.js`: immunology & cancer templates

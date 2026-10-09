@@ -1,4 +1,4 @@
-// New icon categories (src/softicons3.js): every icon draws cleanly, names don't collide with
+// New icon categories (src/softicons3.js, v0.9, and src/softicons4.js, v1.1): every icon draws cleanly, names don't collide with
 // icons that already existed, and the search used by the diagram builder can find them.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -16,6 +16,16 @@ const NEW_CATS = {
   'Soft · Lab equipment': 20,
   'Soft · Clinical & pharmacy': 12,
   'Soft · Symbols & callouts': 8,
+  // v1.1 (softicons4.js)
+  'Soft · Neuroscience': 15,
+  'Soft · Heart & circulation': 10,
+  'Soft · Channels, pumps & transporters': 15,
+  'Soft · Metabolism & small molecules': 18,
+  'Soft · Cell division & cell fate': 10,
+  'Soft · Tissues': 12,
+  'Soft · People & places': 8,
+  'Soft · Data & computing': 8,
+  'Soft · Environment & ecology': 12,
 };
 const fresh = A.ICONS.filter((i) => i.cat in NEW_CATS);
 
