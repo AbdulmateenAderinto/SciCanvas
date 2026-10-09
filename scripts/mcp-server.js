@@ -18,8 +18,11 @@ function loadIcons() {
   if (iconIndex) return iconIndex;
   const out = [];
   // Built-in icons (parsed from the source so this script needs no browser code).
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'icons.js'), 'utf8');
-  for (const m of src.matchAll(/\{ id: '([^']+)', name: '([^']+)', cat: '([^']+)', tags: '([^']*)'/g)) out.push({ key: m[1], name: m[2], category: m[3], tags: m[4], library: 'built-in', license: 'built-in' });
+  // Built-in + soft-style icons: evaluate the icon scripts in a sandbox (they only build data).
+  try {
+    const code = ['icons.js', 'softicons.js', 'immunoicons.js'].map((f) => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n') + '\n;ICONS.map((i) => ({ id: i.id, name: i.name, cat: i.cat, tags: i.tags }));';
+    for (const i of require('vm').runInNewContext(code, {})) out.push({ key: i.id, name: i.name, category: i.cat, tags: i.tags || '', library: i.cat.startsWith('Soft') ? 'soft style' : 'built-in', license: 'built-in' });
+  } catch (e) { log('Could not index built-in icons:', e.message); }
   // Installed packs: bundled with the source, inside an installed app, and downloaded into user data.
   const roots = [
     path.join(ROOT, 'assets', 'iconpacks'),
@@ -92,7 +95,7 @@ const ELEMENT = {
   required: ['kind'],
 };
 const TOOLS = [
-  { name: 'search_icons', description: 'Search SciCanvas\'s ~20,000 scientific icons (built-in, Bioicons, Reactome proteins/receptors/compounds, PhyloPic organisms by scientific name, Health Icons). Returns names, libraries, licences and keys usable as "@key:<key>" in create_figure_draft.', inputSchema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number', default: 20 } }, required: ['query'] } },
+  { name: 'search_icons', description: 'Search SciCanvas\'s ~21,000 scientific icons (built-in, ~1,000 soft-style proteins / complexes / cells, Bioicons, Reactome proteins/receptors/compounds, PhyloPic organisms by scientific name, Health Icons). Returns names, libraries, licences and keys usable as "@key:<key>" in create_figure_draft.', inputSchema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number', default: 20 } }, required: ['query'] } },
   { name: 'list_templates', description: 'List SciCanvas\'s built-in figure templates (pathways, workflows, graphical abstracts, posters, slides…).', inputSchema: { type: 'object', properties: {} } },
   { name: 'create_figure_draft', description: 'Create an editable SciCanvas figure from a layout of elements (pixel coordinates, origin top-left) and open it in SciCanvas. Icons are resolved from the libraries when the file opens. Every element stays editable.', inputSchema: { type: 'object', properties: { title: { type: 'string' }, width: { type: 'number', default: 1000 }, height: { type: 'number', default: 650 }, elements: { type: 'array', items: ELEMENT }, open: { type: 'boolean', default: true, description: 'Open the draft in SciCanvas immediately' } }, required: ['title', 'elements'] } },
 ];

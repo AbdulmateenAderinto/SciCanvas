@@ -307,9 +307,9 @@ function layerName(o) {
   if (o.name) return o.name;
   switch (o.type) {
     case 'icon': return ICON_MAP[o.iconId]?.name || getAsset(o.iconId)?.name || 'Icon';
-    case 'text': return o.text.split('\n')[0].slice(0, 28) || 'Text';
-    case 'rect': case 'ellipse': return o.label ? o.label.split('\n')[0].slice(0, 28) : o.type === 'rect' ? 'Rectangle' : 'Ellipse';
-    case 'shape': return o.label ? o.label.split('\n')[0].slice(0, 28) : (SHAPES.find((x) => x[0] === o.kind) || [, 'Shape'])[1];
+    case 'text': return stripMarkup(o.text).split('\n')[0].slice(0, 28) || 'Text';
+    case 'rect': case 'ellipse': return o.label ? stripMarkup(o.label).split('\n')[0].slice(0, 28) : o.type === 'rect' ? 'Rectangle' : 'Ellipse';
+    case 'shape': return o.label ? stripMarkup(o.label).split('\n')[0].slice(0, 28) : (SHAPES.find((x) => x[0] === o.kind) || [, 'Shape'])[1];
     case 'connector': return o.label || 'Connector';
     case 'path': return o.closed ? 'Drawn shape' : o.headEnd === 'arrow' || o.headStart === 'arrow' ? 'Arrow' : 'Drawn line';
     case 'brush': return `${o.kind[0].toUpperCase()}${o.kind.slice(1)} brush`;
@@ -1182,12 +1182,13 @@ function renderProps() {
         row('Stroke', color(L, 'stroke')), row('Stroke W', num(L, 'strokeWidth', 0.5, 0)),
         o.type === 'rect' ? row('Corner', num(L, 'radius', 1, 0)) : null,
         row('Line style', lineStyle(L))));
-      P.append(sect('Label', row('Text', textInput(L, 'label', true)), row('Size', num(L, 'labelSize', 1, 4)), row('Colour', color(L, 'labelColor')), row('', check(L, 'labelBold', 'Bold'))));
+      P.append(sect('Label', row('Text', textInput(L, 'label', true)), typeof wordStyleRow === 'function' ? wordStyleRow(o, 'label') : null, row('Size', num(L, 'labelSize', 1, 4)), row('Colour', color(L, 'labelColor')), row('', check(L, 'labelBold', 'Bold'))));
       break;
     case 'text':
       P.append(sect('Text',
         row('Content', textInput(L, 'text', true)),
         el('div', { class: 'note', textContent: 'Use ^{…} for superscript and _{…} for subscript, e.g. Ca^{2+}, CO_{2}. Double-click on canvas to edit.' }),
+        typeof wordStyleRow === 'function' ? wordStyleRow(o, 'text') : null,
         el('div', { class: 'btnrow', style: 'margin-bottom:6px' }, btn('Ω Symbols', (e) => openSymbolPicker(e.target, o))),
         row('', check(L, 'formula', 'Chemical formula (H2O → H₂O, SO42- → SO₄²⁻)')),
         row('Font', select(L, 'family', FONT_NAMES)),
@@ -1215,7 +1216,7 @@ function renderProps() {
       break;
     case 'brush':
       P.append(sect('Brush',
-        row('Type', select(L, 'kind', [['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['microtubule', 'Microtubule'], ['epithelium', 'Epithelial layer'], ['cells', 'Row of cells'], ['vessel', 'Blood vessel'], ['vesicles', 'Vesicles']])),
+        row('Type', select(L, 'kind', [['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['microtubule', 'Microtubule'], ['epithelium', 'Epithelial layer'], ['cells', 'Row of cells'], ['vessel', 'Blood vessel'], ['vesicles', 'Vesicles'], ['ubiquitin', 'Ubiquitin / bead chain']])),
         btn('✎ Edit path', () => editBrushPath(o)),
         row('Colour', color(L, 'color')), swatches(L, 'color'),
         row('Unit size', range(L, 'size', 3, 24, 0.5)),
@@ -1276,6 +1277,9 @@ function pathSection(o) {
     o.blur ? row('Softness', range(L, 'blur', 0, 30, 0.5)) : null,
     o.blur || o.strokeOpacity != null ? row('Strength', range(L, 'strokeOpacity', 0.05, 1, 0.05)) : null,
     row('', check(L, 'closed', 'Closed shape')),
+    !o.closed ? row('', check(L, 'tube', 'Soft protein tube (outlined)')) : null,
+    !o.closed && o.tube ? row('Outline', color(L, 'tubeOutline')) : null,
+    o.closed ? el('div', { class: 'btnrow', style: 'margin:4px 0' }, btn('Soft protein style', () => { checkpoint(); Object.assign(o, { stroke: Color.dark(o.fill && o.fill !== 'none' ? o.fill : '#8b5cc6', 0.36), strokeWidth: 2.2, shade: 'flat', fill2: null }); if (!o.fill || o.fill === 'none') o.fill = '#8b5cc6'; render({ props: true }); })) : null,
     row('Line style', lineStyle(L)),
     o.closed ? row('Fill', color(L, 'fill')) : null,
     o.closed ? swatches(L, 'fill') : null,

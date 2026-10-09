@@ -25,7 +25,7 @@ const Make = {
     return { id: uid(), type: 'connector', from: end(from), to: end(to), head: 'arrow', tail: 'none', style: 'straight', curve: 40, color: '#333333', width: 2, ...extra };
   },
   brush(kind, x, y, w, h, pts, extra = {}) {
-    const defaults = { membrane: '#e8b45a', dna: '#3b82c4', actin: '#d6584a', epithelium: '#e88a9a', vesicles: '#9b7fd1' };
+    const defaults = { membrane: '#e8b45a', dna: '#3b82c4', actin: '#d6584a', epithelium: '#e88a9a', vesicles: '#9b7fd1', ubiquitin: '#d4a531' };
     return { id: uid(), type: 'brush', kind, x, y, w: Math.max(w, 1), h: Math.max(h, 1), rot: 0, pts, closed: false, size: 8, color: defaults[kind], ...extra };
   },
   protocol(steps, x, y, w, extra = {}) {
