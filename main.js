@@ -331,7 +331,7 @@ ipcMain.handle('list-folder', (_e, dir) => {
   return out;
 });
 ipcMain.handle('make-folder', (_e, { dir, name }) => {
-  if (typeof name !== 'string' || !name.trim() || /[\/:]/.test(name)) throw new Error('Invalid folder name');
+  if (typeof name !== 'string' || !name.trim() || /[/:]/.test(name)) throw new Error('Invalid folder name');
   const full = path.join(dir, name.trim());
   fs.mkdirSync(full);
   return full;

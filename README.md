@@ -18,6 +18,15 @@ npm run setup
 
 Icon libraries live in `assets/iconpacks/` (about 640 MB in total). Reinstall or update them with `npm run icons`, or from **Insert › Icon Libraries…** inside the app.
 
+## Checks
+
+```bash
+npm run lint   # ESLint
+npm test       # unit tests for the statistics (src/graph.js) and chemical-formula text (src/render.js)
+```
+
+Both run on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`).
+
 ## Icon libraries (~19,950 icons)
 
 | Library | Icons | Licence | Content |

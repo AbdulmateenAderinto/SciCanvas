@@ -23,13 +23,13 @@ const FONT_NAMES = [['sans', 'Helvetica (default)'], ['arial', 'Arial'], ['helve
 // Lists: prefix each line with a bullet or number (blank lines are skipped in numbering).
 // Chemical-formula mode: H2O → H₂O, CO32- → CO₃²⁻, NH4+ → NH₄⁺, Ca2+ → Ca²⁺ (written with _{} / ^{} markup).
 function formulaMarkup(t) {
-  const subs = (body) => body.replace(/([A-Z][a-z]?|[\)\]])(\d+)/g, '$1_{$2}');
+  const subs = (body) => body.replace(/([A-Z][a-z]?|[)\]])(\d+)/g, '$1_{$2}');
   return t.split(/(\s+)/).map((word) => {
-    const m = word.match(/^(.*?[A-Za-z\)\]])(\d*)([+\-−])([,;.:)]?)$/);
+    const m = word.match(/^(.*?[A-Za-z)\]])(\d*)([+\-−])([,;.:)]?)$/);
     if (!m) return subs(word);
     let [, body, digits, sign, tail] = m;
     sign = sign === '-' ? '−' : sign;
-    const mono = (body.match(/[A-Z]/g) || []).length === 1 && !/[\d\(\)\[\]]/.test(body);
+    const mono = (body.match(/[A-Z]/g) || []).length === 1 && !/[\d()[\]]/.test(body);
     let sub = '', charge;
     if (mono) charge = digits + sign;
     else if (digits.length >= 2) { sub = digits.slice(0, -1); charge = digits.slice(-1) + sign; }
