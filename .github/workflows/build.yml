@@ -1,0 +1,91 @@
+name: Build installers
+
+# Builds the Windows installer (.exe) and the Mac disk images (.dmg).
+# - When a release is published on GitHub, the installers are attached to that release page.
+# - On pull requests that touch the build setup, and when run by hand from the Actions tab,
+#   they're saved as downloadable "artifacts" on the run instead.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - build/**
+      - .github/workflows/build.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+            cmd: npx electron-builder --win nsis --x64 --publish never
+            files: dist/*.exe
+          - os: macos-latest
+            name: mac
+            cmd: npx electron-builder --mac dmg --arm64 --x64 --publish never
+            files: dist/*.dmg
+    runs-on: ${{ matrix.os }}
+    env:
+      # No paid signing certificate: build unsigned (Mac uses an ad-hoc signature).
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The big optional icon libraries aren't in the repo; users can add them from
+      # Insert › Icon Libraries… inside the app. An empty folder keeps the build config happy.
+      - run: mkdir -p assets/iconpacks
+        shell: bash
+      - run: ${{ matrix.cmd }}
+        shell: bash
+
+      # Smoke test: start the built app, give it 25 seconds, and fail if it crashed or the
+      # page reported a script error while loading.
+      - name: Smoke test (Windows)
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          $p = Start-Process -FilePath 'dist\win-unpacked\SciCanvas.exe' -PassThru -RedirectStandardError 'smoke.log' -RedirectStandardOutput 'smoke-out.log'
+          Start-Sleep -Seconds 25
+          $alive = -not $p.HasExited
+          if ($alive) { Stop-Process -Id $p.Id -Force }
+          Get-Content smoke.log -ErrorAction SilentlyContinue | Select-Object -Last 60
+          if (-not $alive) { Write-Error 'The app closed or crashed on start'; exit 1 }
+          if (Select-String -Path smoke.log -Pattern 'Uncaught' -Quiet) { Write-Error 'Script error while loading'; exit 1 }
+      - name: Smoke test (Mac)
+        if: matrix.name == 'mac'
+        shell: bash
+        run: |
+          APP=$(ls -d dist/mac-arm64/*.app | head -1)
+          ELECTRON_ENABLE_LOGGING=1 "$APP/Contents/MacOS/SciCanvas" > smoke-out.log 2> smoke.log &
+          PID=$!
+          sleep 25
+          if kill -0 $PID 2>/dev/null; then ALIVE=1; kill $PID; else ALIVE=0; fi
+          tail -60 smoke.log || true
+          [ "$ALIVE" = 1 ] || { echo "::error::The app closed or crashed on start"; exit 1; }
+          if grep -q 'Uncaught' smoke.log; then echo "::error::Script error while loading"; exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'release'
+        with:
+          name: SciCanvas-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" ${{ matrix.files }} --clobber

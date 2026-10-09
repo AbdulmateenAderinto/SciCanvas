@@ -7,7 +7,16 @@ library → canvas → relationships → data → review → export.
 
 SciCanvas 1.0 brings together everything built so far: drawing and design tools (v0.8), about 21,500 icons (including 1,500 soft-style icons) with new soft-style sets for anatomy, microbes, model organisms, plants, lab and clinical items, graphs with publication-grade statistics (follow-up tests, curve fitting, ROC, contingency tables, regression, factorial ANOVA), a diagram builder with 19 diagram types and flowcharts from Mermaid / JSON / steps, templates, a journal-figure checker, and AI drafting from your own PDFs, Word files, slides and tables. The sections below describe each release in detail.
 
-## Run
+## Download
+
+Get the installer from the **Releases** page (right-hand side of the GitHub page):
+
+- **Windows**: `SciCanvas-Setup-<version>.exe`. Double-click to install. Windows may show "Windows protected your PC" because the app isn't signed with a paid certificate: click **More info → Run anyway**.
+- **Mac**: `SciCanvas-<version>-arm64.dmg` for Apple-silicon Macs (M1 and later) or `-x64.dmg` for Intel Macs. Open it and drag SciCanvas to Applications. The first time, right-click the app and choose **Open** (or allow it under System Settings › Privacy & Security), because it isn't notarised by Apple.
+
+Installers are built automatically by GitHub (`.github/workflows/build.yml`) whenever a release is published. The large optional icon libraries aren't included; add them from **Insert › Icon Libraries…** in the app.
+
+## Run (from the source code)
 
 ```bash
 npm install
