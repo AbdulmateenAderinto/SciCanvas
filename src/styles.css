@@ -270,3 +270,9 @@ button.aimenu span { color: var(--muted); font-size: 11.5px; }
 #svg.outline-view #scene > g.ol-hidden *, #svg.outline-view #scene > g.ol-stray * { stroke: #e0453a !important; stroke-width: 1.4px !important; }
 #svg.outline-view #pagebg { fill: #fff !important; }
 #svg.outline-view #scene rect[fill="transparent"] { stroke: none !important; }
+/* BioRender-style colour presets (icons and text) */
+.br-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; }
+.br-preset { width: 100%; aspect-ratio: 1; padding: 2px; border: 1px solid var(--border); border-radius: 7px; background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.br-preset:hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.br-preset svg { pointer-events: none; }
+.br-text { font-size: 14px; font-family: inherit; }

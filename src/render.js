@@ -164,6 +164,7 @@ function rotPt(p, c, deg) {
 // World-space AABB of an object, accounting for rotation.
 function bounds(o, objects) {
   if (o.type === 'connector') {
+    if (o.style === 'zoom' && typeof zoomWedgeHull === 'function') return polyBounds(zoomWedgeHull(o, objects || []));
     const [a, b] = connectorEnds(o, objects || []);
     const cp = connectorControl(o, a, b);
     const xs = [a.x, b.x, cp ? cp.x : a.x], ys = [a.y, b.y, cp ? cp.y : a.y];
@@ -174,6 +175,12 @@ function bounds(o, objects) {
   const pts = [[o.x, o.y], [o.x + o.w, o.y], [o.x + o.w, o.y + o.h], [o.x, o.y + o.h]].map(([x, y]) => rotPt({ x, y }, c, o.rot));
   const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
   return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+}
+
+function polyBounds(pts) {
+  if (!pts.length) return { x: 0, y: 0, w: 0, h: 0 };
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y), x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 }
 
 // ---------- Connectors ----------
@@ -227,6 +234,7 @@ function arrowHead(kind, tip, from, color, sw) {
 }
 
 function connectorSvg(o, objects, forExport) {
+  if (o.style === 'zoom' && typeof zoomWedgeSvg === 'function') return zoomWedgeSvg(o, objects);
   const [a, b] = connectorEnds(o, objects);
   const color = o.color || '#333', sw = o.width || 2;
   const cp = connectorControl(o, a, b);
@@ -458,9 +466,9 @@ function protocolSvg(o) {
 }
 
 // ---------- Shapes ----------
-const SHAPES = [['triangle', 'Triangle'], ['diamond', 'Diamond'], ['hexagon', 'Hexagon'], ['star', 'Star'], ['arrow', 'Block arrow'], ['chevron', 'Chevron'], ['cylinder', 'Cylinder'], ['cloud', 'Cloud'], ['plus', 'Plus'], ['pill', 'Capsule'], ['parallelogram', 'Parallelogram'], ['brace', 'Curly bracket'], ['sqbracket', 'Square bracket'], ['arcline', 'Arc line'], ['cycle', 'Cycle arrow (circular)']];
+const SHAPES = [['triangle', 'Triangle'], ['diamond', 'Diamond'], ['hexagon', 'Hexagon'], ['star', 'Star'], ['arrow', 'Block arrow'], ['chevron', 'Chevron'], ['cylinder', 'Cylinder'], ['cloud', 'Cloud'], ['plus', 'Plus'], ['pill', 'Capsule'], ['parallelogram', 'Parallelogram'], ['brace', 'Curly bracket'], ['sqbracket', 'Square bracket'], ['arcline', 'Arc line'], ['cycle', 'Circular arrow']];
 const OPEN_SHAPES = new Set(['brace', 'sqbracket', 'arcline', 'cycle']);
-function shapePath(kind, w, h) {
+function shapePath(kind, w, h, o) {
   switch (kind) {
     case 'triangle': return `M${w / 2} 0 L${w} ${h} L0 ${h} Z`;
     case 'diamond': return `M${w / 2} 0 L${w} ${h / 2} L${w / 2} ${h} L0 ${h / 2} Z`;
@@ -480,12 +488,40 @@ function shapePath(kind, w, h) {
     case 'brace': return `M0 ${h} Q0 ${h / 2} ${w * 0.1} ${h / 2} L${w * 0.4} ${h / 2} Q${w / 2} ${h / 2} ${w / 2} 0 Q${w / 2} ${h / 2} ${w * 0.6} ${h / 2} L${w * 0.9} ${h / 2} Q${w} ${h / 2} ${w} ${h}`;
     case 'sqbracket': return `M0 ${h} V0 H${w} V${h}`;
     case 'arcline': return `M0 ${h} A${w / 2} ${h} 0 0 1 ${w} ${h}`;
-    case 'cycle': {
-      const rx = w / 2, ry = h / 2, P = (deg) => { const a = (deg - 90) * Math.PI / 180; return `${rx + rx * Math.cos(a)} ${ry + ry * Math.sin(a)}`; };
-      return `M${P(0)} A${rx} ${ry} 0 1 1 ${P(300)}`;
-    }
+    case 'cycle': return cycleGeometry(o || {}, w, h).arc;
   }
   return `M0 0 H${w} V${h} H0 Z`;
+}
+// Circular arrow: an elliptical arc from arcStart to arcEnd (degrees clockwise from 12 o'clock; defaults 0 → 300)
+// with optional heads at either end. headSize is a percentage of the default head. The arc stops short of each
+// head so thick strokes don't poke through the tip. Returns { arc, heads } path data in the shape's own box.
+function cycleArcSpan(o) {
+  const a0 = o.arcStart ?? 0;
+  let a1 = o.arcEnd ?? 300;
+  while (a1 <= a0) a1 += 360;
+  while (a1 - a0 > 360) a1 -= 360;
+  return [a0, a1];
+}
+function cycleGeometry(o, w, h) {
+  const rx = w / 2, ry = h / 2, sw = o.strokeWidth ?? 2, [a0, a1] = cycleArcSpan(o);
+  const P = (deg) => { const a = ((deg - 90) * Math.PI) / 180; return { x: rx + rx * Math.cos(a), y: ry + ry * Math.sin(a) }; };
+  const headEnd = (o.headEnd ?? 'arrow') !== 'none', headStart = (o.headStart ?? 'none') !== 'none';
+  const len = (5 + sw * 2.5) * ((o.headSize ?? 100) / 100), half = len * 0.55;
+  // dA: the arc angle a head covers; the stroke stops three-quarters of the way into it.
+  const r = Math.max(1, (rx + ry) / 2), dA = Math.min((len / r) * (180 / Math.PI), (a1 - a0) / (headEnd && headStart ? 2.2 : 1.1));
+  const s0 = headStart ? a0 + dA * 0.75 : a0, s1 = headEnd ? a1 - dA * 0.75 : a1;
+  const f = (p) => `${+p.x.toFixed(2)} ${+p.y.toFixed(2)}`;
+  let arc = `M${f(P(s0))}`;
+  // Split into ≤ 180° pieces so the SVG arc flags are never ambiguous.
+  const n = Math.max(1, Math.ceil((s1 - s0) / 179.9));
+  for (let i = 1; i <= n; i++) arc += ` A${+rx.toFixed(2)} ${+ry.toFixed(2)} 0 0 1 ${f(P(s0 + ((s1 - s0) * i) / n))}`;
+  const head = (tipDeg, baseDeg) => {
+    const tip = P(tipDeg), base = P(baseDeg), dx = tip.x - base.x, dy = tip.y - base.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    const bx = tip.x - (dx / L) * len, by = tip.y - (dy / L) * len;
+    return `M${f(tip)} L${f({ x: bx + nx * half, y: by + ny * half })} L${f({ x: bx - nx * half, y: by - ny * half })} Z`;
+  };
+  const heads = (headEnd ? head(a1, a1 - dA) : '') + (headStart ? ' ' + head(a0, a0 + dA) : '');
+  return { arc, heads: heads.trim(), P, a0, a1 };
 }
 
 // ---------- Effects: gradient fill, glow, drop shadow, clipping ----------
@@ -538,13 +574,13 @@ function renderParts(o, objects, forExport) {
       break;
     case 'shape': {
       const dash = dashAttr(o, o.strokeWidth || 2);
-      const geom = `<path d="${shapePath(o.kind, o.w, o.h)}"/>`;
+      const d = o.kind === 'cycle' ? cycleGeometry(o, o.w, o.h).arc : shapePath(o.kind, o.w, o.h, o);
+      const geom = `<path d="${d}"/>`;
       const paint = OPEN_SHAPES.has(o.kind) ? { fill: 'none', defs: '', overlay: '' } : fillPaint(o, geom);
-      inner = (paint.defs ? `<defs>${paint.defs}</defs>` : '') + `<path d="${shapePath(o.kind, o.w, o.h)}" fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}" stroke-linejoin="round" stroke-linecap="round"${dash}/>` + paint.overlay;
-      if (o.kind === 'cycle') { // arrowhead at the end of the 300° arc
-        const rx = o.w / 2, ry = o.h / 2, a = (-90 + 300) * Math.PI / 180, tip = { x: rx + rx * Math.cos(a), y: ry + ry * Math.sin(a) };
-        const back = { x: rx + rx * Math.cos(a - 0.2), y: ry + ry * Math.sin(a - 0.2) };
-        inner += arrowHead('arrow', tip, back, o.stroke || '#333', o.strokeWidth ?? 2);
+      inner = (paint.defs ? `<defs>${paint.defs}</defs>` : '') + `<path d="${d}" fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}" stroke-linejoin="round" stroke-linecap="${o.kind === 'cycle' ? 'butt' : 'round'}"${dash}/>` + paint.overlay;
+      if (o.kind === 'cycle') { // filled heads at the ends of the arc
+        const { heads } = cycleGeometry(o, o.w, o.h);
+        if (heads && o.stroke && o.stroke !== 'none') inner += `<path d="${heads}" fill="${o.stroke}" stroke="${o.stroke}" stroke-width="${Math.min(1, (o.strokeWidth ?? 2) * 0.3)}" stroke-linejoin="round"/>`;
       }
       if (o.label) inner += textSvg(o.label, { fontSize: o.labelSize || 16, color: o.labelColor || '#222', bold: o.labelBold, w: o.w, h: o.h, align: 'center', vcenter: true });
       break;

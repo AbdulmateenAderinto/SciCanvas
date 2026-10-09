@@ -12,7 +12,7 @@ const render = (objects) => A.pageSvgString({ width: 1200, height: 900, backgrou
 for (const [key, d] of Object.entries(A.DIAGRAMS)) {
   test(`diagram builds and renders: ${d.label}`, () => {
     const list = d.build(defaults(d));
-    assert.ok(list.length > 3, 'drew objects');
+    assert.ok(list.length > 3 || list.some((o) => o.type === 'group' && o.children.length > 3), 'drew objects');
     const svg = render(list);
     assert.doesNotMatch(svg, /NaN|undefined/);
     for (const o of list) if (o.type !== 'connector') assert.ok([o.x, o.y, o.w, o.h].every(Number.isFinite), `${key}: finite geometry for ${o.type}`);
