@@ -3,6 +3,10 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
+## Version 1.0
+
+SciCanvas 1.0 brings together everything built so far: drawing and design tools (v0.8), about 19,950 icons including the new soft-style sets for anatomy, microbes, model organisms, plants, lab and clinical items, graphs with publication-grade statistics (follow-up tests, curve fitting, ROC, contingency tables, regression, factorial ANOVA), a diagram builder with 19 diagram types and flowcharts from Mermaid / JSON / steps, templates, a journal-figure checker, and AI drafting from your own PDFs, Word files, slides and tables. The sections below describe each release in detail.
+
 ## Run
 
 ```bash
