@@ -201,6 +201,10 @@ Every result is checked against SciPy in the automatic tests (`test/fixtures/sta
 
 **Flowchart from Mermaid, JSON or steps** (Insert › Diagram, no AI needed): paste Mermaid flowchart code (shapes, labelled edges, chains, `&` groups, loops), JSON nodes and edges, or numbered steps (`3. Quality OK? | yes -> 4 | no -> 2`). Flowchart layout now keeps each box under its parents, so branches no longer cross other boxes (this also improves AI-generated flowcharts).
 
+## New in v0.9: icons
+
+**194 new soft-style icons in 11 new categories**, all drawn from scratch in the app's own style, recolourable and searchable: organelles & cytoskeleton, membranes / lipids / carbohydrates, nanoparticles & materials, human anatomy, reproduction & development, microbes & viruses, model organisms (mouse, rat, rabbit, pig, dog, cow, chicken, frog, zebrafish, fruit fly, *C. elegans*, mosquito, macaque), plants & agriculture, lab equipment (tubes, plates, pipettes, freezers, plate reader, mass spectrometer, HPLC, bioreactor, bioprinter and more), clinical & pharmacy (tablets, capsules, vials, IV and blood bags, inhaler, insulin pen, stethoscope, hospital bed, MRI) and symbols & callouts. Icons that already existed in the library weren't drawn again. The diagram builder's icon lookup finds the new icons too.
+
 ## New in v0.8: design tools from Illustrator, Figma and Canva
 
 **Components with variants** (Figma components, Illustrator symbols): select a protein, cell or labelled group and choose Arrange › Create Component (⌥⌘K). Every copy stays linked: double-click any copy to edit the main component and all copies on every page update. Add variants for biological states (Unbound / Bound / Phosphorylated, Naive / Activated / Exhausted) and switch them per copy from Properties. Each copy can override its own colours and text, and Detach instance makes it independent. Insert › Components… lists them.
@@ -307,6 +311,7 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `scripts/mcp-server.js`: AI connector (Model Context Protocol server)
 - `src/creator.js`: drawing options, My icons, AI icon generation, library manager
 - `src/softicons.js`: soft-style icon set (proteins, degradation, immunology, cancer)
+- `src/softicons3.js`: v0.9 soft-style icons (organelles, anatomy, microbes, model organisms, plants, lab equipment, clinical)
 - `src/richtext.js`: colour / bold / italic for selected words
 - `src/immuno.js`: protein shapes, lighter partner, degrade, domain maps
 - `src/immunotemplates.js`: immunology & cancer templates
