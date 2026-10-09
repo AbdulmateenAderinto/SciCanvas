@@ -335,7 +335,7 @@ const HELP = [
   ['AI drafts', 'Generate with AI (⌘K): describe the figure (message, entities, relationships, layout, audience), optionally attach a sketch. You get an editable draft; request changes until it’s right. Always check the science — drafts can misplace compartments or reverse arrows. Needs an Anthropic API key (Settings).'],
   ['Comments', 'Press M and click to pin a comment. Reply, resolve and review them in the Comments tab. Comments live in the file and are never exported — share the .scifig file for review.'],
   ['Slides & posters', 'Each page can be a slide. ⌘↵ presents full screen. Home › Poster starts a 36×48 in layout.'],
-  ['Export', 'PNG/JPEG up to 600 DPI (DPI is written into the file), transparent PNG, vector SVG and PDF, and PowerPoint (.pptx). “Selection only” exports just what’s selected. ⇧⌘C copies as an image for pasting into slides.'],
+  ['Export', 'PNG/JPEG up to 600 DPI (DPI is written into the file), transparent PNG, vector SVG and PDF, and PowerPoint (.pptx) with editable shapes, text and arrows. “Selection only” exports just what’s selected. ⇧⌘C copies as an image for pasting into slides.'],
   ['Credits', 'File › Credits lists every library icon you used with its licence and drafts the attribution text for your legend.'],
 ];
 function openHelpDialog() {
