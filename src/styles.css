@@ -162,6 +162,12 @@ table.credits td, table.credits th { text-align: left; border-bottom: 1px solid 
 #topbar { gap: 8px; overflow-x: auto; }
 #topbar button { white-space: nowrap; padding: 5px 8px; }
 .tb-group { flex-shrink: 0; }
+/* Panel tabs share the panel's width (the right panel has four since the journal Check tab) and shorten long
+   labels instead of sticking out past the window. */
+.tabs .tab { flex: 1 1 auto; min-width: 0; padding: 10px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#right .tab { font-size: 12px; padding: 10px 3px; }
+/* The window itself never scrolls: clicking something that sticks out used to slide the whole app sideways. */
+body { overflow: clip; }
 
 /* ---- v0.3: drawing & libraries ---- */
 #drawOpts { display: flex; flex-direction: column; gap: 4px; align-items: center; padding-top: 4px; border-top: 1px solid var(--border); margin-top: 3px; }
