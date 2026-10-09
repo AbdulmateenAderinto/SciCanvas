@@ -127,6 +127,15 @@ function buildMenu() {
           { type: 'separator' },
           { label: 'Venn Diagram…', click: send('omics_venn') }, { label: 'UpSet Plot…', click: send('omics_upset') },
         ] },
+        { label: 'Statistics & Models', submenu: [
+          { label: 'Curve Fit (Kinetics, Binding, Growth, Dose–Response)…', click: send('stats_curvefit') },
+          { label: 'Contingency Table (χ², Fisher)…', click: send('stats_contingency') },
+          { label: 'ROC Curve…', click: send('stats_roc') },
+          { type: 'separator' },
+          { label: 'Bland–Altman…', click: send('stats_blandaltman') }, { label: 'Deming Regression…', click: send('stats_deming') },
+          { type: 'separator' },
+          { label: 'Multiple Linear Regression…', click: send('stats_mlr') }, { label: 'Three-way ANOVA…', click: send('stats_anova3') },
+        ] },
         { label: 'Microscopy', submenu: [
           { label: 'Channels: Split & Merge (TIFF)…', click: send('microChannels') },
           { label: 'Image Grid…', click: send('imageGrid') },
