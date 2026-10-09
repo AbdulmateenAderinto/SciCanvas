@@ -604,7 +604,7 @@ svg.addEventListener('pointerdown', (e) => {
     case 'badge': {
       checkpoint();
       const n = 1 + Math.max(0, ...objs().filter((o) => o.badge).map((o) => parseInt(o.label, 10) || 0));
-      const o = Make.badge(n, p.x, p.y);
+      const o = Make.badge(n, p.x, p.y, typeof badgeToolStyle === 'function' ? badgeToolStyle() : {});
       objs().push(o);
       state.sel = [o.id];
       render({ props: true });

@@ -276,8 +276,13 @@ async function objectXml(o, objects, T, ctx, ids, alpha) {
       if (o.kind === 'pill') geom = prstGeom('roundRect', 50000);
       else if (o.kind === 'triangle') geom = prstGeom('triangle');
       else if (o.kind === 'diamond') geom = prstGeom('diamond');
-      else geom = custGeomXml([{ xml: segsToPathXml(parseSvgPath(shapePath(o.kind, o.w, o.h)), T.sx, T.sy), fill: !open }], box.w, box.h);
-      const line = lineXml(o.stroke || (open ? '#333333' : null), sw, { dash, alpha: a, head: o.kind === 'cycle' ? 'arrow' : null });
+      else if (o.kind === 'cycle') { // the arc is the outline; its heads are a filled second path in the same shape
+        const cg = cycleGeometry(o, o.w, o.h), paths = [{ xml: segsToPathXml(parseSvgPath(cg.arc), T.sx, T.sy), fill: false }];
+        if (cg.heads) paths.push({ xml: segsToPathXml(parseSvgPath(cg.heads), T.sx, T.sy), stroke: false });
+        const stroke = o.stroke || '#333333';
+        return spXml(id, name, { ...common, geom: custGeomXml(paths, box.w, box.h, { sites: false }), fill: solidFill(stroke, a), line: lineXml(stroke, sw, { dash, alpha: a, cap: 'flat' }), effects: effectsXml(o, k), txBody: label() });
+      } else geom = custGeomXml([{ xml: segsToPathXml(parseSvgPath(shapePath(o.kind, o.w, o.h, o)), T.sx, T.sy), fill: !open }], box.w, box.h);
+      const line = lineXml(o.stroke || (open ? '#333333' : null), sw, { dash, alpha: a });
       return spXml(id, name, { ...common, geom, fill: open ? '<a:noFill/>' : fillXml(o, a), line, effects: effectsXml(o, k), txBody: label() });
     }
     case 'path': {
@@ -309,6 +314,7 @@ async function objectXml(o, objects, T, ctx, ids, alpha) {
 }
 
 function connectorXml(o, objects, T, id, name, alpha, ids, ctx) {
+  if (o.style === 'zoom') return zoomWedgeXml(o, objects, T, id, name, alpha);
   const k = slideK(T);
   const [la, lb] = connectorEnds(o, objects);
   const a = slidePt(T, la), b = slidePt(T, lb);
