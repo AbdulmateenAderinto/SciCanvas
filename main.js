@@ -661,7 +661,7 @@ ipcMain.handle('save-settings', (_e, { apiKey, clearKey, author, field, teamFold
 });
 
 // ---------- AI figure drafting (Claude API) ----------
-ipcMain.handle('ai-generate', async (_e, { system, prompt, image, schema }) => {
+ipcMain.handle('ai-generate', async (_e, { system, prompt, image, schema, documents }) => {
   const key = getApiKey();
   if (!key) throw new Error('Add your Anthropic API key in Settings first.');
   // Usage tracking + optional monthly request limit (Settings › AI usage).
@@ -671,6 +671,10 @@ ipcMain.handle('ai-generate', async (_e, { system, prompt, image, schema }) => {
   const Anthropic = require('@anthropic-ai/sdk').default;
   const client = new Anthropic({ apiKey: key });
   const content = [];
+  // Attached PDFs (base64) go first, as document blocks; the API caps a request at 32 MB.
+  const docs = Array.isArray(documents) ? documents.filter((d) => d && typeof d.data === 'string') : [];
+  if (docs.reduce((n, d) => n + d.data.length, 0) > 30e6) throw new Error('The attached PDFs are too large to send together (limit about 20 MB in total). Attach fewer or smaller files.');
+  for (const d of docs) content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: d.data }, ...(d.name ? { title: String(d.name).slice(0, 200) } : {}) });
   if (image) {
     const [meta, data] = image.split(',');
     content.push({ type: 'image', source: { type: 'base64', media_type: meta.slice(5, meta.indexOf(';')), data } });

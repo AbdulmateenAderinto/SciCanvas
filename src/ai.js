@@ -3,9 +3,9 @@
 // narration. Plus non-AI background removal by edge colour.
 
 const cleanErr = (e) => String(e && e.message ? e.message : e).replace(/^Error invoking remote method[^:]*: (Error: )?/, '');
-async function aiCall({ system, prompt, schema, image }) {
+async function aiCall({ system, prompt, schema, image, documents }) {
   if (!appSettings.hasApiKey) { toast('Add your Anthropic API key in Settings first'); openSettingsDialog(); throw new Error('No API key set'); }
-  return window.native.aiGenerate({ system, prompt, image, schema });
+  return window.native.aiGenerate({ system, prompt, image, schema, ...(documents && documents.length ? { documents } : {}) });
 }
 const sObj = (props, req = Object.keys(props)) => ({ type: 'object', additionalProperties: false, required: req, properties: props });
 const sArr = (items) => ({ type: 'array', items });
