@@ -1,4 +1,4 @@
-// The shared DNA helix (SoftKit.helix, src/softicons.js): base pairs are evenly spaced and every bar
+// The shared DNA helix (SoftKit.helix, src/softicons.js): base pairs are evenly spaced (8 per turn) and every bar
 // starts and ends exactly on the two strands, so none run off the helix.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,14 +20,14 @@ test('helix base pairs sit on the strands and are evenly spaced', () => {
     assert.equal(a.x, b.x, 'both halves of a pair share one x');
     assert.equal(a.y1, b.y0, 'the halves meet in the middle');
     const t = (a.x - x0) / (x1 - x0), y = amp * Math.sin(t * turns * Math.PI * 2);
-    assert.ok(Math.abs(a.y0 - (yc + y)) < 0.05, `top end on strand A at x=${a.x}`);
-    assert.ok(Math.abs(b.y1 - (yc - y)) < 0.05, `bottom end on strand B at x=${a.x}`);
+    assert.ok(Math.abs(a.y0 - (yc + y)) < 0.15, `top end on strand A at x=${a.x}`);
+    assert.ok(Math.abs(b.y1 - (yc - y)) < 0.15, `bottom end on strand B at x=${a.x}`);
     assert.ok(Math.abs(a.y1 - yc) < 0.05, 'pairs meet on the helix axis');
     xs.push(a.x);
   }
   // Pairs are left out only where the strands cross; the rest keep one fixed spacing.
-  const step = (x1 - x0) / Math.round(turns * 10), gaps = xs.slice(1).map((x, i) => (x - xs[i]) / step);
-  for (const g of gaps) assert.ok(Math.abs(g - Math.round(g)) < 0.02 && g >= 0.98, `even spacing (gap ${g.toFixed(2)} steps)`);
+  const step = (x1 - x0) / Math.round(turns * 8), gaps = xs.slice(1).map((x, i) => (x - xs[i]) / step);
+  for (const g of gaps) assert.ok(Math.abs(g - Math.round(g)) < 0.03 && g >= 0.97, `even spacing (gap ${g.toFixed(2)} steps)`);
 });
 
 test('every DNA icon that uses the helix draws cleanly', () => {

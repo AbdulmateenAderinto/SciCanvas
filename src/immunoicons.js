@@ -214,7 +214,7 @@ const SOFT = (() => {
       draw: (c) => (globalThis.SoftKit ? SoftKit.dnaH(0, 66, 100) : tube('M4 78 C20 70 30 86 46 78 C62 70 72 86 96 78', '#3b82c4', 5, { sheen: false })) + ell(36, 36, 14, 13, c) + ell(64, 36, 14, 13, L(c, 0.4)) + ell(36, 60, 14, 12, L(c, 0.4)) + ell(64, 60, 14, 12, c) + label(50, 52, 'p53', 10, '#2b1a40') },
     { id: 'ca-dsb', name: 'DNA double-strand break', cat: 'Soft · Cancer', tags: 'DSB DNA damage break genotoxic radiation', color: '#3b82c4',
       // Two broken helix ends (the kit's helix, so it matches every other DNA icon) and the break between them.
-      draw: (c) => (globalThis.SoftKit ? SoftKit.helix(4, 40, 49, 11, 0.62, { w: 5, c1: c, c2: L(c, 0.45) }) + SoftKit.helix(60, 96, 49, 11, 0.62, { w: 5, c1: c, c2: L(c, 0.45), phase: Math.PI * 0.2 })
+      draw: (c) => (globalThis.SoftKit ? SoftKit.helix(4, 40, 49, 11, 0.62, { w: 4 }) + SoftKit.helix(60, 96, 49, 11, 0.62, { w: 4, phase: Math.PI * 0.2 })
         : tube('M4 40 C14 34 24 46 36 40 M4 58 C14 52 24 64 36 58', c, 5, { sheen: false }) + tube('M64 40 C76 34 86 46 96 40 M64 58 C76 52 86 64 96 58', c, 5, { sheen: false }))
         + `<path d="M46 26 L54 36 L46 44 L56 52 L48 62 L56 72" fill="none" stroke="#f2c14e" stroke-width="4" stroke-linejoin="round"/>` },
     { id: 'ca-mutation', name: 'DNA mutation', cat: 'Soft · Cancer', tags: 'point mutation SNV variant mismatch driver mutation', color: '#3b82c4',

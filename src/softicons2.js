@@ -15,9 +15,9 @@
     const n = o.n || Math.max(4, Math.round(w / 9)), turns = (n * 0.95) / (Math.PI * 2);
     const mark = {};
     for (const [i, c] of Object.entries(o.hi || {})) mark[i / n] = c;
-    const nPairs = Math.max(2, Math.round(turns * 10)), pairs = Array.from({ length: nPairs }, (_, k) => ({ t: (k + 0.5) / nPairs }));
+    const nPairs = Math.max(2, Math.round(turns * 8)), pairs = Array.from({ length: nPairs }, (_, k) => ({ t: (k + 0.5) / nPairs }));
     for (const i of o.skip || []) { let best = pairs[0]; for (const p of pairs) if (Math.abs(p.t - i / n) < Math.abs(best.t - i / n)) best = p; best.skip = true; }
-    return K.helix(x0 + 3, x0 + w - 3, y0 + 12, o.amp || 10, turns, { w: 5, c1: o.c1 || P.navy, c2: o.c2 || P.sky, phase: o.ph || 0, pairs, mark });
+    return K.helix(x0 + 3, x0 + w - 3, y0 + 12, o.amp || 10, turns, { c1: o.c1, c2: o.c2, phase: o.ph || 0, pairs, mark });
   }
   // DNA as a soft ribbon along any path (for loops, plasmids, chromatin).
   const ds = (pts, w = 9, c = P.sky) => tube(pts, w, c, { oc: P.navy }) + `<path d="${cr(pts, false)}" fill="none" stroke="${P.navy}" stroke-width="${w * 0.62}" stroke-dasharray="1.4 3.4" opacity=".45"/>`;
