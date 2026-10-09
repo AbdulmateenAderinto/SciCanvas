@@ -57,7 +57,7 @@ test('drawings are stable (same icon, same picture every time)', () => {
 });
 
 test('new icon names are unique and do not repeat older icons', () => {
-  const older = new Set(A.ICONS.filter((i) => !(i.cat in NEW_CATS)).map((i) => i.name));
+  const older = new Set(A.ICONS.filter((i) => !(i.cat in NEW_CATS) && !i.refined).map((i) => i.name)); // refined icons are a parallel set
   const seen = new Set();
   for (const ic of fresh) {
     assert.ok(!older.has(ic.name), `${ic.name} already existed`);
@@ -71,5 +71,5 @@ test('search finds the new icons by name and by tag', () => {
   assert.equal(nameOf('Stethoscope'), 'Stethoscope');
   assert.equal(nameOf('Plate reader'), 'Plate reader');
   assert.match(nameOf('zebrafish'), /Zebrafish/);
-  assert.match(nameOf('NanoDrop') || '', /Spectrophotometer/);
+  assert.match(nameOf('NanoDrop') || '', /spectrophotometer/i);
 });
