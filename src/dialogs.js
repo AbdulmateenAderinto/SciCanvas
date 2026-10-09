@@ -36,6 +36,7 @@ function openGraphDialog(existing) {
     growth: 'First column = time; replicate columns share the same series name (e.g. Control, Control, Control, Drug, Drug, Drug).',
     standard: 'Conc, Signal[, Sample]. Leave Conc blank for unknowns — they are interpolated from the standard curve.',
     logistic: 'Two columns: X, outcome (0 or 1).',
+    tumour: 'Long format, one row per measurement: Group, Mouse, Day, Volume (mm³). First group = control for TGI.',
   };
   const show = (elx, on) => elx.classList.toggle('hidden', !on);
   const useSuggested = btn('Use suggested test', () => { if (lastSuggestion) { cfg.test = lastSuggestion; testSel.value = cfg.test; update(); } });
@@ -46,20 +47,20 @@ function openGraphDialog(existing) {
     report.textContent = r.report.join('\n');
     lastSuggestion = r.suggestion;
     const k = cfg.kind, axes = !['pie', 'plate', 'heatmap'].includes(k);
-    show(errRow, ['bar', 'dotplot', 'groupedbar', 'growth'].includes(k));
-    show(ptsRow, ['bar', 'box', 'violin', 'groupedbar'].includes(k));
+    show(errRow, ['bar', 'dotplot', 'groupedbar', 'growth', 'tumour'].includes(k));
+    show(ptsRow, ['bar', 'box', 'violin', 'groupedbar', 'tumour'].includes(k));
     show(centerRow, k === 'dotplot');
-    show(testRow, GROUP.includes(k));
+    show(testRow, GROUP.includes(k) || k === 'tumour');
     show(statsRow, ['scatter', 'survival', 'groupedbar'].includes(k));
     show(fitRow, k === 'scatter');
     show(stdFitRow, k === 'standard');
     show(heatRow, k === 'heatmap' || k === 'plate');
     show(donutRow, k === 'pie');
     show(bandRow, k === 'growth');
-    show(transformRow, !['pie', 'plate', 'heatmap', 'survival', 'standard', 'logistic'].includes(k));
+    show(transformRow, !['pie', 'plate', 'heatmap', 'survival', 'standard', 'logistic', 'tumour'].includes(k));
     show(axisRow, axes && !['survival', 'logistic'].includes(k));
     show(logRow, ['scatter', 'line'].includes(k));
-    show(pRow, GROUP.includes(k));
+    show(pRow, GROUP.includes(k) || k === 'tumour');
     show(useSuggested, GROUP.includes(k) && lastSuggestion && cfg.test !== 'auto' && cfg.test !== lastSuggestion);
     hint.textContent = 'Paste CSV or tab-separated data (e.g. from Excel), or import a file. ' + (HINTS[k] || '');
   };
@@ -106,7 +107,7 @@ function openGraphDialog(existing) {
         el('div', { class: 'btnrow', style: 'margin:6px 0 10px' },
           btn('Load example', () => {
             cfg.data = SAMPLE_DATA[cfg.kind]; data.value = cfg.data;
-            const L = { survival: ['Time (days)', 'Survival probability'], dose: ['Dose (µM)', 'Response (%)'], growth: ['Time (h)', 'OD600'], standard: ['Concentration (pg/mL)', 'OD450'], logistic: ['Dose', 'P(response)'], groupedbar: ['', 'Value'] }[cfg.kind];
+            const L = { survival: ['Time (days)', 'Survival probability'], dose: ['Dose (µM)', 'Response (%)'], growth: ['Time (h)', 'OD600'], standard: ['Concentration (pg/mL)', 'OD450'], logistic: ['Dose', 'P(response)'], groupedbar: ['', 'Value'], tumour: ['Days after inoculation', 'Tumour volume (mm³)'] }[cfg.kind];
             if (L) { cfg.xLabel = L[0]; cfg.yLabel = L[1]; }
             syncText(); update();
           }),

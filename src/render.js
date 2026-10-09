@@ -74,30 +74,55 @@ function dashAttr(o, sw) {
   return '';
 }
 
-// ---------- Rich-ish text: supports ^{superscript} and _{subscript} ----------
+// ---------- Rich-ish text ----------
+// ^{superscript}, _{subscript}, and styled spans for individual words: {#d64545|red words}, {b|bold},
+// {i|italic}, combinable as {b#d64545|bold red}. Spans can contain ^{…} / _{…}.
+const STYLE_SPAN = /\{([bi]{0,2})(#[0-9a-fA-F]{3,8})?([bi]{0,2})\|((?:[^{}]|[\^_]\{[^{}]*\})*)\}/g;
 function parseMarkup(line) {
   const out = [];
-  const re = /([\^_])\{([^}]*)\}/g;
+  const subSup = (text, style) => {
+    const re = /([\^_])\{([^}]*)\}/g;
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) out.push({ t: text.slice(last, m.index), s: 0, ...style });
+      out.push({ t: m[2], s: m[1] === '^' ? 1 : -1, ...style });
+      last = re.lastIndex;
+    }
+    if (last < text.length) out.push({ t: text.slice(last), s: 0, ...style });
+  };
   let last = 0, m;
-  while ((m = re.exec(line))) {
-    if (m.index > last) out.push({ t: line.slice(last, m.index), s: 0 });
-    out.push({ t: m[2], s: m[1] === '^' ? 1 : -1 });
-    last = re.lastIndex;
+  STYLE_SPAN.lastIndex = 0;
+  while ((m = STYLE_SPAN.exec(line))) {
+    const flags = m[1] + m[3];
+    if (!flags && !m[2]) continue;
+    if (m.index > last) subSup(line.slice(last, m.index), {});
+    subSup(m[4], { color: m[2], bold: flags.includes('b') || undefined, italic: flags.includes('i') || undefined });
+    last = STYLE_SPAN.lastIndex;
   }
-  if (last < line.length) out.push({ t: line.slice(last), s: 0 });
+  if (last < line.length) subSup(line.slice(last), {});
   return out;
+}
+// A styled span may cover a line break: close and reopen it on each line so lines parse independently.
+function splitSpanLines(text) {
+  text = String(text);
+  if (!text.includes('|') || !text.includes('\n')) return text;
+  return text.replace(/\{([bi]{0,2}(?:#[0-9a-fA-F]{3,8})?[bi]{0,2})\|((?:[^{}]|[\^_]\{[^{}]*\})*)\}/g, (m, st, inner) => (st && inner.includes('\n') ? inner.split('\n').map((l) => `{${st}|${l}}`).join('\n') : m));
+}
+// Plain text without any markup (for search, accessibility and AI prompts).
+function stripMarkup(t) {
+  return splitSpanLines(t).split('\n').map((l) => parseMarkup(l).map((g) => g.t).join('')).join('\n');
 }
 
 let _measureCtx;
 function measureText(text, fontSize, family, bold, italic) {
   _measureCtx = _measureCtx || document.createElement('canvas').getContext('2d');
-  const lines = String(text).split('\n');
+  const lines = splitSpanLines(text).split('\n');
   let w = 0;
   for (const line of lines) {
     let lw = 0;
     for (const seg of parseMarkup(line)) {
       const fs = seg.s ? fontSize * 0.7 : fontSize;
-      _measureCtx.font = `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${fs}px ${FONT_STACK[family] || FONT_STACK.sans}`;
+      _measureCtx.font = `${italic || seg.italic ? 'italic ' : ''}${bold || seg.bold ? 'bold ' : ''}${fs}px ${FONT_STACK[family] || FONT_STACK.sans}`;
       lw += _measureCtx.measureText(seg.t).width;
     }
     w = Math.max(w, lw);
@@ -106,7 +131,7 @@ function measureText(text, fontSize, family, bold, italic) {
 }
 
 function textSvg(text, { fontSize = 16, color = '#222', family = 'sans', bold, italic, underline, strike, align = 'left', w, h, vcenter }) {
-  const lines = String(text).split('\n');
+  const lines = splitSpanLines(text).split('\n');
   const lh = fontSize * 1.25;
   const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
   const x = align === 'center' ? w / 2 : align === 'right' ? w - 2 : 2;
@@ -116,10 +141,11 @@ function textSvg(text, { fontSize = 16, color = '#222', family = 'sans', bold, i
     const y = top + i * lh + fontSize;
     s += `<tspan x="${x}" y="${y}">`;
     for (const seg of parseMarkup(line)) {
-      if (!seg.s) s += `<tspan>${esc(seg.t)}</tspan>`;
+      const st = `${seg.color ? ` fill="${seg.color}"` : ''}${seg.bold ? ' font-weight="700"' : ''}${seg.italic ? ' font-style="italic"' : ''}`;
+      if (!seg.s) s += `<tspan${st}>${esc(seg.t)}</tspan>`;
       else {
         const shift = seg.s > 0 ? -fontSize * 0.38 : fontSize * 0.22;
-        s += `<tspan dy="${shift}" font-size="${fontSize * 0.7}">${esc(seg.t)}</tspan><tspan dy="${-shift}">​</tspan>`;
+        s += `<tspan dy="${shift}" font-size="${fontSize * 0.7}"${st}>${esc(seg.t)}</tspan><tspan dy="${-shift}">​</tspan>`;
       }
     }
     s += '</tspan>';
@@ -356,6 +382,12 @@ function brushSvg(o) {
       const r = u * (1.45 + ((i * 13) % 5) / 25);
       s += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${Color.light(c, 0.55)}" stroke="${Color.dark(c, 0.2)}" stroke-width="${u * 0.12}"/><circle cx="${p.x + u * 0.25}" cy="${p.y - u * 0.15}" r="${r * 0.42}" fill="${Color.dark(c, 0.1)}"/>`;
     });
+  } else if (o.kind === 'ubiquitin') { // polyubiquitin / bead chain: touching outlined beads with a sheen
+    const r = u * 0.8, S = samplePath(pts, r * 1.75, o.closed);
+    S.forEach((p, i) => {
+      const k = (i % 2 ? 1 : -1) * r * 0.25, x = p.x - p.ty * k, y = p.y + p.tx * k;
+      s += `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="${Color.dark(c, 0.34)}" stroke-width="${Math.max(0.6, r * 0.18)}"/><circle cx="${x - r * 0.3}" cy="${y - r * 0.3}" r="${r * 0.3}" fill="#fff" opacity=".35"/>`;
+    });
   } else if (o.kind === 'vesicles') {
     const S = samplePath(pts, u * 2.6, o.closed);
     S.forEach((p, i) => { s += `<circle cx="${p.x}" cy="${p.y}" r="${u * (0.9 + ((i * 37) % 5) / 10)}" fill="${Color.light(c, 0.4)}" stroke="${Color.dark(c)}" stroke-width="${u * 0.2}"/>`; });
@@ -530,7 +562,7 @@ function renderParts(o, objects, forExport) {
     case 'text':
       if (o.bg) inner += `<rect x="-4" y="-2" width="${o.w + 8}" height="${o.h + 4}" rx="4" fill="${o.bg}"/>`;
       if (o.curve) {
-        const t = displayText(o).replace(/\n/g, ' ');
+        const t = stripMarkup(displayText(o)).replace(/\n/g, ' ');
         const g = curveGeometry(measureText(t, o.fontSize, o.family, o.bold, o.italic).w, o.fontSize, o.curve);
         inner += `<defs><path id="tp-${o.id}" d="${g.d}"/></defs><text font-family='${FONT_STACK[o.family] || FONT_STACK.sans}' font-size="${o.fontSize}" fill="${o.color}"${o.bold ? ' font-weight="700"' : ''}${o.italic ? ' font-style="italic"' : ''}${o.underline ? ' text-decoration="underline"' : ''}><textPath href="#tp-${o.id}" startOffset="50%" text-anchor="middle">${esc(t)}</textPath></text>`;
       } else inner += textSvg(displayText(o), { fontSize: o.fontSize, color: o.color, family: o.family, bold: o.bold, italic: o.italic, underline: o.underline, strike: o.strike, align: o.align, w: o.w, h: o.h });

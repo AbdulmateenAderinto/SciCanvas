@@ -410,7 +410,7 @@ function applyBrushToPath(kind) {
   const o = selected()[0];
   if (!o || o.type !== 'path') { toast('Select a drawn line or curve first'); return; }
   if (!kind) {
-    const pick = el('select', {}, ...[['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['microtubule', 'Microtubule'], ['epithelium', 'Epithelial layer'], ['cells', 'Row of cells'], ['vessel', 'Blood vessel'], ['vesicles', 'Vesicles']].map(([v, l]) => el('option', { value: v, textContent: l })));
+    const pick = el('select', {}, ...[['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['microtubule', 'Microtubule'], ['epithelium', 'Epithelial layer'], ['cells', 'Row of cells'], ['vessel', 'Blood vessel'], ['vesicles', 'Vesicles'], ['ubiquitin', 'Ubiquitin / bead chain']].map(([v, l]) => el('option', { value: v, textContent: l })));
     openModal('Apply brush to path', el('div', { style: 'max-width:380px' }, el('div', { class: 'note', style: 'margin-bottom:8px' }, 'The drawing is replaced by a brush that follows it. You can still edit its points afterwards.'), field_('Brush', pick),
       el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Apply', () => { closeModal(); applyBrushToPath(pick.value); }, 'primary'))));
     return;

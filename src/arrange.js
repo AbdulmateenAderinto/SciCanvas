@@ -267,6 +267,7 @@ function contextMenuTemplate() {
     ...(isPath ? [{ label: 'Edit points', cmd: 'editPoints' }, { label: 'Apply brush to path…', cmd: 'brushToPath' }] : []),
     ...(n === 2 ? [{ label: 'Crop to shape (top shape crops the object below)', cmd: 'cropToShape' }] : []),
     { label: 'Transform…', cmd: 'transform' },
+    { label: 'Biology', submenu: [{ label: 'Make protein shape', cmd: 'makeProtein' }, { label: 'Add lighter partner subunit', cmd: 'lighterPartner' }, { label: 'Degrade into fragments', cmd: 'degrade' }] },
     ...(n === 1 && sel[0].type === 'icon' ? [{ label: getFavs().includes(sel[0].iconId) ? 'Remove from favourites' : 'Add to favourites', cmd: 'toggleFavSel' }, { label: 'Replace icon…', cmd: 'replaceSel' }] : []),
     { label: 'Select matching', submenu: [{ label: 'Same icon', cmd: 'selectSameIcon' }, { label: 'Same type', cmd: 'selectSameType' }, { label: 'Same colour', cmd: 'selectSameColour' }] },
     { label: 'Save as icon…', cmd: 'saveIcon' },

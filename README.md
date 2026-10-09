@@ -125,6 +125,24 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - New-figure types and recent files with thumbnails.
 
 
+## Immunology & cancer toolkit
+
+**Soft icon set (88 icons)**: one consistent BioRender-style look (flat fill, thin darker outline, rounded ends) in four new library categories. *Proteins (soft)*: globular, C, S, U, Y-scaffold, bean, rod, two-domain, dimer, trimer, C-pair, helical bundle, unfolded chain, labelled adaptor oval, complex halo, kinase, enzyme, receptors, GPCR, channel. *Protein degradation*: ubiquitin, polyubiquitin, tagged substrate, E1 / E2 / E3, cullin–RING ligase, 26S and 20S proteasome, degraded peptides, SUMO, DUB, autophagosome, lysosome, chaperone, PTM marks. *Immunology*: IgG, Fab, IgM, IgA, BCR, TCR–CD3, MHC I / II with peptide, CD4, CD8, PD-1, PD-L1, CTLA-4, CD28 / B7, cytokines, chemokine, cytokine receptor + JAK, STAT dimer, TLR, Fc receptor, MAC pore, perforin / granzyme, inflammasome, AID, UNG, class-switch recombination, T / B / plasma / dendritic / NK cells, macrophage, neutrophil, germinal centre. *Cancer*: tumour cell, mitosis, metastatic and apoptotic cells, CAF, CAR-T cell, CAR construct, BiTE, ADC, spheroid, tumour mass, kinase inhibitor, RAS, p53, DNA break, mutation, mouse with tumour; plus a flow cytometer. Every icon is recolourable, with colour layers.
+
+**Protein shapes**: Insert › Protein Shape… builds an editable outlined protein (globular, bean, oval, C, S, U, J, crescent, rod, unfolded chain) with thickness, bulge, an optional lighter partner subunit and a label tag. Arrange › Make Protein Shape turns any pencil stroke into an outlined tube (or gives a closed drawing the soft style). Arrange › Add Lighter Partner Subunit and Arrange › Degrade into Fragments (also in the right-click menu under Biology).
+
+**Coloured words**: select words in a text box or shape label and colour, bold or italicise just those (Properties › Selected words). Stored as `{#d64545|words}`, `{b|words}`, `{i|words}`, so it survives copy, templates and export.
+
+**Brush**: ubiquitin / bead chain.
+
+**Templates** (Immunology & cancer): 3-step mechanism panels (adaptor-mediated degradation), ubiquitin–proteasome pathway, immune synapse, class-switch recombination & SHM, tumour microenvironment, cancer–immunity cycle, CAR-T workflow, ADC mechanism, JAK–STAT, flow cytometry gating strategy, in vivo tumour model timeline.
+
+**Data**
+- Insert › Flow Cytometry Plot (FCS)…: reads FCS 2.0–3.1 list-mode files (or a CSV of channel values), pseudocolour density, dot or histogram plots, linear / log / arcsinh axes, and rectangle, range and quadrant gates drawn by dragging, with percentages.
+- Graph › Tumour growth: per-mouse curves plus group mean ± error, endpoint statistics and tumour growth inhibition (TGI) against the first group.
+- Insert › Western Blot Quantification…: box the target and loading-control bands on a blot image, get per-lane densitometry with local background subtraction, normalised ratios, a copyable table and a bar chart with statistics.
+- Insert › Protein Domain Map…: domains and modification sites (P, Ub, Ac, Me, glycosylation, mutations) drawn to scale with an amino-acid axis.
+
 ## New in v0.5
 
 **Icons**: per-layer borders (colour, width, dashed / dotted) beside each colour layer; one colour overlay for many selected icons, including library icons; "Replace all like this" swaps every copy of an icon on the page; favourite / replace from the right-click menu; "request this icon" link when a search finds nothing.
@@ -183,6 +201,11 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/files.js`: folder gallery, version history, change detection, templates, slide sorter, poster layout
 - `scripts/mcp-server.js`: AI connector (Model Context Protocol server)
 - `src/creator.js`: drawing options, My icons, AI icon generation, library manager
+- `src/softicons.js`: soft-style icon set (proteins, degradation, immunology, cancer)
+- `src/richtext.js`: colour / bold / italic for selected words
+- `src/immuno.js`: protein shapes, lighter partner, degrade, domain maps
+- `src/immunotemplates.js`: immunology & cancer templates
+- `src/data.js`: flow cytometry (FCS), tumour growth curves, western blot densitometry
 - `src/icons.js`: built-in icons
 - `src/packs.js`: icon packs, SVG sanitising, colour layers and tint, search, credits
 - `src/render.js`: object model → SVG (shapes, effects, connectors, brushes, protocols)

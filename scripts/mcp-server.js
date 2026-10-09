@@ -18,7 +18,7 @@ function loadIcons() {
   if (iconIndex) return iconIndex;
   const out = [];
   // Built-in icons (parsed from the source so this script needs no browser code).
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'icons.js'), 'utf8');
+  const src = ['icons.js', 'softicons.js'].map((f) => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n');
   for (const m of src.matchAll(/\{ id: '([^']+)', name: '([^']+)', cat: '([^']+)', tags: '([^']*)'/g)) out.push({ key: m[1], name: m[2], category: m[3], tags: m[4], library: 'built-in', license: 'built-in' });
   // Installed packs: bundled with the source, inside an installed app, and downloaded into user data.
   const roots = [
