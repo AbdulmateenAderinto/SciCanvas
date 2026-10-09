@@ -125,6 +125,17 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 - New-figure types and recent files with thumbnails.
 
 
+## New in v0.6: soft-style icons
+
+**About 1,000 soft-style icons** (library › **Soft** chip), drawn from code in one consistent style: flat fills, darker same-colour outlines, and rounded protein "tubes" and blobs. Everything is recolourable, and each colour layer can be edited.
+- **Protein shapes**: hook, Ω, C-shape, oval adaptor, bean, globular, kinase (bilobed), dumbbell, 4-helix bundle, dimer / trimer / tetramer, LRR horseshoe, WD40 β-propeller, hexameric ring, Y-shape, cullin scaffold, open-cleft enzyme, β-trefoil, chemokine, coiled coil, TF on DNA, and membrane receptors (1–4 Ig domains, dimers, TNFR, RTK, GPCR, cytokine receptor + JAK, TLR, C-type lectin, integrin, cadherin, channel), plus shape variants.
+- **Ubiquitin & degradation**: ubiquitin and K48 / K63 / branched chains, polyubiquitinated substrate, 26S / 20S proteasome, fragments, E1 / E2 ~Ub, cullin-RING ligase, CTLH complex (also with FAM72A–UNG2, and ubiquitinating UNG2), PROTAC (molecule and ternary complex), molecular glue, autophagosome, lysosome. Over 150 named E2s, E3s, DUBs, autophagy and proteasome proteins.
+- **Immunology**: soft IgG / IgM / IgA / Fab / F(ab′)₂ / scFv / VHH / Fc / bispecific / BiTE / ADC / CAR, TCR–CD3, BCR, MHC I and II with peptide, TCR–pMHC synapse, PD-1 / PD-L1, perforin pore, inflammasome. About 200 named receptors and CD markers, 110 cytokines, chemokines and complement proteins, and 110 signalling proteins including AID, UNG2 and DNA repair.
+- **Cancer**: about 200 named drivers, suppressors, kinases, apoptosis, metabolism and epigenetic proteins, ADC and CAR-T targets, therapeutic antibodies and small-molecule drugs.
+- **Cells**: 90 soft-style cells, including T-cell subsets, CAR-T, exhausted T cells, B and plasma cells, NK cells, macrophage subsets, DCs, granulocytes, MDSC, tumour cells (including PD-L1+ and MHC-I+), CAFs and tissue cells.
+
+**Soft protein pencil**: choose **Soft protein** in the pencil options. A stroke becomes a rounded, outlined protein tube; the width slider sets its thickness and the fill swatch its colour. Closing a loop gives a smooth outlined blob. Use it to sketch a custom subunit such as FAM72a, then use Save as icon to reuse it. Any open drawing can be switched to "Soft protein tube" in Properties.
+
 ## New in v0.5
 
 **Icons**: per-layer borders (colour, width, dashed / dotted) beside each colour layer; one colour overlay for many selected icons, including library icons; "Replace all like this" swaps every copy of an icon on the page; favourite / replace from the right-click menu; "request this icon" link when a search finds nothing.
@@ -184,6 +195,7 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `scripts/mcp-server.js`: AI connector (Model Context Protocol server)
 - `src/creator.js`: drawing options, My icons, AI icon generation, library manager
 - `src/icons.js`: built-in icons
+- `src/softicons.js`: soft-style icon generator (archetypes + named catalogue)
 - `src/packs.js`: icon packs, SVG sanitising, colour layers and tint, search, credits
 - `src/render.js`: object model → SVG (shapes, effects, connectors, brushes, protocols)
 - `src/graph.js`: statistics and charts

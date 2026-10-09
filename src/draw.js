@@ -141,13 +141,14 @@ function pathSvg(o) {
     if (o.headStart === 'arrow') { const F = trimmed[0], N = trimmed[0].ox != null ? { x: F.ox, y: F.oy } : trimmed[1]; pull(F, N); }
     dd = nodesToD(trimmed, false);
   }
+  if (o.tube && !o.closed && stroke !== 'none') body += `<path d="${d}" fill="none" stroke="${o.tubeOutline || Color.dark(stroke, 0.36)}" stroke-width="${sw + 2 * (o.tubeOutlineWidth ?? 2.2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
   body += `<path d="${dd}" fill="${paint.fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="${o.cap || 'round'}" stroke-linejoin="round"${dash}${o.strokeOpacity != null ? ` stroke-opacity="${o.strokeOpacity}"` : ''}${o.blur ? ` filter="url(#bl-${o.id})"` : ''}/>`;
   body += paint.overlay;
   if (o.pathText) { // label that follows the drawn curve
     defs += `<path id="ptx-${o.id}" d="${d}"/>`;
     body += `<text font-family='${FONT_STACK[o.pathTextFamily] || FONT_STACK.sans}' font-size="${o.pathTextSize || 16}" fill="${o.pathTextColor || '#222'}"${o.pathTextBold ? ' font-weight="700"' : ''} dy="${o.pathTextSide === 'below' ? (o.pathTextSize || 16) * 0.95 + sw / 2 : -(sw / 2 + 3)}"><textPath href="#ptx-${o.id}" startOffset="${o.pathTextOffset ?? 50}%" text-anchor="middle">${esc(o.pathText)}</textPath></text>`;
   }
-  if (!o.closed && ns.length >= 2 && stroke !== 'none') {
+  if (!o.closed && !o.tube && ns.length >= 2 && stroke !== 'none') {
     const last = ns[ns.length - 1], prevE = last.ix != null ? { x: last.ix, y: last.iy } : ns[ns.length - 2];
     const first = ns[0], nextS = first.ox != null ? { x: first.ox, y: first.oy } : ns[1];
     body += arrowHead(o.headEnd, last, prevE, stroke, sw) + arrowHead(o.headStart, first, nextS, stroke, sw);
@@ -191,7 +192,12 @@ function convertToPath(o) {
 let pen = null;        // { nodes: [...] } while drawing with the pen
 let nodeEdit = null;   // { id, sel: index|null } while editing a path's nodes
 
-const DRAW_DEFAULTS = { stroke: '#222222', strokeWidth: 2.5, fill: '#9bc4f0', shadeColor: '#1f2a44', shadeSize: 18, eraserSize: 18 };
+const DRAW_DEFAULTS = { stroke: '#222222', strokeWidth: 2.5, fill: '#9bc4f0', shadeColor: '#1f2a44', shadeSize: 18, eraserSize: 18, mode: 'free', tubeWidth: 14 };
+// Soft-protein style (matches the Soft icon set): open strokes become rounded tubes, closed ones outlined blobs.
+function softProteinProps(closed) {
+  const c = DRAW_DEFAULTS.fill;
+  return closed ? { closed: true, fill: c, shade: 'flat', stroke: Color.dark(c, 0.36), strokeWidth: 2.2, name: 'Protein' } : { tube: true, stroke: c, strokeWidth: DRAW_DEFAULTS.tubeWidth, cap: 'round', name: 'Protein' };
+}
 
 function drawDown(e, p) {
   const z = state.zoom;
@@ -252,9 +258,12 @@ function drawUp(e, p, d) {
     case 'pencil': {
       d.pts.push(p);
       if (d.pts.length < 3) { renderOverlay(); return true; }
-      const close = d.pts.length > 8 && (DRAW_DEFAULTS.autoClose || Math.hypot(p.x - d.start.x, p.y - d.start.y) * state.zoom < 14);
-      const pts = simplify(close ? d.pts.slice(0, -1) : d.pts, 1.6 / state.zoom);
-      const o = makePathFromNodes(smoothNodes(pts, close), close
+      const protein = DRAW_DEFAULTS.mode === 'protein';
+      const near = Math.hypot(p.x - d.start.x, p.y - d.start.y) * state.zoom < (protein ? 22 : 14);
+      const close = d.pts.length > 8 && (DRAW_DEFAULTS.mode === 'shape' || near);
+      // Protein mode smooths harder so a rough sketch becomes a clean, rounded subunit.
+      const pts = simplify(close ? d.pts.slice(0, -1) : d.pts, (protein ? 5 : 1.6) / state.zoom);
+      const o = makePathFromNodes(smoothNodes(pts, close), protein ? softProteinProps(close) : close
         ? { closed: true, fill: DRAW_DEFAULTS.fill, shade: 'soft', stroke: Color.dark(DRAW_DEFAULTS.fill, 0.35), strokeWidth: 2 }
         : { stroke: DRAW_DEFAULTS.stroke, strokeWidth: DRAW_DEFAULTS.strokeWidth });
       checkpoint(); objs().push(o); state.sel = [o.id];
@@ -297,7 +306,7 @@ function finishPen(close) {
   const ns = pen.nodes;
   pen = null;
   if (ns.length >= 2) {
-    const o = makePathFromNodes(ns, close
+    const o = makePathFromNodes(ns, DRAW_DEFAULTS.mode === 'protein' ? softProteinProps(close) : close
       ? { closed: true, fill: DRAW_DEFAULTS.fill, shade: 'soft', stroke: Color.dark(DRAW_DEFAULTS.fill, 0.35), strokeWidth: 2 }
       : { stroke: DRAW_DEFAULTS.stroke, strokeWidth: DRAW_DEFAULTS.strokeWidth });
     checkpoint(); objs().push(o); state.sel = [o.id];
