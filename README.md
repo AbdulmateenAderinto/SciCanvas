@@ -3,14 +3,18 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.1
+## Version 1.1.1
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.1.1**
+- **DNA and shading**: every DNA icon uses one shared helix whose base pairs sit evenly between the strands, and soft-style icons get a shaded two-tone finish that matches the Refined set.
+- **Mac installers build reliably** with all icons bundled.
 
 **New in 1.1**
 - **130 new icons** in 9 new soft-style groups: neuroscience (neuron types, synapse, myelin, brain views, retina), heart & circulation (four-chamber heart, plaque, clot, stent, ECG), channels, pumps & transporters (Na⁺/K⁺ channels and pumps, aquaporin, GLUT, ABC transporter, ATP synthase, junctions, endo-/exocytosis), metabolism & small molecules (skeletal structures of pyruvate, lactate, acetyl-CoA, glutamate, GABA, dopamine, serotonin, acetylcholine, testosterone; NADH, insulin, ions, enzyme–substrate), cell division & cell fate (every mitosis stage, crossing over, necrosis, migration, phagocytosis), tissues (epithelia, bone, cartilage, muscle, villus, alveoli, nephron, liver lobule, islet), people & places, data & computing, and environment & ecology.
 - **104 clinical icons** in 4 more groups: organs & body systems (8 whole-body system views, lungs, heart exterior, oesophagus, thymus, pituitary, ear, tongue, skull, vertebra, rib cage, pelvis, hand bones, biliary tree, kidney cross-section), diseases & pathology (40: fatty / cirrhotic liver, tumours, emphysema, pneumonia, asthma, MI, aneurysm, DVT, varicose veins, ischaemic / haemorrhagic stroke, Alzheimer's, amyloid & tau, MS, Lewy body, kidney stones, PKD, UTI, ulcer, IBD, polyp, appendicitis, gallstones, coeliac, OA, RA, osteoporosis, fracture, psoriasis, melanoma, burn, cataract, diabetic retinopathy, goitre, type 1 diabetes, abscess, inflammation, malaria, caries), clinical procedures & imaging (30: X-ray, CT, ultrasound, endoscope, cannula, sutures, biopsy, vaccine, AED, oxygen, ventilator, oximeter, glucose meter, dialysis, mobility aids, ambulance, swab, rapid test, EHR, telehealth) and histopathology (11 microscope fields: H&E, dysplasia, carcinoma, granuloma, fibrosis, necrosis, IHC, blood smear, Gram stain, Pap smear, immunofluorescence).
-- **All ~21,700 icons built in**: the installers now include the four icon libraries (Bioicons, Reactome, Health Icons, PhyloPic), so nothing extra to download.
+- **All ~21,950 icons built in**: the installers now include the four icon libraries (Bioicons, Reactome, Health Icons, PhyloPic), so nothing extra to download.
 - **Snapping**: resizing snaps to the width / height of other objects (shown with matching dimension marks), including icons and images that keep their proportions; new shapes snap to existing sizes as you draw; rotation locks onto 0°, 45°, 90°… and onto other tilted objects' angles, with an angle readout; lines, arrows and connectors straighten near 0° / 45° / 90°. Hold ⌘ (Ctrl on Windows) to turn snapping off; Shift still gives 15° rotation steps.
 - **Smoother**: dragging and resizing redraw only what moves, clicking to select no longer rebuilds the Layers list, and the icon library draws fewer thumbnails up front and loads more as you scroll. On a busy test page (636 objects): moving one icon ~4.7 → ~2 ms per step, moving everything ~19 → ~10 ms, typing in icon search ~61 → ~36 ms per key.
 
@@ -37,7 +41,7 @@ Get the installer from the [latest release](https://github.com/AbdulmateenAderin
 - **Windows**: `SciCanvas-Setup-<version>.exe`. Double-click to install. Windows may show "Windows protected your PC" because the app isn't signed with a paid certificate: click **More info → Run anyway**.
 - **Mac**: `SciCanvas-<version>-arm64.dmg` for Apple-silicon Macs (M1 and later) or `-x64.dmg` for Intel Macs. Open it and drag SciCanvas to Applications. The first time, right-click the app and choose **Open** (or allow it under System Settings › Privacy & Security), because it isn't notarised by Apple.
 
-From 1.1 the installers include all ~21,700 icons: the 1,801 built-in ones and the four icon libraries (about 19,900 more), so they're bigger downloads (a few hundred MB). Library updates can still be installed from **Insert › Icon Libraries…** in the app.
+From 1.1 the installers include all ~21,950 icons: the 2,055 built-in ones and the four icon libraries (about 19,900 more), so they're bigger downloads (a few hundred MB). Library updates can still be installed from **Insert › Icon Libraries…** in the app.
 
 ## Run (from the source code)
 
@@ -73,11 +77,11 @@ npm test       # unit tests: statistics (checked against SciPy), every chart typ
 
 Both run on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`).
 
-## Icon libraries (~21,700 icons)
+## Icon libraries (~21,950 icons)
 
 | Library | Icons | Licence | Content |
 |---|---|---|---|
-| Built-in | 1,801 | — | Core cells, molecules, lab and anatomy, plus about 1,650 soft-style proteins, complexes, cells, microbes, organisms, lab items, neuroscience, transporters, molecules, tissues, organs, diseases, clinical procedures, histopathology, people and environment (drawn in code, no download needed) |
+| Built-in | 2,055 | — | Core cells, molecules, lab and anatomy, 254 Refined BioRender-style icons, plus about 1,650 soft-style proteins, complexes, cells, microbes, organisms, lab items, neuroscience, transporters, molecules, tissues, organs, diseases, clinical procedures, histopathology, people and environment (drawn in code, no download needed) |
 | Bioicons | 2,793 | CC0 / CC BY / CC BY-SA | General life science |
 | Reactome | 2,569 | CC BY 4.0 | Proteins, receptors, transporters, compounds, cell types, tissues |
 | Health Icons | 1,498 | MIT | Body, devices, diagnostics, medications, people |
