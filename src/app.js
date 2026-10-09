@@ -42,7 +42,11 @@ let groupEdit = null;
 const page = () => state.doc.pages[state.pageIndex];
 const objs = () => page().objects;
 const byId = (id) => objs().find((o) => o.id === id);
-const selected = () => state.sel.map(byId).filter(Boolean);
+const selected = () => { // keeps selection order; one pass over the page for big selections
+  if (state.sel.length < 4) return state.sel.map(byId).filter(Boolean);
+  const m = new Map(objs().map((o) => [o.id, o]));
+  return state.sel.map((id) => m.get(id)).filter(Boolean);
+};
 const deep = (x) => JSON.parse(JSON.stringify(x));
 
 function toast(msg, ms = 2200) {
@@ -97,20 +101,34 @@ const elCache = new Map();
 // outer transform). Big strings (image data) are summarised so keys stay cheap to build.
 const KEY_SKIP = new Set(['x', 'y', 'rot', 'flipX', 'flipY', 'name', 'locked']);
 function innerKey(o, list) {
-  let k = JSON.stringify(o, (key, v) => (KEY_SKIP.has(key) && typeof v !== 'object' ? undefined : key === 'src' && typeof v === 'string' ? v.length + v.slice(-48) : v));
+  // Only the object's own position is left out; positions inside it (connector ends, path points, group
+  // children) do change the drawing. (Skipping those too left connectors drawn as stubs.)
+  let k = JSON.stringify(o, function (key, v) { return this === o && KEY_SKIP.has(key) && typeof v !== 'object' ? undefined : key === 'src' && typeof v === 'string' ? v.length + v.slice(-48) : v; });
   if (o.type === 'connector') { // depends on the boxes it's attached to
     for (const end of [o.from, o.to]) { const t = end && end.id && list.find((x) => x.id === end.id); if (t) k += `|${t.x},${t.y},${t.w},${t.h},${t.rot || 0}`; }
   }
   if (o.type === 'icon' && !ICON_MAP[o.iconId]) k += getAsset(o.iconId) ? '+a' : '-a';
   return k;
 }
+// While dragging, only the objects being moved (plus connectors, which follow them) can change, so
+// renderSceneOnly() redraws just those instead of checking every object on the page each frame.
+// With moveOnly, those objects only changed position, so their drawings are reused without checking.
+let sceneOnly = null, sceneMoveOnly = false;
+function renderSceneOnly(ids, moveOnly = false) { sceneOnly = ids; sceneMoveOnly = moveOnly; try { renderScene(); } finally { sceneOnly = null; sceneMoveOnly = false; } }
 function renderScene() {
-  const scene = $('#scene'), list = objs(), seen = new Set();
+  const scene = $('#scene'), all = objs(), seen = new Set(), only = sceneOnly;
+  const list = only ? all.filter((o) => only.has(o.id) || o.type === 'connector') : all;
   let prev = null;
   for (const o of list) {
-    let c0 = elCache.get(o.id), key = innerKey(o, list), transform, inner;
+    const c1 = sceneMoveOnly && o.type !== 'connector' && elCache.get(o.id);
+    if (c1 && c1.inner !== undefined) {
+      const t = transformFor(o);
+      if (c1.transform !== t) { t ? c1.el.setAttribute('transform', t) : c1.el.removeAttribute('transform'); c1.transform = t; }
+      continue;
+    }
+    let c0 = elCache.get(o.id), key = innerKey(o, all), transform, inner;
     if (c0 && c0.key === key) { transform = transformFor(o); inner = c0.inner; }
-    else ({ transform, inner } = renderParts(o, list, false));
+    else ({ transform, inner } = renderParts(o, all, false));
     let c = elCache.get(o.id);
     if (!c) { const g = document.createElementNS(SVGNS, 'g'); g.dataset.id = o.id; c = { el: g }; elCache.set(o.id, c); }
     c.key = key;
@@ -121,11 +139,13 @@ function renderScene() {
     if (c.opacity !== op) { c.el.setAttribute('opacity', op); c.opacity = op; }
     if ((c.blend || '') !== (o.blend || '')) { c.el.style.mixBlendMode = o.blend || ''; c.blend = o.blend || ''; }
     c.el.classList.toggle('dimmed', !!groupEdit && !groupEdit.ids.has(o.id));
+    if (only) { if (!c.el.parentNode) scene.append(c.el); continue; } // order can't change mid-drag
     const want = prev ? prev.nextSibling : scene.firstChild;
     if (want !== c.el) scene.insertBefore(c.el, want);
     prev = c.el;
     seen.add(o.id);
   }
+  if (only) return;
   for (const [id, c] of elCache) if (!seen.has(id)) { c.el.remove(); elCache.delete(id); }
 }
 
@@ -249,6 +269,12 @@ function addObjects(list, { select = true } = {}) {
   if (select) state.sel = list.map((o) => o.id);
   setTool('select');
   render({ props: true });
+}
+// Drawing tools (shapes, brushes, connectors, lines, pen) stay selected so you can draw several in a row;
+// Esc or V goes back to the pointer. Say so the first time.
+function toolStaysHint() {
+  try { if (localStorage.getItem('scicanvas:toolStaysHint')) return; localStorage.setItem('scicanvas:toolStaysHint', '1'); } catch { return; }
+  toast('The tool stays on so you can draw more. Press Esc or V to go back to the pointer.', 4500);
 }
 function viewCenter() {
   const r = svg.getBoundingClientRect();
@@ -695,7 +721,7 @@ function handlePointerMove(e) {
         if (typeof moveStartHook === 'function') moveStartHook(drag); // e.g. docked receptors follow their membrane
       }
       let guides = '';
-      if (!e.metaKey) ({ dx, dy, guides } = snapMove(dx, dy));
+      if (!e.metaKey && !e.ctrlKey) ({ dx, dy, guides } = snapMove(dx, dy));
       for (const r of drag.orig) {
         if (r.o.type === 'connector') {
           if (!r.o.from.id) r.o.from = { x: r.from.x + dx, y: r.from.y + dy };
@@ -703,28 +729,30 @@ function handlePointerMove(e) {
         } else { r.o.x = r.x + dx; r.o.y = r.y + dy; }
       }
       $('#guides').innerHTML = guides;
-      renderScene(); renderOverlay();
+      if (!drag.ids) drag.ids = new Set(drag.orig.map((r) => r.o.id));
+      renderSceneOnly(drag.ids, true); renderOverlay();
       return;
     }
     case 'resize': {
       const o = drag.o;
       const lock = ['icon', 'image'].includes(o.type) ? !e.shiftKey : e.shiftKey;
       const r = computeResize(drag, p, o.type === 'text' ? true : lock);
-      $('#guides').innerHTML = o.type === 'text' || o.type === 'protocol' ? '' : snapResize(drag, r, lock);
+      $('#guides').innerHTML = o.type === 'text' || o.type === 'protocol' ? '' : snapResize(drag, r, lock, e);
       if (o.type === 'text') {
         o.fontSize = Math.max(4, Math.round(drag.font * (r.h / drag.start.h) * 2) / 2);
         postEdit(o); o.x = r.x; o.y = r.y;
       } else if (o.type === 'protocol') {
         o.x = r.x; o.w = r.w; postEdit(o);
       } else Object.assign(o, r);
-      renderScene(); renderOverlay();
+      renderSceneOnly(new Set([o.id])); renderOverlay();
       return;
     }
     case 'rotate': {
-      let a = (Math.atan2(p.y - drag.c.y, p.x - drag.c.x) * 180) / Math.PI + 90;
-      if (e.shiftKey) a = Math.round(a / 15) * 15;
-      drag.o.rot = ((a % 360) + 360) % 360;
-      renderScene(); renderOverlay();
+      const raw = ((((Math.atan2(p.y - drag.c.y, p.x - drag.c.x) * 180) / Math.PI + 90) % 360) + 360) % 360;
+      const s = snapAngle(raw, e, rotationTargets());
+      drag.o.rot = Math.round(s.a * 10) / 10 % 360;
+      $('#guides').innerHTML = rotateGuides(drag.o, s.snapped, s.matched);
+      renderSceneOnly(new Set([drag.o.id])); renderOverlay();
       return;
     }
     case 'guide': {
@@ -734,10 +762,18 @@ function handlePointerMove(e) {
       renderUserGuides();
       return;
     }
-    case 'endpoint':
-      drag.o[drag.end] = { x: p.x, y: p.y };
-      renderScene(); renderOverlay(portsOverlay(objectAtPoint(e.clientX, e.clientY, drag.o.id)));
+    case 'endpoint': {
+      const over = objectAtPoint(e.clientX, e.clientY, drag.o.id);
+      let q = p, guides = '';
+      if (!over) { // a free end pulls straight (horizontal / vertical / 45°) relative to the other end
+        const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
+        ({ p: q, guides } = snapLinePoint(drag.end === 'to' ? a : b, p, e));
+      }
+      drag.o[drag.end] = { x: q.x, y: q.y };
+      $('#guides').innerHTML = guides;
+      renderScene(); renderOverlay(portsOverlay(over));
       return;
+    }
     case 'curve': {
       const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
@@ -755,17 +791,25 @@ function handlePointerMove(e) {
     case 'create': {
       const o = drag.o;
       let w = p.x - drag.start.x, h = p.y - drag.start.y;
+      let guides = '';
       if (e.shiftKey) { const m = Math.max(Math.abs(w), Math.abs(h)); w = Math.sign(w || 1) * m; h = Math.sign(h || 1) * m; }
+      else { const s = snapCreateSize(w, h, e); w = s.w; h = s.h; const b = { x: Math.min(drag.start.x, drag.start.x + w), y: Math.min(drag.start.y, drag.start.y + h), w: Math.abs(w), h: Math.abs(h) }; if (s.W !== null) guides += sizeMatchGuides(b, 'w', s.W); if (s.H !== null) guides += sizeMatchGuides(b, 'h', s.H); }
       o.x = Math.min(drag.start.x, drag.start.x + w); o.y = Math.min(drag.start.y, drag.start.y + h);
       o.w = Math.abs(w); o.h = Math.abs(h);
+      $('#guides').innerHTML = guides;
       renderScene();
       return;
     }
-    case 'connect':
-      drag.o.to = { x: p.x, y: p.y };
+    case 'connect': {
+      const over = objectAtPoint(e.clientX, e.clientY, drag.o.id);
+      let q = p, guides = '';
+      if (!over) { const [a] = connectorEnds({ ...drag.o, style: 'straight' }, objs()); ({ p: q, guides } = snapLinePoint(a, p, e)); }
+      drag.o.to = { x: q.x, y: q.y };
+      $('#guides').innerHTML = guides;
       renderScene();
-      renderOverlay(portsOverlay(objectAtPoint(e.clientX, e.clientY, drag.o.id)));
+      renderOverlay(portsOverlay(over));
       return;
+    }
     case 'brush': {
       drag.cur = p;
       const last = drag.pts[drag.pts.length - 1];
@@ -802,7 +846,7 @@ window.addEventListener('pointerup', (e) => {
       const o = d.o;
       if (o.w < 5 && o.h < 5) { o.w = 160; o.h = 100; o.x = d.start.x - 80; o.y = d.start.y - 50; }
       state.sel = [o.id];
-      setTool('select');
+      toolStaysHint(); // drawing tools stay on until Esc / V
       break;
     }
     case 'connect': case 'endpoint': {
@@ -819,7 +863,7 @@ window.addEventListener('pointerup', (e) => {
         if (o.from.id && o.from.id === o.to.id) { page().objects = objs().filter((x) => x !== o); break; }
         if (o.from.id && !o.to.id && len < 8) { const c = center(byId(o.from.id)); o.to = { x: c.x + byId(o.from.id).w / 2 + 120, y: c.y }; }
         state.sel = [o.id];
-        setTool('select');
+        toolStaysHint();
       }
       break;
     }
@@ -836,7 +880,7 @@ window.addEventListener('pointerup', (e) => {
       const o = Make.brush(state.brushKind, x, y, W, H, pts.map((q) => [(q.x - x) / W, (q.y - y) / H]), { closed: d.shape === 'ellipse' });
       objs().push(o);
       state.sel = [o.id];
-      setTool('select');
+      toolStaysHint();
       break;
     }
   }
@@ -1392,7 +1436,7 @@ function renderPageProps(P) {
     btn('◀ Move', () => movePage(-1)), btn('Move ▶', () => movePage(1)),
     state.doc.pages.length > 1 ? btn('Delete page', () => { if (!confirm(`Delete “${p.name}”?`)) return; checkpoint(); state.doc.pages.splice(state.pageIndex, 1); gotoPage(Math.max(0, state.pageIndex - 1)); }, 'danger') : null)));
   P.append(sect('Tips', el('div', { class: 'note', innerHTML:
-    'Drag icons from the library · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Hold ⌘ while dragging to disable snapping.' })));
+    'Drag icons from the library · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Moving, resizing and rotating snap to other objects’ edges, sizes and angles (and lines to 0° / 45° / 90°); hold ⌘ (Ctrl on Windows) to turn snapping off.' })));
 }
 function movePage(d) {
   const i = state.pageIndex, j = i + d;
