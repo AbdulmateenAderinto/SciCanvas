@@ -14,12 +14,19 @@
     if (o.shape === 'spiky') { const ph = r() * 6; mod = (a) => 0.07 * Math.sin(11 * a + ph) + 0.04 * Math.sin(17 * a + ph * 2) + 0.03 * Math.sin(23 * a); }
     if (o.shape === 'ruffled') { const ph = r() * 6; mod = (a) => 0.045 * Math.sin(9 * a + ph) + 0.03 * Math.sin(14 * a); }
     if (o.shape === 'amoeboid') { const ph = r() * 6; mod = (a) => 0.16 * Math.sin(3 * a + ph) + 0.1 * Math.sin(5 * a + ph * 1.7); }
-    const pts = wob(cx, cy, R, ry, r, { amp: o.amp ?? (o.shape === 'round' || !o.shape ? 0.025 : 0.05), n: mod ? 90 : 40, mod, rot: o.rot || 0 });
+    if (o.shape === 'lumpy') { const ph = r() * 6; mod = (a) => 0.035 * Math.sin(5 * a + ph) + 0.025 * Math.sin(8 * a + ph * 1.3); }
+    // Long tapering processes (dendritic cells, activated macrophages): narrow peaks on the radius.
+    if (o.shape === 'dendritic' || o.shape === 'spikes') {
+      const arms = Array.from({ length: o.arms || 7 }, (_, k) => [(k / (o.arms || 7)) * Math.PI * 2 + (r() - 0.5) * 0.5, (o.armLen || 0.9) * (0.65 + r() * 0.5)]);
+      const wd = o.armW || 0.16;
+      mod = (a) => arms.reduce((m, [a0, l]) => { const d = Math.atan2(Math.sin(a - a0), Math.cos(a - a0)); return m + l * Math.exp(-((d / wd) ** 2)) ** 0.8; }, 0) + 0.02 * Math.sin(9 * a);
+    }
+    const pts = wob(cx, cy, R, ry, r, { amp: o.amp ?? (o.shape === 'round' || !o.shape ? 0.025 : 0.05), n: mod ? (o.arms ? 220 : 90) : 40, mod, rot: o.rot || 0 });
     let s = '';
     if (o.under) s += o.under;
     s += part('membrane', body(pts, pale, { stroke: line(L(c, 0.2)), hi: 0.25, k: 0.9, off: 1.5 }));
     s += part('cytoplasm', speckle(cx, cy, R * 0.85, ry * 0.85, o.speckles ?? 26, L(c, 0.1), r, { op: 0.35, min: 0.5, max: 1.2 }));
-    const nc = o.nc || L(c, 0.08), nx = cx + (o.nx ?? 3), ny = cy + (o.ny ?? 2), nr = R * (o.nr ?? 0.52);
+    const nc = o.nc || (o.ncD ? D(c, o.ncD) : L(c, 0.08)), nx = cx + (o.nx ?? 3), ny = cy + (o.ny ?? 2), nr = R * (o.nr ?? 0.52);
     let nuc = '';
     const kind = o.nucleus || 'round';
     if (kind === 'round' || kind === 'eccentric') nuc = body(wob(nx + (kind === 'eccentric' ? R * 0.22 : 0), ny, nr, nr * 0.95, r, { amp: 0.04 }), nc, { hi: 0.18 });
@@ -32,7 +39,8 @@
     }
     if (kind !== 'none') s += part('nucleus', nuc + (o.chromatin === false ? '' : speckle(nx, ny, nr * 0.55, nr * 0.5, 7, D(nc, 0.15), r, { op: 0.35, min: 0.7, max: 1.6 })));
     if (o.nucleolus) s += part('nucleolus', sball(nx + nr * 0.2, ny - nr * 0.15, nr * 0.22, nr * 0.2, D(nc, 0.12)));
-    if (o.granules) s += part('granules', Array.from({ length: o.granules }, () => { const a = r() * 6.3, d = 0.55 + r() * 0.35; return circ(cx + Math.cos(a) * R * d, cy + Math.sin(a) * ry * d, 1.7 + r() * 1.2, o.gc || D(c, 0.15), { w: 0.6 }); }).join(''));
+    if (o.vacuoles) s += part('vacuoles', Array.from({ length: o.vacuoles }, () => { const a = r() * 6.3, d = 0.62 + r() * 0.22, v = 1.6 + r() * 1.8; return circ(cx + Math.cos(a) * R * d, cy + Math.sin(a) * ry * d, v, L(c, 0.8), { stroke: line(L(c, 0.35)), w: 0.5 }); }).join(''));
+    if (o.granules) s += part('granules', Array.from({ length: o.granules }, () => { const a = r() * 6.3, d = (o.gd ?? 0.55) + r() * (0.9 - (o.gd ?? 0.55)); return circ(cx + Math.cos(a) * R * d, cy + Math.sin(a) * ry * d, (o.gs ?? 1.7) * (1 + r() * 0.7), o.gc || D(c, 0.15), { w: o.gs && o.gs < 1.2 ? 0 : 0.6, stroke: o.gs && o.gs < 1.2 ? 'none' : undefined }); }).join(''));
     if (o.deco) s += part('surface', o.deco(cx, cy, R, ry));
     return s;
   }
@@ -41,35 +49,46 @@
   const RC = { tcr: (c1, c2) => rect(-2.6, -7, 2.2, 7, 1, c1, { w: 0.6 }) + rect(0.4, -7, 2.2, 7, 1, c2, { w: 0.6 }),
     bcr: (c) => stroke('M0 0 V-4.5 M0 -4.5 L-3 -8.5 M0 -4.5 L3 -8.5', line(c), 2.6) + stroke('M0 0 V-4.5 M0 -4.5 L-3 -8.5 M0 -4.5 L3 -8.5', c, 1.4),
     knob: (c) => stroke('M0 0 V-4', line(c), 1.2) + circ(0, -5.8, 2.2, c, { w: 0.6 }),
-    car: (c1, c2) => stroke('M0 0 V-4', '#8f9aa4', 1.4) + rect(-3.4, -9.5, 3.2, 5, 1.4, c1, { w: 0.6 }) + rect(0.2, -9.5, 3.2, 5, 1.4, c2, { w: 0.6 }) };
+    // CAR: short grey hinge + a pair of capsule domains (the scFv), as in the reference CAR T cell.
+    car: (c1, c2) => stroke('M0 0 V-7', '#8f9aa4', 1.3) + rect(-3.6, -19, 3.4, 12, 1.7, c1, { w: 0.6 }) + rect(0.2, -19, 3.4, 12, 1.7, c2, { w: 0.6 }) + rect(-3.6, -19, 3.4, 3.4, 1.7, '#ffffff', { stroke: line(c1), w: 0.6 }) + rect(0.2, -19, 3.4, 3.4, 1.7, '#ffffff', { stroke: line(c2), w: 0.6 }) };
 
   const IMM = 'Immune cells', CAN = 'Cancer', CB = 'Cells & organelles';
+  // Round lymphocytes follow the reference: pale outer ring, a large centred nucleus (~2/3 of the diameter), no texture.
+  const LYMPH = { nr: 0.68, nx: 0, ny: 0, speckles: 0, chromatin: false, amp: 0.012, pale: 0.5 };
   const cells = [
     // [name, colour, tags, options]
-    ['T cell', '#6fb58c', 'T lymphocyte TCR adaptive', { nr: 0.62, deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.tcr('#2e7d5b', '#8fd1ad')) }],
-    ['CD4+ T helper cell', '#7aa7d9', 'CD4 helper T cell Th lymphocyte', { nr: 0.62, deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.tcr('#36609c', '#a7c6ec')) }],
-    ['CD8+ cytotoxic T cell', '#5fb3b3', 'CD8 CTL killer T cell lymphocyte', { nr: 0.6, granules: 6, gc: '#d0675f', deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.tcr('#2b7b7b', '#9fd8d8')) }],
-    ['Regulatory T cell', '#a48bd1', 'Treg FOXP3 CD25 suppressive', { nr: 0.6, deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.tcr('#6a4fa3', '#cbb9ea')) }],
-    ['CAR T cell', '#6cb37a', 'CAR-T chimeric antigen receptor engineered T cell', { nr: 0.58, deco: (x, y, R, ry) => around(x, y, R, ry, 9, RC.car('#e0a23b', '#4f8fd6')) }],
-    ['B cell', '#e8a35f', 'B lymphocyte BCR antibody', { nr: 0.6, deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.bcr('#4c7fcf')) }],
+    ['T cell', '#6fb58c', 'T lymphocyte TCR adaptive', { ...LYMPH }],
+    ['CD4+ T helper cell', '#7aa7d9', 'CD4 helper T cell Th lymphocyte', { ...LYMPH, nr: 0.66, deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.tcr('#36609c', '#a7c6ec')) }],
+    ['CD8+ cytotoxic T cell', '#5fb3b3', 'CD8 CTL killer T cell lymphocyte', { ...LYMPH, nr: 0.64, granules: 6, gd: 0.78, gs: 1.6, gc: '#d0675f', deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.tcr('#2b7b7b', '#9fd8d8')) }],
+    ['Regulatory T cell', '#a48bd1', 'Treg FOXP3 CD25 suppressive', { ...LYMPH, nr: 0.66, deco: (x, y, R, ry) => around(x, y, R, ry, 10, RC.tcr('#6a4fa3', '#cbb9ea')) }],
+    ['CAR T cell', '#6cb37a', 'CAR-T chimeric antigen receptor engineered T cell', { ...LYMPH, R: 25, nr: 0.64, deco: (x, y, R, ry) => around(x, y, R, ry, 8, RC.car('#1f6f9f', '#2f86b8'), 0) }],
+    ['B cell', '#6fb0c8', 'B lymphocyte BCR antibody', { ...LYMPH }],
     ['Plasma cell', '#d98f6a', 'antibody secreting cell plasmacyte', { aspect: 0.78, nucleus: 'eccentric', nr: 0.36, nx: 10, speckles: 40, under: '' }],
-    ['NK cell', '#d17aa6', 'natural killer cell innate lymphocyte granules', { nr: 0.5, granules: 9, gc: '#a8345f', shape: 'ruffled' }],
-    ['Macrophage', '#9c86c9', 'macrophage phagocyte myeloid', { R: 40, shape: 'amoeboid', nucleus: 'kidney', nr: 0.42, speckles: 34 }],
-    ['M1 macrophage', '#d77a7a', 'M1 macrophage pro-inflammatory classically activated', { R: 40, shape: 'amoeboid', nucleus: 'kidney', nr: 0.42, speckles: 34 }],
-    ['M2 macrophage', '#6ea8d6', 'M2 macrophage anti-inflammatory alternatively activated', { R: 40, shape: 'amoeboid', nucleus: 'kidney', nr: 0.42, speckles: 34 }],
-    ['Monocyte', '#b49ad3', 'monocyte myeloid blood', { nucleus: 'kidney', nr: 0.5 }],
-    ['Neutrophil', '#e7a0b5', 'neutrophil granulocyte PMN multilobed', { nucleus: 'lobed', nr: 0.62, speckles: 40 }],
-    ['Eosinophil', '#ec9c74', 'eosinophil granulocyte allergy', { nucleus: 'bilobed', nr: 0.62, granules: 22, gc: '#e0603a' }],
-    ['Basophil', '#8f8bd1', 'basophil granulocyte histamine', { nucleus: 'bilobed', nr: 0.55, granules: 26, gc: '#4b46a0' }],
+    ['NK cell', '#a596d8', 'natural killer cell innate lymphocyte granules', { R: 39, nucleus: 'eccentric', nx: 2, ny: 4, nr: 0.5, speckles: 10, granules: 7, gs: 0.9, gd: 0.6, gc: '#6a5aa8', amp: 0.015 }],
+    ['Macrophage', '#a99ad8', 'macrophage phagocyte myeloid resting', { R: 39, shape: 'ruffled', nucleus: 'round', nx: 0, ny: 0, nr: 0.36, speckles: 16, vacuoles: 6 }],
+    ['M1 macrophage', '#d77a7a', 'M1 macrophage pro-inflammatory classically activated', { R: 39, shape: 'ruffled', nucleus: 'round', nx: 0, ny: 0, nr: 0.36, speckles: 16, vacuoles: 6 }],
+    ['M2 macrophage', '#6ea8d6', 'M2 macrophage anti-inflammatory alternatively activated', { R: 39, shape: 'ruffled', nucleus: 'round', nx: 0, ny: 0, nr: 0.36, speckles: 16, vacuoles: 6 }],
+    ['Monocyte', '#b49ad3', 'monocyte myeloid blood', { R: 39, shape: 'lumpy', nucleus: 'kidney', nr: 0.56, nx: 2, ny: 2, speckles: 6, chromatin: false }],
+    ['Neutrophil', '#e7a0b5', 'neutrophil granulocyte PMN multilobed', { nucleus: 'lobed', nr: 0.62, ncD: 0.12, speckles: 14, granules: 10, gs: 0.8, gc: '#a44a72' }],
+    ['Eosinophil', '#e29ab9', 'eosinophil granulocyte allergy', { nucleus: 'bilobed', nr: 0.6, ncD: 0.06, speckles: 0, granules: 60, gs: 0.85, gd: 0.15, gc: '#c25384' }],
+    ['Basophil', '#a59bd6', 'basophil granulocyte histamine', { nucleus: 'kidney', nr: 0.52, ncD: 0.04, granules: 24, gs: 2, gc: '#7468b8', shape: 'lumpy' }],
     ['Mast cell', '#b07fb8', 'mast cell histamine degranulation allergy', { aspect: 0.86, nr: 0.38, granules: 34, gc: '#7a3f88' }],
-    ['Dendritic cell', '#7fbf8e', 'dendritic cell DC antigen presenting APC', { R: 34, shape: 'spiky', nr: 0.45, under: '', deco: (x, y, R, ry) => Array.from({ length: 7 }, (_, k) => { const a = (k / 7) * Math.PI * 2 + 0.2; return tube([[x + Math.cos(a) * R * 0.8, y + Math.sin(a) * ry * 0.8], [x + Math.cos(a + 0.15) * R * 1.18, y + Math.sin(a + 0.15) * ry * 1.18], [x + Math.cos(a - 0.05) * R * 1.4, y + Math.sin(a - 0.05) * ry * 1.4]], 4, L('#7fbf8e', 0.58), { edge: line(L('#7fbf8e', 0.2)), hi: false }); }).join('') }],
+    ['Dendritic cell', '#c08fd6', 'dendritic cell DC antigen presenting APC', { R: 21, shape: 'dendritic', arms: 9, armLen: 1.3, armW: 0.13, amp: 0.02, nr: 0.62, nx: 0, ny: 0, speckles: 4, chromatin: false }],
     ['Platelet', '#e7a6b1', 'platelet thrombocyte clotting', { R: 22, aspect: 0.7, nucleus: 'none', granules: 7, gc: '#b65a74', shape: 'ruffled' }],
-    ['Haematopoietic stem cell', '#77b7d6', 'HSC hematopoietic stem cell progenitor bone marrow', { nr: 0.6, nucleolus: true }],
+    ['Haematopoietic stem cell', '#d39bd6', 'HSC hematopoietic stem cell progenitor bone marrow', { ...LYMPH, nr: 0.72 }],
     ['Fibroblast', '#d9a07f', 'fibroblast stromal spindle connective tissue', { R: 44, aspect: 0.42, nr: 0.4, rot: -18, shape: 'amoeboid', amp: 0.04 }],
-    ['Epithelial cell', '#e3b88b', 'epithelial cell cuboidal epithelium', { R: 36, aspect: 1, nr: 0.45, shape: 'round', amp: 0.01 }],
-    ['Stem cell', '#86c29a', 'stem cell pluripotent iPSC ESC', { nr: 0.62, nucleolus: true }],
+    ['Epithelial cell', '#e3b88b', 'epithelial cell columnar epithelium microvilli', null],
+    ['Stem cell', '#f2c94c', 'stem cell pluripotent iPSC ESC', { R: 36, nr: 0.36, nx: 0, ny: 0, speckles: 0, chromatin: false, amp: 0.015, pale: 0.4 }],
   ];
-  for (const [name, c, tags, o] of cells) add(name, IMM, tags + ' cell immune', c, [100, 100], (cc, r) => cellSvg(cc, r, o));
+  // Columnar epithelial cell with an apical brush border (microvilli) and a basal nucleus.
+  const epithelial = (c, r) => {
+    const pale = L(c, 0.62);
+    let mv = '';
+    for (let k = 0; k < 9; k++) { const x = 37.4 + k * 3.15; mv += rect(x - 1.1, 6, 2.2, 10, 1.1, pale, { stroke: line(L(c, 0.25)), w: 0.6 }); }
+    return part('microvilli', mv) + part('membrane', path(K.rrD(34, 14, 32, 80, 4), pale, { stroke: line(L(c, 0.25)) }) + flat(K.rrD(36.5, 16.5, 22, 74, 3), L(c, 0.75)))
+      + part('cytoplasm', speckle(50, 46, 12, 26, 8, L(c, 0.2), r, { op: 0.35, min: 0.5, max: 1 })) + part('nucleus', sball(50, 74, 8, 8.6, L(c, 0.05), { hi: 0.15 }));
+  };
+  for (const [name, c, tags, o] of cells) add(name, IMM, tags + ' cell immune', c, [100, 100], o ? (cc, r) => cellSvg(cc, r, o) : epithelial);
   // The plain cells read better under "Cells & organelles".
   for (const ic of ICONS.slice(-3)) ic.cat = `Refined · ${CB}`;
   ICONS.find((i) => i.name === 'Fibroblast' && i.refined).cat = `Refined · ${CB}`;
@@ -79,6 +98,8 @@
     part('cell', ell(50, 35, 44, 30, c) + ell(48, 33, 39, 26, L(c, 0.12), { stroke: 'none', w: 0 }) + ell(52, 37, 22, 13, D(c, 0.1), { stroke: line(c), w: 0.8, op: 0.9 }) + ell(36, 22, 10, 4, '#ffffff', { stroke: 'none', w: 0, op: 0.3, rot: -12 })));
   add('Red blood cell (side view)', CB, 'erythrocyte RBC biconcave profile side', '#d9534f', [100, 50], (c) =>
     part('cell', path('M8 25 C8 10 26 8 36 14 C44 18 56 18 64 14 C74 8 92 10 92 25 C92 40 74 42 64 36 C56 32 44 32 36 36 C26 42 8 40 8 25 Z', c) + flat('M14 22 C16 14 28 13 36 18 C30 17 20 18 14 22 Z', '#ffffff', 0.3)));
+
+  K.cell = cellSvg; K.cellAround = around; K.cellRC = RC; // shared with refined6.js
 
   // ---------- Cancer ----------
   add('Cancer cell', CAN, 'cancer cell tumour tumor malignant', '#e98a96', [100, 100], (c, r) => cellSvg(c, r, { shape: 'spiky', R: 40, nucleus: 'irregular', nr: 0.42, speckles: 40, nc: D(c, 0.08), pale: 0.45 }));

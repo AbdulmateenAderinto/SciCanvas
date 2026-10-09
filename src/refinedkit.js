@@ -123,6 +123,25 @@
   }
   // Thick outlined tube along points (protein chains, vessels, nerves).
   const tube = (pts, w, c, o = {}) => stroke(smooth(pts, false), o.edge || line(c), w + (o.ow ?? SW) * 2) + stroke(smooth(pts, false), c, w) + (o.hi === false ? '' : stroke(smooth(pts, false), tone.hi(c, 0.25), w * 0.35, { op: 0.8 }));
+  // Tapered filled tube along points (tails, dendrites, processes): width w0 at the start, w1 at the end.
+  function taper(pts, w0, w1 = 0.6) {
+    const dense = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      for (let k = 0; k < 8; k++) {
+        const t = k / 8, t2 = t * t, t3 = t2 * t;
+        dense.push([0, 1].map((j) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
+      }
+    }
+    dense.push(pts[pts.length - 1]);
+    const n = dense.length, a = [], b = [];
+    dense.forEach(([x, y], i) => {
+      const [px, py] = dense[Math.max(0, i - 1)], [qx, qy] = dense[Math.min(n - 1, i + 1)], len = Math.hypot(qx - px, qy - py) || 1;
+      const w = (w0 + (w1 - w0) * (i / (n - 1))) / 2, nx = (-(qy - py) / len) * w, ny = ((qx - px) / len) * w;
+      a.push([x + nx, y + ny]); b.push([x - nx, y - ny]);
+    });
+    return poly([...a, ...b.reverse()]);
+  }
   // Branching tree (dendrites, vessels): returns list of segments.
   function branches(x, y, ang, len, depth, r, spread = 0.5, shrink = 0.72) {
     if (depth === 0 || len < 1.5) return [];
@@ -143,6 +162,81 @@
     return s;
   }
 
+  // ---------- Simple 3D (for labware drawn to real proportions) ----------
+  // A view maps real-world millimetres (u along the object, v across it, z up) to icon units: u runs along `a`,
+  // v along `b`, z straight up scaled by `zs`. Everything stays flat SVG paths.
+  function view(ox, oy, a, b, zs) {
+    const P = (u, v, z = 0) => [ox + u * a[0] + v * b[0], oy + u * a[1] + v * b[1] - z * zs];
+    return P;
+  }
+  function hull(pts) { // convex hull (monotone chain), for cylinder and prism silhouettes
+    const p = pts.slice().sort((m, n) => m[0] - n[0] || m[1] - n[1]), cross = (o, m, n) => (m[0] - o[0]) * (n[1] - o[1]) - (m[1] - o[1]) * (n[0] - o[0]);
+    const lo = [], up = [];
+    for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+    for (const q of p.slice().reverse()) { while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+    return lo.slice(0, -1).concat(up.slice(0, -1));
+  }
+  // Points of a circle of radius r around the 3D point c, in the plane normal to the unit axis n.
+  function ring3(P, c, n, r, k = 28) {
+    const t = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+    let e1 = [n[1] * t[2] - n[2] * t[1], n[2] * t[0] - n[0] * t[2], n[0] * t[1] - n[1] * t[0]];
+    const l1 = Math.hypot(...e1); e1 = e1.map((q) => q / l1);
+    const e2 = [n[1] * e1[2] - n[2] * e1[1], n[2] * e1[0] - n[0] * e1[2], n[0] * e1[1] - n[1] * e1[0]];
+    return Array.from({ length: k }, (_, i) => { const a = (i / k) * Math.PI * 2, ca = Math.cos(a) * r, sa = Math.sin(a) * r; return P(c[0] + e1[0] * ca + e2[0] * sa, c[1] + e1[1] * ca + e2[1] * sa, c[2] + e1[2] * ca + e2[2] * sa); });
+  }
+  // Prism: footprint polygon [[u,v]…] extruded from z0 to z1. Returns { side, top } point lists (side = silhouette).
+  function prism(P, foot, z0, z1) {
+    const top = foot.map(([u, v]) => P(u, v, z1)), bot = foot.map(([u, v]) => P(u, v, z0));
+    return { side: hull(top.concat(bot)), top, bot };
+  }
+  // Cylinder between 3D points p0 and p1 with radius r. Returns { side, end0, end1 } point lists.
+  function cyl(P, p0, p1, r, k) {
+    const d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]], l = Math.hypot(...d), n = d.map((q) => q / l);
+    const end0 = ring3(P, p0, n, r, k), end1 = ring3(P, p1, n, r, k);
+    return { side: hull(end0.concat(end1)), end0, end1 };
+  }
+  const rrect = (x, y, w, h, r, k = 5) => { // rounded-rectangle footprint as points
+    const pts = [], cs = [[x + w - r, y + r, -90], [x + w - r, y + h - r, 0], [x + r, y + h - r, 90], [x + r, y + r, 180]];
+    for (const [cx, cy, a0] of cs) for (let i = 0; i <= k; i++) { const a = ((a0 + (90 * i) / k) * Math.PI) / 180; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+    return pts;
+  };
+  const ptsD = (pts) => poly(pts);
+  // Ellipse that a circle of radius r becomes under the linear map [[a0, b0], [a1, b1]] (u, v → x, y).
+  function mapEll(a, b, r) {
+    const m11 = a[0] * a[0] + b[0] * b[0], m12 = a[0] * a[1] + b[0] * b[1], m22 = a[1] * a[1] + b[1] * b[1];
+    const tr = (m11 + m22) / 2, det = Math.sqrt(Math.max(0, ((m11 - m22) / 2) ** 2 + m12 * m12));
+    return { rx: r * Math.sqrt(tr + det), ry: r * Math.sqrt(Math.max(0, tr - det)), rot: (0.5 * Math.atan2(2 * m12, m11 - m22) * 180) / Math.PI };
+  }
+
+  // ANSI/SLAS microplate (127.76 × 85.48 × 14.35 mm) with each format's real well pitch, A1 offset and well diameter,
+  // seen from the front-left and above. `well` is a colour or fn(row, col); `fill` 0..1 is the liquid level look.
+  const SBS = {
+    6: [2, 3, 39.12, 24.76, 23.16, 34.8], 12: [3, 4, 26.01, 24.94, 16.79, 22.1], 24: [4, 6, 19.3, 17.05, 13.67, 15.6],
+    48: [6, 8, 13.08, 18.16, 10.08, 11.0], 96: [8, 12, 9, 14.38, 11.24, 6.9], 384: [16, 24, 4.5, 12.13, 8.99, 3.7],
+  };
+  function sbsPlate(n, o = {}) {
+    const [rows, cols, pitch, x1, y1, dia] = SBS[n], s = o.s ?? 0.78, fy = o.fy ?? 0.5, kb = o.kb ?? 0.88, zs = s * 0.8;
+    const L0 = 127.76, W0 = 85.48, H0 = 14.35, cx0 = (o.x ?? 2) + (L0 * s) / 2, oy = (o.y ?? 2) + H0 * zs;
+    const k = (v) => kb + (1 - kb) * (v / W0); // gentle perspective: the far edge is a little narrower
+    const P = (u, v, z = 0) => [cx0 + (u - L0 / 2) * s * k(v), oy + v * s * fy - z * zs * k(v)];
+    const pc = o.c || '#eaf2f5', edge = o.line || PAL.glassLine;
+    const foot = rrect(0, 0, L0, W0, 3.5, 3), skirt = rrect(-1, -1, L0 + 2, W0 + 2, 3.5, 3);
+    const sk = prism(P, skirt, 0, 2.6), bodyp = prism(P, foot, 2.6, H0);
+    let s1 = path(ptsD(sk.side), D(pc, 0.12), { stroke: edge, w: 0.8 }) + path(ptsD(bodyp.side), D(pc, 0.06), { stroke: edge, w: 0.9 });
+    s1 += stroke(ptsD([P(1, W0, 9), P(L0 - 1, W0, 9)], false), '#ffffff', 0.8, { op: 0.6 });
+    s1 += path(ptsD(bodyp.top), pc, { stroke: edge, w: 0.9 });
+    let wells = '';
+    for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+      const u = x1 + j * pitch, v = y1 + i * pitch, [cx, cy] = P(u, v, H0), kk = k(v), rx = (dia / 2) * s * kk, ry = rx * fy, deep = Math.min(ry * 0.3, 2.2);
+      const wc = typeof o.well === 'function' ? o.well(i, j) : (o.well || '#ffffff'), rim = Color.mix(pc, '#9fb6c2', 0.35);
+      if (n === 384) { wells += path(ptsD([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([p, q]) => P(u + (p * dia) / 2, v + (q * dia) / 2, H0))), wc, { stroke: rim, w: 0.25 }); continue; }
+      wells += ell(cx, cy, rx, ry, '#d6e3ea', { stroke: rim, w: n >= 96 ? 0.4 : 0.7 });
+      if (wc && wc !== 'none') wells += ell(cx, cy + deep * 0.5, rx * 0.9, ry * 0.84, wc, { stroke: line(wc === '#ffffff' ? '#cfe3ea' : wc), w: n >= 96 ? 0.25 : 0.5, op: o.op ?? 0.92 });
+      if (n <= 24) wells += ell(cx - rx * 0.32, cy - ry * 0.05, rx * 0.26, ry * 0.18, '#ffffff', { stroke: 'none', w: 0, op: 0.45 });
+    }
+    return { svg: s1 + wells, w: L0 * s + 4, h: W0 * s * fy + H0 * zs + 4 };
+  }
+
   // ---------- Registration ----------
   const used = new Set(ICONS.map((i) => i.id));
   const slug = (s) => { let id = 'r-' + s.toLowerCase().normalize('NFKD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, ''); while (used.has(id)) id += '-2'; used.add(id); return id; };
@@ -157,6 +251,7 @@
 
   globalThis.RefinedKit = {
     SW, f, PAL, line, tone, rng, hash, path, rect, circ, ell, stroke, flat, dot, text, part, G, poly, smooth, ellD, rrD, scalePts, centroid,
-    wob, body, blobShape, sball, speckle, glass, glint, box3, screen, button, plate, helix, wave, tube, branches, tree, headRing, add,
+    wob, body, blobShape, sball, speckle, glass, glint, box3, screen, button, plate, helix, wave, tube, taper, branches, tree, headRing, add,
+    view, hull, ring3, prism, cyl, rrect, ptsD, mapEll, sbsPlate, SBS,
   };
 })();
