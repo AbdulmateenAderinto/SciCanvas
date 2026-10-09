@@ -96,14 +96,21 @@
     + part('cap', path('M14 46 C14 22 30 8 50 8 C70 8 86 22 86 46 C70 40 30 40 14 46 Z', L(c, 0.5))) + part('electrodes', [[24, 32], [36, 22], [50, 18], [64, 22], [76, 32], [30, 40], [50, 32], [70, 40]].map(([x, y]) => circ(x, y, 3.4, c, { w: 0.8 })).join(''))
     + part('wires', stroke('M50 18 C52 6 70 2 90 4 M64 22 C70 10 84 8 96 10', '#5b6168', 0.8)));
   // Mice
-  const MOUSE = 'M14 70 C10 58 18 44 34 40 C40 30 52 26 62 30 C70 22 80 22 86 28 C92 26 96 32 92 36 C100 42 104 52 98 58 C94 62 88 62 84 66 C80 72 70 76 58 76 H26 C18 76 14 74 14 70 Z';
-  const mouseSide = (c) => part('tail', stroke('M16 70 C6 74 2 84 8 92 C12 98 22 96 26 90', '#e9b8b4', 2.2)) + part('body', path(MOUSE, c) + flat('M30 46 C38 36 52 32 62 34 C52 38 40 42 30 46 Z', '#ffffff', 0.3))
-    + part('ear', ell(80, 30, 7, 8, L(c, 0.1), { rot: -20 }) + ell(80, 31, 4, 5, '#f2b6b6', { stroke: 'none', w: 0, rot: -20 })) + part('face', dot(90, 42, 1.8, '#2a2e33') + dot(101, 54, 2, '#f2a2a8') + stroke('M98 52 l8 -3 M98 54 l9 0 M98 56 l8 3', '#8d969e', 0.5)) + part('feet', ell(36, 76, 5, 2.4, '#f2b6b6') + ell(70, 76, 5, 2.4, '#f2b6b6'));
-  add('Lab mouse (side)', NEU, 'mouse lab mouse rodent animal model C57BL/6 side view', '#c7ccd1', [110, 100], (c) => mouseSide(c));
+  // Lab mouse in side view after the reference: elongated body with a high rounded rump, pointed snout, round pink-lined
+  // ear, dark red eye, pink feet and a long pink tapering tail (about body length).
+  const MOUSE = 'M105 51 C101 46 95 41 89 39 C85 32 77 28 68 30 C56 23 34 24 24 34 C15 43 16 58 26 63 C31 66 38 66 44 64 C54 66 66 66 74 63 C82 62 86 60 91 58 C98 56 103 54 105 51 Z';
+  const PINK = '#eeb2b4';
+  const mouseSide = (c, o = {}) => part('tail', path(K.taper([[24, 58], [12, 64], [9, 76], [24, 87], [52, 89], [80, 85]], o.tail ?? 4.4, 1), PINK, { w: 0.8 }))
+    + part('feet', path('M33 64 C38 64 46 65 51 66 C53 67 52 69 49 69 L35 68 C32 68 31 65 33 64 Z', PINK, { w: 0.8 }) + path('M82 62 L84 67 C85 69 90 69 91 67 L88 61 Z', PINK, { w: 0.8 }))
+    + part('body', path(MOUSE, c) + flat('M28 40 C36 31 50 28 62 31 C50 32 38 35 28 40 Z', '#ffffff', 0.4) + stroke('M42 40 C52 44 56 55 50 64', line(c), 0.9, { op: 0.55 }) + stroke('M80 52 C82 56 84 60 84 64', line(c), 0.9, { op: 0.55 }))
+    + part('ear', ell(82, 33, (o.ear ?? 1) * 7, (o.ear ?? 1) * 8.5, c, { rot: -15 }) + ell(82.6, 33.6, (o.ear ?? 1) * 4.6, (o.ear ?? 1) * 6, PINK, { stroke: 'none', w: 0, rot: -15 }))
+    + part('face', circ(94, 43, 1.9, '#8c2335', { w: 0.5 }) + dot(93.5, 42.4, 0.6, '#ffffff') + ell(103.6, 50, 1.8, 1.5, '#e98b97', { w: 0.5 }) + stroke('M100 51 l9 -4 M100 52 l10 0 M100 53 l9 4', '#9aa3ab', 0.4));
+  K.mouseSide = mouseSide; // reused by refined6.js (mouse with organs / tumours)
+  add('Lab mouse (side)', NEU, 'mouse lab mouse rodent animal model C57BL/6 side view', '#eceae8', [110, 100], (c) => mouseSide(c));
   add('Lab mouse (black)', NEU, 'black mouse C57BL/6 B6 rodent animal model', '#4a4f57', [110, 100], (c) => mouseSide(c));
   add('Mouse with optrodes', NEU, 'mouse optogenetics optrode optic fibre implant behaviour', '#4a4f57', [110, 100], (c) =>
-    mouseSide(c) + part('implant', rect(70, 18, 8, 10, 2, '#c3cad1') + stroke('M74 18 C72 8 66 4 58 2', '#5b8fd6', 1.2) + stroke('M76 18 C80 6 90 4 100 4', '#3fa5a0', 1.2) + circ(58, 2, 2, '#5b8fd6', { w: 0.5 }) + circ(100, 4, 2, '#3fa5a0', { w: 0.5 })));
-  add('Mouse head with brain', NEU, 'mouse anterior head brain coronal rodent neuroscience', '#c7ccd1', [100, 100], (c) =>
+    mouseSide(c) + part('implant', rect(70, 20, 8, 11, 2, '#c3cad1') + stroke('M73 20 C72 10 66 6 58 4', '#5b8fd6', 1.2) + stroke('M75 20 C80 8 90 6 100 6', '#3fa5a0', 1.2) + circ(58, 4, 2, '#5b8fd6', { w: 0.5 }) + circ(100, 6, 2, '#3fa5a0', { w: 0.5 })));
+  add('Mouse head with brain', NEU, 'mouse anterior head brain coronal rodent neuroscience', '#e6e5e3', [100, 100], (c) =>
     part('ears', circ(20, 26, 16, c) + circ(20, 26, 10, '#f2b6b6', { stroke: 'none', w: 0 }) + circ(80, 26, 16, c) + circ(80, 26, 10, '#f2b6b6', { stroke: 'none', w: 0 }))
     + part('head', path('M50 16 C30 16 20 34 22 56 C24 74 38 92 50 96 C62 92 76 74 78 56 C80 34 70 16 50 16 Z', c))
     + part('brain', path('M50 22 C38 22 32 30 32 40 C32 48 40 50 50 50 C60 50 68 48 68 40 C68 30 62 22 50 22 Z', '#eab0ae') + stroke('M50 24 V48', D('#eab0ae', 0.2), 1))
@@ -119,7 +126,7 @@
     part('container', path('M8 30 V60 C8 76 92 76 92 60 V30 Z', '#e9eef2', { stroke: '#9aa5ae' }) + ell(50, 30, 42, 12, '#f3f6f8', { stroke: '#9aa5ae' }))
     + part('water', ell(50, 34, 38, 10, c, { op: 0.85 })) + part('mouse', path('M42 32 C42 26 50 24 56 26 C62 22 68 26 64 30 C66 34 60 38 54 36 C48 38 42 36 42 32 Z', '#f2f4f6', { stroke: '#a9b6bf' }) + dot(62, 27, 0.8, '#2a2e33'))
     + part('ripples', ell(52, 33, 18, 5, 'none', { fill: 'none', stroke: '#ffffff', w: 1, op: 0.7 })));
-  add('Rat (side)', NEU, 'rat rodent animal model Sprague Dawley Wistar', '#d9d4cc', [130, 90], (c) => G(mouseSide(c), 'translate(0 -6) scale(1.15 1)'));
+  add('Rat (side)', NEU, 'rat rodent animal model Sprague Dawley Wistar', '#ebe7e1', [130, 90], (c) => G(mouseSide(c, { ear: 0.75, tail: 5.6 }), 'translate(1 -9) scale(1.16 1)'));
   add('Morris water maze', NEU, 'Morris water maze spatial memory platform pool behaviour', '#7fb8e3', [110, 70], (c) =>
     part('pool', ell(55, 38, 50, 26, '#e9eef2', { stroke: '#9aa5ae' }) + ell(55, 36, 46, 22, c, { op: 0.8 })) + part('platform', ell(76, 30, 6, 3, '#ffffff', { stroke: '#9aa5ae' }))
     + part('path', stroke('M30 44 C40 36 30 28 44 24 C58 22 50 40 64 38 C70 36 72 32 76 30', '#e36d6d', 1, { dash: '2 1.6' })) + part('mouse', ell(30, 44, 4, 2.6, '#f2f4f6', { stroke: '#a9b6bf' })));
@@ -191,31 +198,40 @@
   // =====================================================================================
   // Immune molecules
   // =====================================================================================
-  // Antibody (IgG) in a 100 × 100 box: Fc stem + two Fab arms, heavy chains in c, light chains lighter.
+  // Antibody (IgG) in a 100 × 100 box, after the reference: Fab arms ~45° up, each a heavy chain (inner) with the light
+  // chain alongside its outer side, variable domains at the tips in a lighter tone, a thin hinge, and an Fc stem about
+  // as long as an arm (two paired constant domains).
   const igg = (c, lc) => {
-    const hc = (pts) => tube(pts, 7, c, { hi: false });
-    return part('Fc', hc([[46, 92], [46, 54]]) + hc([[54, 92], [54, 54]])) + part('heavy chains', hc([[46, 54], [34, 40], [20, 24]]) + hc([[54, 54], [66, 40], [80, 24]]))
-      + part('light chains', tube([[36, 50], [28.8, 44.6], [15, 28.8]], 6, lc, { hi: false }) + tube([[64, 50], [71.2, 44.6], [85, 28.8]], 6, lc, { hi: false })) + part('hinge', stroke('M46 56 H54 M46 60 H54', D(c, 0.3), 1));
+    const dom = (x, y, w, h, col) => rect(x, y, w, h, 2.2, col, { w: 0.9 });
+    const arm = (sg) => G(dom(-3.75, -17, 7.5, 17, c) + dom(-3.75, -35, 7.5, 17, L(c, 0.35)) + dom(sg < 0 ? -11 : 4, -16, 7, 15, lc) + dom(sg < 0 ? -11 : 4, -32, 7, 15, L(lc, 0.35)), `translate(${50 + sg * 8} 52) rotate(${sg * 45})`);
+    return part('Fc', dom(42.5, 60, 7.5, 16, c) + dom(50, 60, 7.5, 16, c) + dom(42.5, 77, 7.5, 16, c) + dom(50, 77, 7.5, 16, c))
+      + part('hinge', stroke('M46.2 61 C46 57 45 55 43 52 M53.8 61 C54 57 55 55 57 52', line(c), 1.6) + stroke('M46.5 56 H53.5', line(c), 1.2))
+      + part('heavy chains', arm(-1) + arm(1));
   };
-  add('Antibody (IgG)', IMM, 'antibody IgG immunoglobulin monoclonal heavy light chain', '#3f73c4', [100, 100], (c) => igg(c, L(c, 0.4)));
+  add('Antibody (IgG)', IMM, 'antibody IgG immunoglobulin monoclonal heavy light chain', '#7b52b3', [100, 100], (c) => igg(c, '#c94f9b'));
   add('Antibody (simple)', IMM, 'antibody Y-shaped simple immunoglobulin', '#3f73c4', [80, 100], (c) =>
     part('antibody', stroke('M40 96 V54 M40 54 L14 22 M40 54 L66 22', line(c), 12) + stroke('M40 96 V54 M40 54 L14 22 M40 54 L66 22', c, 9.6) + stroke('M28 46 L8 22 M52 46 L72 22', line(c), 7) + stroke('M28 46 L8 22 M52 46 L72 22', L(c, 0.35), 4.8)));
-  add('IgM pentamer', IMM, 'IgM pentamer antibody J chain', '#8b5cc6', [100, 100], (c) =>
-    part('IgM', Array.from({ length: 5 }, (_, k) => G(stroke('M0 -6 V-22 M0 -22 L-7 -34 M0 -22 L7 -34', line(c), 5.4) + stroke('M0 -6 V-22 M0 -22 L-7 -34 M0 -22 L7 -34', c, 3.4), `translate(50 50) rotate(${k * 72})`)).join('')) + part('J chain', circ(50, 50, 6, '#e8a33d')));
+  add('IgM pentamer', IMM, 'IgM pentamer antibody J chain', '#3e5fb8', [100, 100], (c) =>
+    part('IgM', Array.from({ length: 5 }, (_, k) => G(igg(c, L(c, 0.25)), `translate(50 50) rotate(${k * 72 + 36}) translate(0 -7) scale(0.5) translate(-50 -93)`)).join('')) + part('J chain', circ(50, 50, 4, '#e8a33d', { w: 0.8 })));
   add('IgA dimer', IMM, 'IgA dimer secretory antibody J chain mucosal', '#3fa5a0', [110, 80], (c) =>
     part('IgA', [G(stroke('M0 0 H-20 M-20 0 L-32 -12 M-20 0 L-32 12', line(c), 6) + stroke('M0 0 H-20 M-20 0 L-32 -12 M-20 0 L-32 12', c, 4), 'translate(48 40)'), G(stroke('M0 0 H20 M20 0 L32 -12 M20 0 L32 12', line(c), 6) + stroke('M0 0 H20 M20 0 L32 -12 M20 0 L32 12', c, 4), 'translate(62 40)')].join('')) + part('J chain', ell(55, 40, 7, 5, '#e8a33d')));
   add('Fab fragment', IMM, 'Fab fragment antigen binding antibody', '#3f73c4', [60, 80], (c) => part('Fab', tube([[30, 72], [30, 40], [30, 10]], 9, c, { hi: false }) + tube([[22.5, 64], [22.5, 38], [22.5, 12]], 7, L(c, 0.4), { hi: false })));
   add('scFv', IMM, 'scFv single-chain variable fragment antibody engineering CAR', '#3f73c4', [80, 60], (c) => part('scFv', ell(26, 30, 14, 18, c) + ell(56, 30, 14, 18, L(c, 0.4)) + stroke('M38 20 C44 10 40 6 44 14', '#9aa5ae', 1.4)));
   add('Bispecific T cell engager', IMM, 'BiTE bispecific T cell engager CD3 CD19 antibody', '#3f73c4', [120, 50], (c) =>
     part('anti-CD19', ell(18, 25, 12, 15, c) + ell(40, 25, 12, 15, L(c, 0.4))) + part('linker', stroke('M52 25 H68', '#9aa5ae', 1.6)) + part('anti-CD3', ell(80, 25, 12, 15, '#e36d6d') + ell(102, 25, 12, 15, L('#e36d6d', 0.4))));
-  add('Antibody-drug conjugate', IMM, 'ADC antibody drug conjugate payload linker', '#3f73c4', [100, 100], (c) =>
-    igg(c, L(c, 0.4)) + part('payload', [[30, 50], [70, 50], [40, 70], [60, 70]].map(([x, y]) => stroke(`M${x} ${y} l${x < 50 ? -8 : 8} 0`, '#9aa5ae', 1) + circ(x + (x < 50 ? -11 : 11), y, 3.4, '#e36d6d')).join('')));
+  add('Antibody-drug conjugate', IMM, 'ADC antibody drug conjugate payload linker', '#7b52b3', [100, 100], (c) =>
+    igg(c, '#c94f9b') + part('payload', [[30, 50], [70, 50], [40, 70], [60, 70]].map(([x, y]) => stroke(`M${x} ${y} l${x < 50 ? -8 : 8} 0`, '#9aa5ae', 1) + circ(x + (x < 50 ? -11 : 11), y, 3.4, '#e36d6d')).join('')));
   const memb = (y, w = 100) => { let s = ''; for (let k = 0; k < Math.ceil(w / 6); k++) { const x = 3 + k * 6; s += circ(x, y, 2.4, '#f0a540', { w: 0.5 }) + circ(x, y + 14, 2.4, '#f0a540', { w: 0.5 }) + stroke(`M${x} ${y + 2.6} V${y + 11.4}`, '#e8c37a', 0.8); } return s; };
   add('T cell receptor', IMM, 'TCR T cell receptor alpha beta CD3', '#2e7d5b', [80, 110], (c) =>
     part('membrane', memb(68, 80)) + part('alpha chain', ell(30, 26, 8, 11, L(c, 0.2)) + ell(30, 48, 8, 10, L(c, 0.2)) + rect(28, 58, 4, 34, 2, L(c, 0.2)))
     + part('beta chain', ell(48, 26, 8, 11, c) + ell(48, 48, 8, 10, c) + rect(46, 58, 4, 34, 2, c)) + part('CD3', ell(14, 56, 6, 7, '#9bd8c2') + ell(66, 56, 6, 7, '#9bd8c2') + rect(12, 62, 3, 36, 1.5, '#9bd8c2') + rect(65, 62, 3, 36, 1.5, '#9bd8c2')));
-  add('MHC class I', IMM, 'MHC class I HLA peptide presentation beta-2 microglobulin', '#c25b7c', [80, 110], (c) =>
-    part('membrane', memb(80, 80)) + part('heavy chain', path('M18 14 C18 4 50 4 54 14 V40 C54 46 50 50 46 50 V80 H40 V50 C30 50 18 44 18 34 Z', c)) + part('b2m', ell(64, 54, 9, 10, L(c, 0.4))) + part('peptide', stroke('M22 12 H50', '#e8a33d', 3)));
+  // MHC class I after the reference: α1/α2 platform (with the peptide in its groove) on top, α3 below with β2-microglobulin
+  // beside it, then a long single transmembrane stalk.
+  add('MHC class I', IMM, 'MHC class I HLA peptide presentation beta-2 microglobulin', '#7a3e8e', [80, 110], (c) =>
+    part('membrane', memb(80, 80)) + part('heavy chain', rect(37.6, 52, 4.8, 50, 2.4, c) + path('M20 30 V16 Q20 10 26 10 H36 Q40 10 40 14 V30 Z', c) + path('M40 30 V10 Q40 4 46 4 H54 Q60 4 60 10 V30 Z', c)
+      + rect(26, 30, 28, 24, 5, c) + stroke('M40 12 V28', line(c), 0.9))
+    + part('peptide', stroke('M23 9 H57', '#e8a33d', 2.4) + stroke('M23 9 H57', '#f6c56a', 1))
+    + part('b2m', rect(55, 34, 16, 20, 6, L(c, 0.4))));
   add('MHC class II', IMM, 'MHC class II HLA-DR peptide CD4 antigen presentation', '#c25b7c', [80, 110], (c) =>
     part('membrane', memb(80, 80)) + part('alpha chain', ell(30, 22, 10, 12, c) + ell(30, 50, 9, 11, c) + rect(28, 60, 4, 36, 2, c)) + part('beta chain', ell(50, 22, 10, 12, L(c, 0.35)) + ell(50, 50, 9, 11, L(c, 0.35)) + rect(48, 60, 4, 36, 2, L(c, 0.35))) + part('peptide', stroke('M26 10 H54', '#e8a33d', 3)));
   add('TCR–peptide–MHC complex', IMM, 'TCR pMHC immune synapse antigen recognition T cell APC', '#2e7d5b', [100, 120], (c) =>
@@ -238,9 +254,14 @@
     part('perforin pore', Array.from({ length: 6 }, (_, k) => rect(18 + k * 7, 20, 5, 40, 2.5, '#8b6fc4')).join('')) + part('granzymes', [[72, 30], [84, 42], [70, 54]].map(([x, y]) => circ(x, y, 6, c, { w: 0.8 })).join('')));
   add('Antigen', IMM, 'antigen epitope foreign protein', '#6bb36b', [80, 80], (c, r) => part('antigen', body(wob(40, 40, 26, 24, r, { amp: 0.14, n: 40 }), c, { hi: 0.25 })));
   add('Interferon', IMM, 'interferon IFN type I antiviral cytokine', '#5fb3b3', [80, 80], (c, r) => part('interferon', [[30, 34], [50, 30], [42, 50]].map(([x, y], i) => body(wob(x, y, 14, 12, r, { amp: 0.08 }), i ? L(c, 0.25) : c, { hi: 0.2 })).join('')));
-  add('Toll-like receptor', IMM, 'TLR toll-like receptor pattern recognition innate', '#e8a33d', [100, 110], (c) =>
-    part('ectodomains', stroke('M30 64 C10 50 10 18 30 8', line(c), 12) + stroke('M30 64 C10 50 10 18 30 8', c, 9.6) + stroke('M70 64 C90 50 90 18 70 8', line(c), 12) + stroke('M70 64 C90 50 90 18 70 8', L(c, 0.25), 9.6))
-    + part('membrane', memb(66, 100)) + part('TIR domains', rect(28, 64, 4, 20, 2, c) + rect(68, 64, 4, 20, 2, L(c, 0.25)) + ell(36, 92, 9, 7, c) + ell(64, 92, 9, 7, L(c, 0.25))));
+  // TLR dimer after the reference: two horseshoe (leucine-rich repeat) ectodomains curling outwards, stalks meeting at the
+  // membrane, and the paired TIR domains below it.
+  add('Toll-like receptor', IMM, 'TLR toll-like receptor pattern recognition innate horseshoe', '#c23b5c', [100, 110], (c) => {
+    const shoe = (sg) => { const d = `M${50 - sg * 5} 46 C${50 - sg * 4} 30 ${50 - sg * 10} 14 ${50 - sg * 24} 12 C${50 - sg * 40} 12 ${50 - sg * 44} 30 ${50 - sg * 38} 42`;
+      return stroke(d, line(c), 13.4) + stroke(d, sg > 0 ? c : L(c, 0.12), 11) + stroke(d, L(c, 0.35), 3, { dash: '1.4 3', op: 0.8 }); };
+    return part('ectodomains', shoe(1) + shoe(-1)) + part('stalks', rect(43, 44, 6, 28, 3, c) + rect(51, 44, 6, 28, 3, L(c, 0.12)))
+      + part('membrane', memb(62, 100)) + part('TIR domains', path('M38 96 C38 84 44 78 50 78 C56 78 62 84 62 96 C62 102 38 102 38 96 Z', c) + stroke('M50 80 V100', line(c), 1));
+  });
   add('Inflammasome', IMM, 'inflammasome NLRP3 ASC caspase-1 IL-1 beta', '#c25b7c', [100, 100], (c) =>
     part('NLRP3 ring', Array.from({ length: 10 }, (_, k) => { const a = (k / 10) * Math.PI * 2; return ell(50 + Math.cos(a) * 30, 50 + Math.sin(a) * 30, 8, 8, k % 2 ? L(c, 0.3) : c); }).join('')) + part('ASC', circ(50, 50, 14, '#e8a33d')) + part('caspase-1', circ(50, 50, 6, '#5fb3b3')));
 })();
