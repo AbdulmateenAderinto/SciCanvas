@@ -3,18 +3,20 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.0
+## Version 1.0.1
+
+**Latest: [SciCanvas 1.0.1](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below). The app itself is the same as 1.0.
 
 SciCanvas 1.0 brings together everything built so far: drawing and design tools (v0.8), about 21,500 icons (including 1,500 soft-style icons) with new soft-style sets for anatomy, microbes, model organisms, plants, lab and clinical items, graphs with publication-grade statistics (follow-up tests, curve fitting, ROC, contingency tables, regression, factorial ANOVA), a diagram builder with 19 diagram types and flowcharts from Mermaid / JSON / steps, templates, a journal-figure checker, and AI drafting from your own PDFs, Word files, slides and tables. The sections below describe each release in detail.
 
 ## Download
 
-Get the installer from the **Releases** page (right-hand side of the GitHub page):
+Get the installer from the [latest release](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest) (also linked under **Releases** on the right of the GitHub page):
 
 - **Windows**: `SciCanvas-Setup-<version>.exe`. Double-click to install. Windows may show "Windows protected your PC" because the app isn't signed with a paid certificate: click **More info → Run anyway**.
 - **Mac**: `SciCanvas-<version>-arm64.dmg` for Apple-silicon Macs (M1 and later) or `-x64.dmg` for Intel Macs. Open it and drag SciCanvas to Applications. The first time, right-click the app and choose **Open** (or allow it under System Settings › Privacy & Security), because it isn't notarised by Apple.
 
-Installers are built automatically by GitHub (`.github/workflows/build.yml`) whenever a release is published. The large optional icon libraries aren't included; add them from **Insert › Icon Libraries…** in the app.
+The installers include the 1,567 built-in icons (about 1,500 soft-style). The four optional icon libraries (about 19,900 more icons) aren't included; add them from **Insert › Icon Libraries…** in the app.
 
 ## Run (from the source code)
 
@@ -30,6 +32,16 @@ npm run setup
 ```
 
 Icon libraries live in `assets/iconpacks/` (about 640 MB in total). Reinstall or update them with `npm run icons`, or from **Insert › Icon Libraries…** inside the app.
+
+## Publishing a release
+
+Anyone with write access to the repo can publish; GitHub builds the installers (`.github/workflows/build.yml`).
+
+1. Bump `"version"` in `package.json` and `package-lock.json` (for example `npm version 1.0.2 --no-git-tag-version`) in a pull request and merge it once its checks pass. Pull requests that touch `package.json` also run a test build of every installer.
+2. On GitHub: **Releases › Draft a new release**. Type the tag (`v1.0.2`, matching the version), choose **Create new tag** on `main`, add a title and notes, and click **Publish release**.
+3. A few minutes later the Windows `.exe` and both Mac `.dmg` files appear on the release (progress is under the **Actions** tab). Each build is started once as a smoke test before it's attached.
+
+Publishing any release, including a pre-release, starts the build, so only publish releases you want installers for.
 
 ## Checks
 
