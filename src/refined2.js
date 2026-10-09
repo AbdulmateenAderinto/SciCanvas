@@ -8,13 +8,16 @@
   // =====================================================================================
   // Engineering & biomaterials
   // =====================================================================================
-  add('Polymeric nanoparticle', ENG, 'polymeric nanoparticle polymer PLGA nanocarrier drug delivery', '#c2509e', [100, 100], (c, r) => {
+  // Polymeric nanoparticle after the reference: a dense ball of tangled polymer strands, no shell.
+  add('Polymeric nanoparticle', ENG, 'polymeric nanoparticle polymer PLGA nanocarrier drug delivery', '#a8222d', [100, 100], (c, r) => {
     let s = '';
-    for (let k = 0; k < 26; k++) {
-      const a = r() * 6.3, d = r() * 26, x = 50 + Math.cos(a) * d, y = 50 + Math.sin(a) * d, rr = 6 + r() * 9;
-      s += path(K.ellD(x, y, rr, rr * (0.6 + r() * 0.4)), 'none', { fill: 'none', stroke: k % 2 ? c : '#e8a33d', w: 2.2, tf: `rotate(${f(r() * 180)} ${f(x)} ${f(y)})` });
+    for (let k = 0; k < 30; k++) {
+      const pts = [];
+      let a = r() * 6.3, d = Math.sqrt(r()) * 34;
+      for (let i = 0; i < 7; i++) { pts.push([50 + Math.cos(a) * d, 50 + Math.sin(a) * d]); a += (r() - 0.5) * 2.2; d = Math.min(38, Math.max(4, d + (r() - 0.5) * 28)); }
+      s += stroke(smooth(pts, false), D(c, 0.25), 2.6) + stroke(smooth(pts, false), k % 3 ? c : L(c, 0.2), 1.5);
     }
-    return part('core', circ(50, 50, 40, '#fbeef6', { stroke: L(c, 0.4), op: 0.6 })) + part('polymer', s);
+    return part('polymer', s);
   });
   add('Lipid nanoparticle', ENG, 'lipid nanoparticle LNP mRNA vaccine PEG ionisable lipid', '#e8a33d', [100, 100], (c, r) => {
     let peg = '';
@@ -28,14 +31,16 @@
     for (let k = 0; k < 14; k++) { const a = (k / 14) * Math.PI * 2 + r() * 0.3, l = 22 + r() * 14; s += tube([[50, 50], [50 + Math.cos(a) * l * 0.6, 50 + Math.sin(a) * l * 0.6 + r() * 4], [50 + Math.cos(a) * l, 50 + Math.sin(a) * l]], 9, k % 3 ? c : L(c, 0.2), { edge: D(c, 0.25) }); }
     return part('nanostar', s + body(wob(50, 50, 16, 16, r, { amp: 0.1 }), c));
   });
-  add('Micelle', ENG, 'micelle surfactant amphiphile self-assembly', '#e0663d', [100, 100], (c) => part('micelle', headRing(50, 50, 40, 34, c, '#f0a540', { tail: 14, hr: 4, double: true, tw: 1.1 })));
-  add('Liposome', ENG, 'liposome lipid bilayer vesicle drug delivery', '#5b8fd6', [100, 100], (c) =>
-    part('lumen', circ(50, 50, 27, '#eef5fc', { stroke: 'none', w: 0 })) + part('outer leaflet', headRing(50, 50, 42, 40, c, '#d6a94a', { tail: 6, hr: 2.6, double: true, tw: 0.9 })) + part('inner leaflet', headRing(50, 50, 29, 28, c, '#d6a94a', { tail: 6, hr: 2.4, inward: false, double: true, tw: 0.9 })));
+  add('Micelle', ENG, 'micelle surfactant amphiphile self-assembly', '#f0a020', [100, 100], (c) => part('micelle', headRing(50, 50, 40, 34, c, '#f3c46a', { tail: 14, hr: 4, double: true, tw: 1.1 })));
+  add('Liposome', ENG, 'liposome lipid bilayer vesicle drug delivery', '#f0a020', [100, 100], (c) =>
+    part('lumen', circ(50, 50, 27, '#ffffff', { stroke: 'none', w: 0 })) + part('outer leaflet', headRing(50, 50, 42, 40, c, '#f3c46a', { tail: 6, hr: 2.6, double: true, tw: 0.9 })) + part('inner leaflet', headRing(50, 50, 29, 28, c, '#f3c46a', { tail: 6, hr: 2.4, inward: false, double: true, tw: 0.9 })));
   add('Exosome', ENG, 'exosome extracellular vesicle EV tetraspanin CD63', '#8d73c7', [100, 100], (c, r) =>
     part('vesicle', sball(50, 50, 36, 36, L(c, 0.55)) + speckle(50, 50, 26, 26, 12, c, r, { op: 0.7, min: 1.5, max: 3 }))
     + part('tetraspanins', Array.from({ length: 10 }, (_, k) => { const a = (k / 10) * Math.PI * 2; return G(rect(-2, -6, 4, 6, 1.5, k % 2 ? '#e8a33d' : '#5fb3b3', { w: 0.6 }), `translate(${f(50 + Math.cos(a) * 36)} ${f(50 + Math.sin(a) * 36)}) rotate(${f((a * 180) / Math.PI + 90)})`); }).join('')));
-  add('Nanosphere', ENG, 'nanosphere microsphere bead solid nanoparticle', '#c49a52', [100, 100], (c, r) =>
-    part('sphere', circ(50, 50, 40, c) + flat(`M50 10 A40 40 0 0 1 50 90 A30 40 0 0 0 50 10 Z`, D(c, 0.15), 0.6) + speckle(50, 50, 36, 36, 120, D(c, 0.15), r, { op: 0.45, min: 0.5, max: 1.3 })));
+  // Nanosphere after the reference: a blue sphere, lit half and shaded half split by a gently curved terminator.
+  add('Nanosphere', ENG, 'nanosphere microsphere bead solid nanoparticle', '#3f86c6', [100, 100], (c, r) =>
+    part('sphere', circ(50, 50, 40, L(c, 0.12)) + flat('M50 10 A40 40 0 0 1 50 90 C56 70 56 30 50 10 Z', D(c, 0.12), 0.95) + speckle(50, 50, 36, 36, 90, D(c, 0.12), r, { op: 0.3, min: 0.5, max: 1.1 })
+      + ell(32, 30, 7, 3.6, '#ffffff', { stroke: 'none', w: 0, op: 0.35, rot: -40 })));
   add('Carbon nanotube', ENG, 'carbon nanotube CNT graphene hexagonal lattice', '#8a5a44', [120, 50], (c) => {
     let s = '';
     for (let i = 0; i < 9; i++) for (let j = 0; j < 3; j++) { const x = 8 + i * 12 + (j % 2) * 6, y = 14 + j * 10; s += path(poly(Array.from({ length: 6 }, (_, k) => [x + 6 * Math.cos((k / 6) * Math.PI * 2), y + 5.5 * Math.sin((k / 6) * Math.PI * 2)])), 'none', { fill: 'none', stroke: c, w: 1.2 }); }
@@ -107,8 +112,8 @@
     + part('chamber', path('M18 22 V62 C18 74 82 74 82 62 V22 Z', '#eef5f8', { stroke: PAL.glassLine, op: 0.6 }) + ell(50, 48, 26, 8, L(c, 0.6), { op: 0.8 }) + ell(50, 22, 32, 9, '#f6fafb', { stroke: PAL.glassLine, op: 0.7 }))
     + part('electrodes', [36, 50, 64].map((x, i) => rect(x - 2.5, 30, 5, 22, 2, i === 1 ? '#5aa864' : '#6bb36b')).join(''))
     + part('tubing', stroke('M30 60 C20 74 14 84 6 96', '#3b4fb3', 3) + stroke('M40 62 C34 78 30 88 24 98', '#c2393f', 3)));
-  add('96-well plate', ENG, '96 well plate microplate assay ELISA culture plate', '#e98bb0', [110, 80], (c) =>
-    part('plate', plate(8, 16, 92, 56, 8, 12, { skew: 8, well: c, fill: 0.36 })));
+  add('96-well plate', ENG, '96 well plate microplate assay ELISA culture plate', '#e98bb0', [104, 46], (c) =>
+    part('plate', K.sbsPlate(96, { well: c }).svg));
   add('PLGA microparticle', ENG, 'PLGA microparticle microsphere drug release porous', '#9bc7e0', [100, 100], (c, r) =>
     part('particle', sball(50, 50, 40, 40, c, { shine: true })) + part('pores', speckle(54, 54, 30, 30, 26, '#ffffff', r, { op: 0.7, min: 1.2, max: 3.2 })) + part('drug', speckle(50, 50, 28, 28, 14, '#e36d6d', r, { op: 0.9, min: 1, max: 2 })));
   add('Antibody-drug nanoparticle', ENG, 'targeted nanoparticle antibody functionalised nanocarrier', '#e8a33d', [100, 100], (c) => {
