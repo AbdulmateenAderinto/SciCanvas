@@ -149,6 +149,7 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 
 **Export**
 - PNG/JPEG at up to 600 DPI (written into the file), transparent PNG, SVG, multi-page vector PDF, and PowerPoint (.pptx).
+- PowerPoint export is editable: shapes, text, tables, drawn paths and groups become native PowerPoint objects, and arrows become connectors glued to the shapes they join, so they follow when you move things on the slide. Icons, brushes, charts and protocol strips go in as vector SVG pictures (right-click › Convert to Shape in PowerPoint to edit them). Choose "Picture of each page" for an exact, non-editable copy.
 - Option to export only the current selection.
 - Copy as image (⇧⌘C) for pasting into slides.
 
@@ -311,7 +312,7 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 
 ## Not built (yet)
 - Real-time multi-user editing. Today you share the `.scifig` file and review through comments.
-- A live-linked PowerPoint add-in. PPTX export embeds each page as a picture.
+- A live-linked PowerPoint add-in. PPTX export is editable, but re-export after changing the figure.
 - Brushes can't be split into individual editable units.
 - Boolean shape operations (union / subtract) beyond crop-to-shape.
 - AI image generation in photographic styles; restyle produces vector reinterpretations.
@@ -329,6 +330,7 @@ Real-time co-editing and share-link permissions, PowerPoint / Google Slides add-
 - `src/statcharts.js`: Statistics & Models chart types (curve fit, contingency, ROC, Bland–Altman, Deming, multiple regression, three-way ANOVA)
 - `src/diagrams.js`: diagram builder (19 generated diagram types) and icon lookup by name
 - `src/templates2.js`: v0.9 templates (drug delivery, genome editing, omics and ML workflows, physiology, microbiology, clinical)
+- `src/pptxexport.js`: editable PowerPoint export (native shapes, text, tables, glued connectors, groups)
 - `src/aidocs.js`: reference files for AI drafting (PDF, Word, PowerPoint, tables, images) and charts from attached tables
 - `src/ai.js`: AI planner, generators, restyle / edit / remove text, smart search, narration
 - `src/bio.js`: antibody builder, disease-mechanism templates

@@ -472,19 +472,24 @@ function openExportDialog() {
     rasterRows.forEach((r) => r.classList.toggle('hidden', !raster));
     scopeRow.classList.toggle('hidden', fmt.value !== 'pdf');
     trRow.classList.toggle('hidden', !(fmt.value === 'png' || fmt.value === 'svg'));
+    pptRow.classList.toggle('hidden', fmt.value !== 'pptx');
     const win = +widthIn.value || p.width / 96, hin = win * (p.height / p.width);
     const want = (win * +dpi.value) / p.width, sc = maxScale(p, want);
     info.textContent = raster
       ? `Output: ${Math.round(p.width * sc)} × ${Math.round(p.height * sc)} px → ${win.toFixed(2)} × ${hin.toFixed(2)} in at ${dpi.value} DPI.` + (sc < want - 1e-6 ? ` Capped to ${Math.round((sc * p.width) / win)} DPI (canvas size limit) — use PDF for very large prints.` : '') + ' Imported bitmaps keep their own resolution; upscaling cannot add detail.'
       : fmt.value === 'pdf' ? 'Vector PDF: shapes, text and icons stay sharp at any size. Embedded photos/structures stay at their original resolution.'
-      : fmt.value === 'pptx' ? `PowerPoint: one slide per page (${state.doc.pages.length}), each a high-resolution picture of the page. Re-export after edits — slides are not live-linked.`
+      : fmt.value === 'pptx' ? (pptMode.value === 'editable'
+        ? `PowerPoint: one slide per page (${state.doc.pages.length}). Shapes, text, tables, arrows and groups stay editable; arrows stay glued to what they connect. Icons, brushes and charts go in as vector pictures (Convert to Shape in PowerPoint edits them).`
+        : `PowerPoint: one slide per page (${state.doc.pages.length}), each a high-resolution picture of the page. Looks exactly as on screen, but nothing is editable.`)
       : 'SVG: fully vector and editable in Illustrator / Inkscape. Fonts are referenced, not embedded.';
   };
-  [fmt, dpi, widthIn, scope, selOnly].forEach((i) => i.addEventListener('input', upd));
+  const pptMode = el('select', {}, el('option', { value: 'editable', textContent: 'Editable shapes and text' }), el('option', { value: 'picture', textContent: 'Picture of each page' }));
+  [fmt, dpi, widthIn, scope, selOnly, pptMode].forEach((i) => i.addEventListener('input', upd));
   selOnly.addEventListener('change', () => { const pp = selOnly.checked ? selectionPage() : page(); widthIn.value = (pp.width / 96).toFixed(2); upd(); });
   const r1 = field('Resolution', dpi), r2 = field('Print width', el('span', { style: 'display:flex;gap:6px;align-items:center' }, widthIn, 'in'));
   rasterRows.push(r1, r2);
   const scopeRow = field('Pages', scope);
+  const pptRow = field('Slides', pptMode);
   const trRow = field('', el('label', { style: 'width:auto;color:inherit' }, transparent, ' Transparent background'));
   const base = (state.filePath ? state.filePath.split(/[\\/]/).pop().replace(/\.scifig$/, '') : 'figure') + (state.doc.pages.length > 1 ? `-${p.name.replace(/[^\w-]+/g, '_')}` : '');
   const go = async () => {
@@ -492,24 +497,15 @@ function openExportDialog() {
     try {
       let out;
       if (fmt.value === 'pptx') {
-        if (typeof PptxGenJS === 'undefined') throw new Error('PowerPoint library not loaded');
-        const pptx = new PptxGenJS();
-        const first = state.doc.pages[0];
-        pptx.defineLayout({ name: 'SCI', width: first.width / 96, height: first.height / 96 });
-        pptx.layout = 'SCI';
-        for (const pg of state.doc.pages) {
-          const sc = maxScale(pg, 300 / 96);
-          const img = await rasterize(pg, sc, { mime: 'image/png' });
-          const k = Math.min(first.width / pg.width, first.height / pg.height);
-          const w = (pg.width * k) / 96, h = (pg.height * k) / 96;
-          const slide = pptx.addSlide();
-          slide.background = { color: (pg.background || '#ffffff').replace('#', '') };
-          slide.addImage({ data: img, x: (first.width / 96 - w) / 2, y: (first.height / 96 - h) / 2, w, h });
-          const notes = [pg.notes || '', ...(pg.comments || []).filter((c) => !c.resolved && c.text).map((c) => `${c.author}: ${c.text}`)].filter(Boolean).join('\n');
-          if (notes) slide.addNotes(notes);
-        }
-        const b64 = await pptx.write({ outputType: 'base64' });
-        out = await window.native.exportFile({ defaultName: base.replace(/-[^-]*$/, '') + '.pptx', ext: 'pptx', data: 'data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,' + b64 });
+        if (typeof PptxGenJS === 'undefined' || typeof JSZip === 'undefined') throw new Error('PowerPoint library not loaded');
+        const r = await buildPptx(state.doc.pages, {
+          editable: pptMode.value === 'editable', PptxGenJS, JSZip,
+          rasterizePage: (pg, sc) => rasterize(pg, sc, { mime: 'image/png' }),
+          rasterizeObject: (pg, sc) => rasterize(pg, sc, { mime: 'image/png', transparent: true }),
+        });
+        out = await window.native.exportFile({ defaultName: base.replace(/-[^-]*$/, '') + '.pptx', ext: 'pptx', data: 'data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,' + r.base64 });
+        const pics = Object.keys(r.pictures);
+        if (out && pics.length) { toast(`Exported ${out.split(/[\\/]/).pop()}. ${pics.join(', ').replace(/^./, (c) => c.toUpperCase())} went in as pictures; in PowerPoint, right-click one › Convert to Shape to edit it.`, 7000); closeModal(); return; }
       } else if (fmt.value === 'svg') {
         out = await window.native.exportFile({ defaultName: base + '.svg', ext: 'svg', data: '<?xml version="1.0" encoding="UTF-8"?>\n' + pageSvgString(p, { transparent: transparent.checked }) });
       } else if (fmt.value === 'pdf') {
@@ -531,7 +527,7 @@ function openExportDialog() {
     } catch (e) { toast('Export failed: ' + e.message, 4000); }
   };
   openModal('Export', el('div', { style: 'max-width:520px' },
-    field('Format', fmt), selRow, r1, r2, scopeRow, trRow, info, creditNote,
+    field('Format', fmt), selRow, r1, r2, scopeRow, pptRow, trRow, info, creditNote,
     el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Export…', go, 'primary'))));
   upd();
 }
