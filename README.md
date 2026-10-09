@@ -5,7 +5,7 @@ library → canvas → relationships → data → review → export.
 
 ## Version 1.0
 
-SciCanvas 1.0 brings together everything built so far: drawing and design tools (v0.8), about 19,950 icons including the new soft-style sets for anatomy, microbes, model organisms, plants, lab and clinical items, graphs with publication-grade statistics (follow-up tests, curve fitting, ROC, contingency tables, regression, factorial ANOVA), a diagram builder with 19 diagram types and flowcharts from Mermaid / JSON / steps, templates, a journal-figure checker, and AI drafting from your own PDFs, Word files, slides and tables. The sections below describe each release in detail.
+SciCanvas 1.0 brings together everything built so far: drawing and design tools (v0.8), about 21,500 icons (including 1,500 soft-style icons) with new soft-style sets for anatomy, microbes, model organisms, plants, lab and clinical items, graphs with publication-grade statistics (follow-up tests, curve fitting, ROC, contingency tables, regression, factorial ANOVA), a diagram builder with 19 diagram types and flowcharts from Mermaid / JSON / steps, templates, a journal-figure checker, and AI drafting from your own PDFs, Word files, slides and tables. The sections below describe each release in detail.
 
 ## Run
 
@@ -31,11 +31,11 @@ npm test       # unit tests: statistics (checked against SciPy), every chart typ
 
 Both run on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`).
 
-## Icon libraries (~19,950 icons)
+## Icon libraries (~21,500 icons)
 
 | Library | Icons | Licence | Content |
 |---|---|---|---|
-| Built-in | 51 | — | Core cells, molecules, lab and anatomy |
+| Built-in | 1,567 | — | Core cells, molecules, lab and anatomy, plus about 1,500 soft-style proteins, complexes, cells, microbes, organisms and lab items (drawn in code, no download needed) |
 | Bioicons | 2,793 | CC0 / CC BY / CC BY-SA | General life science |
 | Reactome | 2,569 | CC BY 4.0 | Proteins, receptors, transporters, compounds, cell types, tissues |
 | Health Icons | 1,498 | MIT | Body, devices, diagnostics, medications, people |
