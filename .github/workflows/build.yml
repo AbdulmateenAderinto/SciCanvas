@@ -5,10 +5,16 @@ name: Build installers
 #   to that release page. Other releases (like "icon-libraries") are left alone.
 # - On pull requests that touch the build setup, and when run by hand from the Actions tab,
 #   they're saved as downloadable "artifacts" on the run instead.
+# - Run by hand with a release tag (e.g. v1.1.0) to rebuild that release's installers and attach them to it.
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional: a published release tag (e.g. v1.1.0) to build and attach installers to'
+        required: false
+        default: ''
   pull_request:
     paths:
       - package.json
@@ -40,6 +46,8 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || '' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -63,12 +71,21 @@ jobs:
             find assets -name '._*' -delete
             echo "Icon libraries: $(ls assets/iconpacks | tr '\n' ' ')"
             echo "Icon files: $(find assets/iconpacks -type f | wc -l)"
-          elif [ "${{ github.event_name }}" = release ]; then
+          elif [ "${{ github.event_name }}" = release ] || [ -n "${{ inputs.tag }}" ]; then
             echo "::error::Couldn't download the icon libraries (release 'icon-libraries', file iconpacks.tar.gz)."; exit 1
           else
             echo "::warning::Couldn't download the icon libraries; building without them."
           fi
-      - run: ${{ matrix.cmd }}
+      # Signing the Mac app opens every one of the ~19,900 icon files at once, which is more than macOS lets
+      # one process open by default ("EMFILE: too many open files"). Raise the limits before building.
+      - name: Raise the open-file limit (Mac)
+        if: matrix.name == 'mac'
+        run: |
+          sudo sysctl -w kern.maxfiles=524288 kern.maxfilesperproc=262144
+          sudo launchctl limit maxfiles 262144 524288 || true
+      - run: |
+          if [ "${{ matrix.name }}" = mac ]; then ulimit -n 262144 || ulimit -n "$(ulimit -Hn)"; echo "Open-file limit: $(ulimit -n)"; fi
+          ${{ matrix.cmd }}
         shell: bash
 
       # Smoke test: start the built app, give it 25 seconds, and fail if it crashed or the
@@ -102,14 +119,14 @@ jobs:
           echo "::notice::Mac app: $(find "$APP/Contents/Resources/iconpacks" -type f 2>/dev/null | wc -l | tr -d ' ') bundled icon files"
 
       - uses: actions/upload-artifact@v4
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && !inputs.tag
         with:
           name: SciCanvas-${{ matrix.name }}
           path: ${{ matrix.files }}
           if-no-files-found: error
       - name: Attach to the release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.tag
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" ${{ matrix.files }} --clobber
+        run: gh release upload "${{ github.event.release.tag_name || inputs.tag }}" ${{ matrix.files }} --clobber
