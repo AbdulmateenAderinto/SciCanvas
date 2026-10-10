@@ -1348,7 +1348,7 @@ function pathSection(o) {
     o.pathText ? el('div', { class: 'note', textContent: 'Set Stroke to None to show only the curved label.' }) : null);
 }
 function iconColourSection(o) {
-  const L = [o], native = !!ICON_MAP[o.iconId], a = native ? null : getAsset(o.iconId);
+  const L = [o], native = !!ICON_MAP[o.iconId], a = native ? ICON_MAP[o.iconId].credit || null : getAsset(o.iconId);
   const setTint = (v) => { checkpoint('tint' + o.id); o.tint = v; o.colorMap = null; renderScene(); renderProps(); };
   return sect('Colour',
     native

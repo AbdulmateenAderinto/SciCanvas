@@ -289,7 +289,11 @@ function collectCredits(doc) {
   const walk = (o) => { if (o.type === 'icon') used.add(o.iconId); if (o.children) o.children.forEach(walk); };
   doc.pages.forEach((p) => p.objects.forEach(walk));
   const icons = [];
-  for (const k of used) { const a = doc.assets && doc.assets[k]; if (a && a.pack !== 'upload') icons.push(a); }
+  for (const k of used) {
+    const a = doc.assets && doc.assets[k];
+    if (a && a.pack !== 'upload') icons.push(a);
+    else if (!a && typeof ICON_MAP !== 'undefined' && ICON_MAP[k] && ICON_MAP[k].credit) icons.push(ICON_MAP[k].credit); // built-in icons drawn from library artwork
+  }
   const sources = new Set();
   const walk2 = (o) => { if (o.type === 'image' && o.source) sources.add(o.source); if (o.children) o.children.forEach(walk2); };
   doc.pages.forEach((p) => p.objects.forEach(walk2));

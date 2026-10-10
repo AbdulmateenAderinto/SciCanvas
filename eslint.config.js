@@ -5,8 +5,8 @@ module.exports = [
   { ignores: ['node_modules/**', 'dist/**', 'assets/**'] },
   js.configs.recommended,
   {
-    // Electron main process, preload, build scripts and tests run in Node.
-    files: ['main.js', 'preload.js', 'scripts/**/*.js', 'test/**/*.js', 'eslint.config.js'],
+    // Electron main process, preload, build scripts, developer tools and tests run in Node.
+    files: ['main.js', 'preload.js', 'scripts/**/*.js', 'tools/**/*.js', 'test/**/*.js', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs', globals: { ...globals.node } },
     // `const { team: _t, ...data } = tpl` drops a field on purpose; don't flag the dropped one.
     rules: { 'no-unused-vars': ['error', { ignoreRestSiblings: true }] },
