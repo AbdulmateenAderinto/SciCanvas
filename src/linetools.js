@@ -107,7 +107,7 @@
   }
 
   // ---------- which connectors need the extended drawing ----------
-  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow'];
+  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow', 'labelPos', 'labelAlong', 'midArrows'];
   globalThis.LINE_RESET = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'ticks', 'tickLabels'];
   const set = (v) => v != null && v !== '' && v !== false && v !== 0 && v !== 'solid' && !(Array.isArray(v) && !v.length);
   const objOf = (end, objects) => (end && end.id ? objects.find((x) => x.id === end.id) : null);
@@ -278,6 +278,7 @@
     return { pts: P };
   }
   globalThis.connectorPolyline = (o, objects) => geom(o, objects || objs()).pts;
+  globalThis.connectorLabelPoint = (o, objects) => { const P = geom(o, objects || objs()).pts, q = along(P, polyLen(P) * (o.labelPos ?? 0.5)); return { x: q.x, y: q.y }; };
   globalThis.connectorGeom = geom;
 
   // Where each line's ends were last drawn, and the box of what they were attached to. Some operations replace or
@@ -445,6 +446,11 @@
       s += arrowHead(o.head, b, aim(true), o.gradTo || color, sw, hsz) + arrowHead(o.tail, a, aim(false), color, sw, hsz);
     }
     const midQ = along(P0, L / 2), up = upNormal(midQ), fs = o.labelSize || 13;
+    // Direction arrows along the line (for long arrows and cycles).
+    for (let i = 0, n = Math.min(20, o.midArrows || 0); i < n && !o.flow; i++) {
+      const sMid = (L * (i + 0.5)) / n, hl = headScale(sw, hsz) * 0.7, tip = along(P0, sMid + hl), back = along(P0, sMid - hl);
+      s += arrowHead('arrow', { x: tip.x, y: tip.y }, { x: back.x, y: back.y }, o.gradTo ? o.gradTo : color, sw, hsz);
+    }
     const off = (o.flow ? (o.flowWidth || 22) / 2 : sw / 2) + 4 + fs * 0.6;
     // Timeline ticks with labels underneath.
     const tl = String(o.tickLabels || '').split(',').map((x) => x.trim()).filter(Boolean), nT = o.ticks || tl.length;
@@ -471,9 +477,21 @@
     }
     const sideUp = (o.sideIn || o.sideOut) && !o.sideFlip, sideDown = (o.sideIn || o.sideOut) && o.sideFlip;
     const above = o.measure && !o.labelAbove ? measureLabel(o, L) : o.labelAbove;
-    if (above) { const k = off + (sideUp ? 46 : 0); s += textAt(above, { x: midQ.x + up.x * k, y: midQ.y + up.y * k }, fs, color, o.labelItalic, false); }
-    if (o.labelBelow) { const k = off + (sideDown ? 46 : 0) + (nT >= 2 ? 0 : 0); s += textAt(o.labelBelow, { x: midQ.x - up.x * k, y: midQ.y - up.y * k }, fs, color, o.labelItalic, false); }
-    if (o.label) s += textAt(o.label, { x: midQ.x, y: midQ.y }, fs, color, o.labelItalic, true);
+    // Labels sit at labelPos along the line (default the middle); "along the line" turns them to its angle, upright.
+    const lq = o.labelPos != null ? along(P0, L * o.labelPos) : midQ, lup = upNormal(lq), gapL = o.label ? fs * 0.55 : 0, kA = off + gapL + (sideUp ? 46 : 0), kB = off + gapL + (sideDown ? 46 : 0); // clear of a main label
+    let lab = '';
+    if (o.labelAlong) {
+      let ang = (Math.atan2(lq.ty, lq.tx) * 180) / Math.PI;
+      if (ang > 90) ang -= 180; else if (ang < -90) ang += 180;
+      if (above) lab += textAt(above, { x: 0, y: -kA }, fs, color, o.labelItalic, false);
+      if (o.labelBelow) lab += textAt(o.labelBelow, { x: 0, y: kB }, fs, color, o.labelItalic, false);
+      if (o.label) lab += textAt(o.label, { x: 0, y: 0 }, fs, color, o.labelItalic, true);
+      if (lab) s += `<g transform="translate(${r2(lq.x)} ${r2(lq.y)}) rotate(${r2(ang)})">${lab}</g>`;
+    } else {
+      if (above) s += textAt(above, { x: lq.x + lup.x * kA, y: lq.y + lup.y * kA }, fs, color, o.labelItalic, false);
+      if (o.labelBelow) s += textAt(o.labelBelow, { x: lq.x - lup.x * kB, y: lq.y - lup.y * kB }, fs, color, o.labelItalic, false);
+      if (o.label) s += textAt(o.label, { x: lq.x, y: lq.y }, fs, color, o.labelItalic, true);
+    }
     return s;
   };
 
@@ -832,6 +850,9 @@
       loop ? row('Loop side', sel('loopSide', [['n', 'Top'], ['e', 'Right'], ['s', 'Bottom'], ['w', 'Left']])) : null,
       loop ? row('Loop size', el('input', { type: 'range', min: 14, max: 140, step: 2, value: o.loopSize || 40, oninput: (e) => setProps(L, 'loopSize', +e.target.value) })) : null,
       row('Above', txt('labelAbove', o.measure ? 'auto: length' : 'e.g. kinase')), row('Below', txt('labelBelow', 'e.g. 37 °C')),
+      row('Labels at', el('input', { type: 'range', min: 0.05, max: 0.95, step: 0.01, value: o.labelPos ?? 0.5, oninput: (e) => setProps(L, 'labelPos', Math.abs(+e.target.value - 0.5) < 0.015 ? undefined : +e.target.value) })),
+      row('', tick('labelAlong', 'Labels follow the line’s angle')),
+      row('Mid arrows', el('input', { type: 'number', min: 0, max: 20, step: 1, value: o.midArrows || 0, style: 'width:60px', title: 'Arrowheads along the line, showing its direction', onchange: (e) => re('midArrows', +e.target.value || undefined) })),
       row('Side in', txt('sideIn', 'e.g. ATP')), row('Side out', txt('sideOut', 'e.g. ADP')),
       (o.sideIn || o.sideOut) ? row('', tick('sideFlip', 'Side arrow below the line')) : null,
       row('Gradient to', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.gradTo || '') ? o.gradTo : '#d6584a', oninput: (e) => setProps(L, 'gradTo', e.target.value) }), o.gradTo ? btn('None', () => re('gradTo', undefined)) : null),

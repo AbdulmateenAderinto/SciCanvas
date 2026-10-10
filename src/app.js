@@ -948,7 +948,8 @@ function editText(o, key, isNew) {
   let left, top, width;
   if (o.type === 'connector') {
     const [a, b] = connectorEnds(o, objs());
-    left = ((a.x + b.x) / 2) * z + state.panX - 80; top = ((a.y + b.y) / 2) * z + state.panY - fs; width = 160;
+    const m = typeof connectorLabelPoint === 'function' ? connectorLabelPoint(o, objs()) : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; // where the label sits
+    left = m.x * z + state.panX - 80; top = m.y * z + state.panY - fs; width = 160;
   } else {
     left = o.x * z + state.panX; top = o.y * z + state.panY; width = Math.max(80, o.w * z);
     if (o.type !== 'text') { top += (o.h * z) / 2 - fs; }
