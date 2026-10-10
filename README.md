@@ -20,6 +20,11 @@ library → canvas → relationships → data → review → export.
 - **Line legend**: right-click the page › Insert line legend adds one sample of each kind of line on the page, with names you can edit.
 - **Equations**: right-click the page › Insert equation (LaTeX)… renders LaTeX and chemistry (`\ce{…}`) offline with MathJax; double-click an equation to edit it.
 - **Gene & protein names**: right-click the page › Gene & protein names… lists every gene/protein symbol in the page's text, guesses gene or protein from the nearby words, and sets italics and human or mouse capitalisation once you've checked them.
+- **Quick connect**: select an object and drag one of the small arrows on its sides onto another object, or click an arrow (or press Option+Shift+Arrow) to add a connected copy on that side.
+- **Line labels**: slide labels along a line, turn them to follow its angle, and add direction arrows along long lines.
+- **New templates**: in vivo study timeline, glycolysis with cofactors and regulation, haematopoiesis lineage tree, and an SBGN signalling map.
+- **Figure check for lines**: line ends that touch an object without being attached, crossings without hops, and styled lines without a legend, each with a one-click Fix.
+- **Fixes**: dotted and dash-dot lines no longer break SVG/PNG export; flat lines are easier to click; special lines export to PowerPoint in the right place; lines stay put (or re-attach) when a boolean operation replaces the shape they were attached to.
 - **Library dropdowns**: pick a library, then a category; PhyloPic's ~4,500 clades are sorted into about 20 groups (mammals, birds, insects, plants, fungi…) with the clades of a group in a third dropdown. Searching keeps the chosen library or group.
 - **PhyloPic in the Refined style**, illustrated icons first in search, and ten Refined model organisms (see the icon table).
 
