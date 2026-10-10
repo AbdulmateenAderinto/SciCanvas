@@ -93,7 +93,7 @@ Both run on every push and pull request via GitHub Actions (`.github/workflows/c
 | Bioicons | 2,793 | CC0 / CC BY / CC BY-SA | General life science |
 | Reactome | 2,569 | CC BY 4.0 | Proteins, receptors, transporters, compounds, cell types, tissues |
 | Health Icons | 1,498 | MIT | Body, devices, diagnostics, medications, people |
-| PhyloPic | 13,038 | mostly CC0 / CC BY; 751 non-commercial (marked **NC**) | Organism silhouettes across the tree of life |
+| PhyloPic | 13,038 | mostly CC0 / CC BY; 751 non-commercial (marked **NC**) | Organism silhouettes across the tree of life. In the Refined icon style they're drawn with a muted fill, a darker outline and a soft highlight to match the other icons (recolour with Tint; Properties › Plain black silhouette, or the Classic style, shows the original). Searches show illustrated icons first; searching a species or group name (e.g. *Danio rerio*) brings the silhouettes to the top. |
 | My icons | unlimited | yours | Your drawings and AI-generated icons |
 
 Searching "mouse" also finds *Mus musculus*, because common names map to the scientific names PhyloPic uses. BioRender's own library is proprietary and can't be imported.
