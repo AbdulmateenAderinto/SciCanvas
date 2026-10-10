@@ -155,7 +155,8 @@ async function renderCheckPanel() {
   res.issues.forEach((x) => counts[x.sev]++);
   const icon = { error: '⛔', warn: '⚠️', info: 'ℹ️' };
   const list = el('div', { class: 'checklist' }, ...(res.issues.length ? res.issues.map((x) => el('div', { class: `chk chk-${x.sev}`, style: 'display:flex;gap:6px;padding:5px 2px;border-bottom:1px solid var(--line);font-size:12px;cursor:' + (x.id ? 'pointer' : 'default'), onclick: () => x.id && jumpTo(x.id) },
-    el('span', { textContent: icon[x.sev] }), el('span', {}, el('b', { textContent: x.kind + ': ' }), x.msg))) : [el('div', { class: 'note', style: 'padding:8px 0;color:#2b7f4a', textContent: '✓ No problems found for this journal.' })]));
+    el('span', { textContent: icon[x.sev] }), el('span', { style: 'flex:1' }, el('b', { textContent: x.kind + ': ' }), x.msg),
+    x.fix ? el('button', { textContent: x.fixLabel || 'Fix', style: 'padding:1px 8px;font-size:11px;align-self:flex-start', onclick: (e) => { e.stopPropagation(); checkpoint(); x.fix(); render({ props: true }); renderCheckPanel(); } }) : null)) : [el('div', { class: 'note', style: 'padding:8px 0;color:#2b7f4a', textContent: '✓ No problems found for this journal.' })]));
   P.innerHTML = '';
   P.append(sect('Journal', row('Journal', jSel), j.widths.length > 1 || j.widths[0][1] ? row('Width', wSel) : null,
     el('div', { class: 'note', textContent: `Printed at ${jd.widthMM ? `${jd.widthMM} mm` : `${((p.width / 96) * 25.4).toFixed(0)} mm (current page)`} wide → ${((p.height * k) / MM).toFixed(0)} mm tall; everything scales ×${k.toFixed(2)}. Formats: ${j.formats}.${j.approx ? ' Sizes approximate — confirm in the current author guide.' : ''}` }),

@@ -868,6 +868,42 @@
     if (anchor && anchor.parentElement) anchor.parentElement.after(s); else P.append(s);
   };
 
+  // ---------- Figure check (Check tab): common line mistakes ----------
+  if (typeof checkFigure === 'function') {
+    const prevCheck = checkFigure;
+    checkFigure = async function (p = page()) {
+      const r = await prevCheck(p);
+      const list = p.objects, lines = list.filter((o) => o.type === 'connector' && !o.hidden && o.style !== 'zoom');
+      const add = (sev, msg, o, fix, fixLabel) => r.issues.push({ sev, kind: 'Lines', msg, id: o && o.id, fix, fixLabel });
+      const nameOf = (o) => (o.name || o.label || (typeof layerName === 'function' ? layerName(o) : o.type) || '').toString().slice(0, 40);
+      // A free end lying on an object's outline looks attached but won't follow when the object moves.
+      for (const c of lines) {
+        const ends = connectorEnds(c, list);
+        ['from', 'to'].forEach((k, i) => {
+          if (c[k].id) return;
+          const q = ends[i];
+          const near = list.find((o) => o !== c && o.type !== 'connector' && !o.hidden && o.type !== 'text' && (() => { const b = bounds(o, list), m = 6; return q.x > b.x - m && q.x < b.x + b.w + m && q.y > b.y - m && q.y < b.y + b.h + m && b.w * b.h < p.width * p.height * 0.25; })());
+          if (near) add('warn', `${nameOf(c) || 'A line'}: its ${k === 'from' ? 'start' : 'end'} touches ${nameOf(near)} but isn't attached, so it won't follow if ${nameOf(near)} moves.`, c, () => { const at = edgePointAt(near, q); c[k] = at ? { id: near.id, at } : { id: near.id }; }, 'Attach');
+        });
+      }
+      // Crossings without hops.
+      const P = lines.map((c) => geom(c, list).pts);
+      let crossings = 0;
+      for (let a = 0; a < P.length; a++) for (let b = a + 1; b < P.length; b++) {
+        if (lines[a].jumps || lines[b].jumps) continue;
+        const shared = ['from', 'to'].some((k) => ['from', 'to'].some((j) => lines[a][k].id && lines[a][k].id === lines[b][j].id));
+        if (shared) continue;
+        for (let i = 1; i < P[a].length; i++) for (let j = 1; j < P[b].length; j++) if (segX(P[a][i - 1], P[a][i], P[b][j - 1], P[b][j]) != null) crossings++;
+      }
+      if (crossings) add('info', `${crossings} place${crossings > 1 ? 's' : ''} where lines cross. Hops make the paths easier to follow.`, null, () => { for (const c of lines) c.jumps = true; }, 'Add hops');
+      // Dashed / dotted lines usually mean something (indirect, proposed): say so in a legend.
+      const styled = lines.filter((c) => (c.dashStyle && c.dashStyle !== 'solid') || c.lineStyle);
+      const hasLegend = list.some((o) => o.type === 'group' && /legend/i.test(o.name || ''));
+      if (styled.length && !hasLegend) add('info', `${styled.length} dashed, dotted or styled line${styled.length > 1 ? 's' : ''} but no line legend to say what each style means.`, null, () => insertLegend(), 'Add legend');
+      return r;
+    };
+  }
+
   // ---------- PowerPoint: lines PowerPoint can't draw go in as pictures ----------
   if (typeof pictureOnly === 'function') {
     const prevPic = pictureOnly;
