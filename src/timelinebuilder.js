@@ -220,4 +220,10 @@
   ARRANGE_COMMANDS.blotBuilder = openBlotBuilder;
   globalThis.parseTimeline = parse;
   ARRANGE_COMMANDS.timelineBuilder = openTimelineBuilder;
+  const prevMenu = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu();
+    if (!state.sel.length) t.push({ label: 'Builders', submenu: [{ label: 'Timeline…', cmd: 'timelineBuilder' }, { label: 'Cohort / study groups…', cmd: 'cohortBuilder' }, { label: 'Gating strategy…', cmd: 'gatingBuilder' }, { label: 'Western blot…', cmd: 'blotBuilder' }] });
+    return t;
+  };
 })();
