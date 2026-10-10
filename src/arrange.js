@@ -290,11 +290,14 @@ const CTX_SVG = {
   del: '<path d="M3 5h12M7 5V3h4v2M5 5l1 11h6l1-11" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   points: '<path d="M3 14C6 3 12 15 15 4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="1.5" y="12.5" width="3" height="3" fill="currentColor"/><rect x="13.5" y="2.5" width="3" height="3" fill="currentColor"/>',
 };
-const ctxBtn = (key, cmd, title) => `<button data-ctx="${cmd}" title="${title}"><svg viewBox="0 0 18 18" width="16" height="16">${CTX_SVG[key]}</svg></button>`;
+CTX_SVG.crop = '<path d="M5 1.5V13h11.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1.5 5H13v11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>';
+// Each button says what it does under its icon (short name; the tooltip keeps the full name and shortcut).
+const CTX_LABEL = { bringFront: 'Front', bringForward: 'Forward', sendBackward: 'Backward', sendBack: 'Back', '@align': 'Align', flipH: 'Flip', group: 'Group', ungroup: 'Ungroup', editPoints: 'Points', cropStart: 'Crop', duplicate: 'Duplicate', lock: 'Lock', deleteSel: 'Delete', ungroupIcon: 'Edit parts', replaceSel: 'Replace', selectSameIcon: 'Select same', zoomWedge: 'Callout' };
+const ctxBtn = (key, cmd, title) => `<button data-ctx="${cmd}" title="${title}"><svg viewBox="0 0 18 18" width="16" height="16">${CTX_SVG[key]}</svg><span class="ctxlbl">${CTX_LABEL[cmd] || title.split(/ \(| —|…/)[0]}</span></button>`;
 function updateContextBar() {
   const bar = $('#ctxbar');
   const sel = selected();
-  if (!sel.length || state.tool !== 'select' || nodeEdit || drag || editing) { bar.classList.add('hidden'); return; }
+  if (!sel.length || state.tool !== 'select' || nodeEdit || drag || editing || (typeof cropMode !== 'undefined' && cropMode)) { bar.classList.add('hidden'); return; }
   const multi = sel.length > 1, hasGroup = sel.some((o) => o.type === 'group'), isPath = sel.length === 1 && sel[0].type === 'path';
   bar.innerHTML = [
     ctxBtn('front', 'bringFront', 'Bring to front (⇧⌘])'), ctxBtn('forward', 'bringForward', 'Bring forward (⌘])'),
@@ -304,6 +307,7 @@ function updateContextBar() {
     ctxBtn('flip', 'flipH', 'Flip horizontally (⇧H)'),
     multi ? ctxBtn('group', 'group', 'Group (⌘G)') : hasGroup ? ctxBtn('group', 'ungroup', 'Ungroup (⇧⌘G)') : '',
     isPath ? ctxBtn('points', 'editPoints', 'Edit points') : '',
+    sel.length === 1 && ['icon', 'image'].includes(sel[0].type) && !sel[0].locked ? ctxBtn('crop', 'cropStart', 'Crop (double-click a cropped object to adjust)') : '',
     '<span class="ctxsep"></span>',
     ctxBtn('dup', 'duplicate', 'Duplicate (⌘D)'), ctxBtn('lock', 'lock', 'Lock (⌘L)'), ctxBtn('del', 'deleteSel', 'Delete (⌫)'),
   ].join('');
@@ -356,6 +360,7 @@ function contextMenuTemplate() {
   const isPath = n === 1 && sel[0].type === 'path', hasGroup = sel.some((o) => o.type === 'group');
   return [
     { label: 'Cut', role: 'cut' }, { label: 'Copy', role: 'copy' }, { label: 'Paste', role: 'paste' }, { label: 'Duplicate', cmd: 'duplicate' }, { label: 'Copy as image', cmd: 'copyImage' },
+    ...(n === 1 && ['icon', 'image'].includes(sel[0].type) ? [{ label: 'Crop', cmd: 'cropStart' }, ...(sel[0].crop ? [{ label: 'Remove crop', cmd: 'cropReset' }] : [])] : []),
     { type: 'separator' },
     { label: 'Bring to front', cmd: 'bringFront' }, { label: 'Bring forward', cmd: 'bringForward' }, { label: 'Send backward', cmd: 'sendBackward' }, { label: 'Send to back', cmd: 'sendBack' },
     { type: 'separator' },
@@ -431,8 +436,8 @@ function renderLayers() {
     r.append(caret, el('span', { class: 'kind', textContent: LAYER_ICON[o.type] || '•', title: o.type }), name);
     if (!parent) {
       r.append(
-        el('button', { class: 'lbtn' + (o.hidden ? ' on' : ''), title: o.hidden ? 'Show' : 'Hide', textContent: o.hidden ? '◌' : '👁', onclick: (e) => { e.stopPropagation(); checkpoint(); o.hidden = !o.hidden; if (o.hidden) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }),
-        el('button', { class: 'lbtn' + (o.locked ? ' on' : ''), title: o.locked ? 'Unlock' : 'Lock', textContent: o.locked ? '🔒' : '🔓', onclick: (e) => { e.stopPropagation(); checkpoint(); o.locked = !o.locked; if (o.locked) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }));
+        el('button', { class: 'lbtn' + (o.hidden ? ' on' : ''), title: o.hidden ? 'Show' : 'Hide', textContent: o.hidden ? '◌ Show' : '👁 Hide', onclick: (e) => { e.stopPropagation(); checkpoint(); o.hidden = !o.hidden; if (o.hidden) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }),
+        el('button', { class: 'lbtn' + (o.locked ? ' on' : ''), title: o.locked ? 'Unlock' : 'Lock', textContent: o.locked ? '🔒 Unlock' : '🔓 Lock', onclick: (e) => { e.stopPropagation(); checkpoint(); o.locked = !o.locked; if (o.locked) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }));
     }
     r.addEventListener('click', (e) => {
       const id = parent ? parent.id : o.id;
