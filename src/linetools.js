@@ -1204,6 +1204,12 @@
           if (best < 1) o.labelSize = Math.max(6, Math.floor(fs * best * 10) / 10);
         } });
       }
+      // Labels that don't stand out from their shape (WCAG contrast below 3:1).
+      const lum = (hex) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return null; const v = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+      const contrast = (a, b) => { const x = lum(a), y = lum(b); return x == null || y == null ? 99 : (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      const faint = list.filter((o) => !o.hidden && o.label && ['rect', 'ellipse', 'shape'].includes(o.type) && o.fill && o.fill !== 'none' && contrast(o.labelColor || '#222222', o.fill) < 3);
+      if (faint.length) r.issues.push({ sev: 'warn', kind: 'Colour', msg: `${faint.length} label${faint.length > 1 ? 's are' : ' is'} hard to read on ${faint.length > 1 ? 'their' : 'its'} fill (e.g. ${nameOf(faint[0])}).`, id: faint[0].id, fixLabel: 'Black or white text',
+        fix: () => { for (const o of faint) o.labelColor = contrast('#ffffff', o.fill) >= contrast('#222222', o.fill) ? '#ffffff' : '#222222'; } });
       // Lines of the same kind at different widths look accidental: offer the most common width per kind.
       const byKind = new Map();
       for (const c of lines) { if (c.flow) continue; const k = `${c.head || 'arrow'}|${c.dashStyle || 'solid'}`; if (!byKind.has(k)) byKind.set(k, []); byKind.get(k).push(c); }
