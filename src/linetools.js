@@ -107,7 +107,7 @@
   }
 
   // ---------- which connectors need the extended drawing ----------
-  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow', 'labelPos', 'labelAlong', 'midArrows'];
+  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow', 'labelPos', 'labelAlong', 'midArrows', 'endGap'];
   globalThis.LINE_RESET = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'ticks', 'tickLabels'];
   const set = (v) => v != null && v !== '' && v !== false && v !== 0 && v !== 'solid' && !(Array.isArray(v) && !v.length);
   const objOf = (end, objects) => (end && end.id ? objects.find((x) => x.id === end.id) : null);
@@ -115,7 +115,7 @@
   // Geometry differs from render.js's: bend points, auto route, a loop, an offset, an edge point or a line end.
   function shaped(o, objects) {
     if (o.type !== 'connector' || o.style === 'zoom') return false;
-    if ((o.points && o.points.length) || o.route === 'auto' || selfLoop(o) || o.offset) return true;
+    if ((o.points && o.points.length) || o.route === 'auto' || selfLoop(o) || o.offset || o.endGap > 0) return true;
     for (const end of [o.from, o.to]) {
       if (!end || !end.id) continue;
       if (end.at || end.t != null) return true;
@@ -275,6 +275,10 @@
       else P = [a, b];
     }
     if (o.offset) P = offsetLine(P, o.offset);
+    if (o.endGap > 0 && P.length >= 2) { // stop short of the objects the line joins
+      const L = polyLen(P), g0 = o.from && o.from.id ? Math.min(o.endGap, L / 3) : 0, g1 = o.to && o.to.id ? Math.min(o.endGap, L / 3) : 0;
+      if (g0 || g1) P = slice(P, g0, L - g1);
+    }
     return { pts: P };
   }
   globalThis.connectorPolyline = (o, objects) => geom(o, objects || objs()).pts;
@@ -949,6 +953,7 @@
       row('Route', sel('route', [['', 'As drawn'], ['auto', 'Around objects']])),
       (o.points && o.points.length) ? row('', btn(`Remove ${o.points.length} bend point${o.points.length > 1 ? 's' : ''}`, () => re('points', undefined))) : null,
       row('', tick('jumps', 'Hop over lines it crosses')),
+      row('Gap at ends', el('input', { type: 'range', min: 0, max: 30, step: 1, value: o.endGap || 0, title: 'Stop the line short of the objects it joins', oninput: (e) => setProps(L, 'endGap', +e.target.value || undefined) })),
       row('Offset', el('input', { type: 'range', min: -20, max: 20, step: 1, value: o.offset || 0, oninput: (e) => setProps(L, 'offset', +e.target.value || 0) })),
       loop ? row('Loop side', sel('loopSide', [['n', 'Top'], ['e', 'Right'], ['s', 'Bottom'], ['w', 'Left']])) : null,
       loop ? row('Loop size', el('input', { type: 'range', min: 14, max: 140, step: 2, value: o.loopSize || 40, oninput: (e) => setProps(L, 'loopSize', +e.target.value) })) : null,
