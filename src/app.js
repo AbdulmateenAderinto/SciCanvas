@@ -59,7 +59,16 @@ function toast(msg, ms = 2200) {
 
 // ---------- History ----------
 let lastCp = { key: null, t: 0 };
-function snapshot() { return JSON.stringify({ doc: { ...state.doc, assets: undefined, uploads: undefined }, pageIndex: state.pageIndex }); }
+// Undo snapshots keep big embedded images (photos, micrographs) once, in a shared pool, instead of a full copy in
+// every step: 200 steps of a figure with a 10 MB photo used to hold 2 GB.
+const blobPool = new Map();
+const blobKey = (v) => { const n = v.length, at = (f) => v.slice(Math.floor(n * f), Math.floor(n * f) + 48); return `${n}:${v.slice(22, 90)}:${at(0.25)}:${at(0.5)}:${at(0.75)}:${v.slice(-48)}`; };
+function snapshot() {
+  return JSON.stringify({ doc: { ...state.doc, assets: undefined, uploads: undefined }, pageIndex: state.pageIndex }, (k, v) => {
+    if (typeof v === 'string' && v.length > 20000 && v.startsWith('data:')) { const key = blobKey(v); if (!blobPool.has(key)) blobPool.set(key, v); return '\u0000blob:' + key; }
+    return v;
+  });
+}
 function checkpoint(key) {
   const now = Date.now();
   if (key && key === lastCp.key && now - lastCp.t < 900) { lastCp.t = now; return; }
@@ -69,8 +78,9 @@ function checkpoint(key) {
   state.redo = [];
   markDirty();
 }
+const parseSnapshot = (snap) => JSON.parse(snap, (k, v) => (typeof v === 'string' && v.startsWith('\u0000blob:') ? blobPool.get(v.slice(6)) ?? '' : v));
 function restore(snap) {
-  const s = JSON.parse(snap);
+  const s = parseSnapshot(snap);
   s.doc.assets = state.doc.assets; s.doc.uploads = state.doc.uploads;
   state.doc = s.doc;
   state.pageIndex = Math.min(s.pageIndex, state.doc.pages.length - 1);
