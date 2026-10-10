@@ -8,7 +8,7 @@
   function open(at) {
     close();
     box = el('div', { class: 'quickadd' });
-    const input = el('input', { type: 'search', placeholder: 'Add an icon or shape: type a name (cell, antibody, star…)' });
+    const input = el('input', { type: 'search', placeholder: 'Add an icon, shape or line: type a name (cell, star, inhibition…)' });
     const list = el('div', { class: 'qa-grid' });
     box.append(input, list);
     document.body.append(box);
@@ -21,14 +21,15 @@
       const q = input.value.trim();
       const SL = globalThis.ShapeLib, ql = q.toLowerCase();
       const shapes = q && SL ? SL.LIB.flatMap(([cat, its]) => its.filter((it) => it.label.toLowerCase().includes(ql) || cat.toLowerCase() === ql).map((it) => ({ shape: it, name: it.label }))).slice(0, 4) : [];
-      items = q ? [...shapes, ...searchIcons(q, { cat: 'All', limit: 12 - shapes.length, field: appSettings.field }).items] : searchIcons('', { cat: 'Recent', limit: 8 }).items; // empty box: recent icons
+      const lines = q && SL ? SL.LINES.filter(([n]) => n.toLowerCase().includes(ql)).slice(0, 3).map(([n, p]) => ({ line: n, preset: p, name: n })) : [];
+      items = q ? [...lines, ...shapes, ...searchIcons(q, { cat: 'All', limit: Math.max(4, 12 - shapes.length - lines.length), field: appSettings.field }).items] : searchIcons('', { cat: 'Recent', limit: 8 }).items; // empty box: recent icons
       active = Math.min(active, Math.max(0, items.length - 1));
       list.innerHTML = items.map((it, i) => {
-        const pic = it.shape ? globalThis.ShapeLib.shapeThumb(it.shape) : it.native ? nativeThumb(it.id) : it.pack === 'phylopic' ? `<span class="pp-thumb" style="-webkit-mask-image:url('${it.url}');mask-image:url('${it.url}')"></span>` : `<img src="${it.url}" alt="">`;
+        const pic = it.line ? globalThis.ShapeLib.lineThumb(it.preset) : it.shape ? globalThis.ShapeLib.shapeThumb(it.shape) : it.native ? nativeThumb(it.id) : it.pack === 'phylopic' ? `<span class="pp-thumb" style="-webkit-mask-image:url('${it.url}');mask-image:url('${it.url}')"></span>` : `<img src="${it.url}" alt="">`;
         return `<button class="qa-item${i === active ? ' on' : ''}" data-i="${i}" title="${esc(it.name)}">${pic}<span>${esc(it.name)}</span></button>`;
       }).join('') || (q ? '<div class="note" style="padding:6px">No icons match</div>' : '<div class="note" style="padding:6px">↑↓ or ←→ to choose · Enter to add · Esc to close</div>');
     };
-    const pick = async (i) => { const it = items[i]; if (!it) return; close(); if (it.shape) globalThis.ShapeLib.insertShape(it.shape, at); else await addIcon(it.key, at); };
+    const pick = async (i) => { const it = items[i]; if (!it) return; close(); if (it.line) globalThis.ShapeLib.useLinePreset(it.line); else if (it.shape) globalThis.ShapeLib.insertShape(it.shape, at); else await addIcon(it.key, at); };
     input.addEventListener('input', () => { active = 0; draw(); });
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
