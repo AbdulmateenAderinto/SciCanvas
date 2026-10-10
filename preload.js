@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('native', {
   deleteUserIcon: (file) => ipcRenderer.invoke('delete-user-icon', file),
   onPackProgress: (fn) => ipcRenderer.on('pack-progress', (_e, p) => fn(p)),
   copyImage: (dataUrl) => ipcRenderer.invoke('copy-image', dataUrl),
+  copySvg: (svg) => ipcRenderer.invoke('copy-svg', svg),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   aiGenerate: (req) => ipcRenderer.invoke('ai-generate', req),

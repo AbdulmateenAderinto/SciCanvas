@@ -93,6 +93,7 @@ function buildMenu() {
         { label: 'Duplicate', accelerator: 'CmdOrCtrl+D', click: send('duplicate') },
         { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: send('selectAll') },
         { label: 'Copy as Image', accelerator: 'CmdOrCtrl+Shift+C', click: send('copyImage') },
+        { label: 'Copy as SVG (Figma, Illustrator)', click: send('copySvg') },
         { label: 'Copy Style', accelerator: 'Alt+CmdOrCtrl+C', click: send('copyStyle') },
         { label: 'Paste Style', accelerator: 'Alt+CmdOrCtrl+V', click: send('pasteStyle') },
         { type: 'separator' },
@@ -683,6 +684,8 @@ ipcMain.handle('delete-user-icon', (_e, file) => {
 });
 
 // ---------- Clipboard ----------
+// SVG markup as text: Figma, Illustrator and Inkscape paste it as editable vectors.
+ipcMain.handle('copy-svg', (_e, svg) => { if (typeof svg === 'string' && svg.startsWith('<svg') && svg.length < 50e6) clipboard.writeText(svg); });
 ipcMain.handle('copy-image', (_e, dataUrl) => {
   clipboard.writeImage(nativeImage.createFromDataURL(dataUrl));
   return true;

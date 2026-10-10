@@ -355,7 +355,7 @@ function contextMenuTemplate() {
   ];
   const isPath = n === 1 && sel[0].type === 'path', hasGroup = sel.some((o) => o.type === 'group');
   return [
-    { label: 'Cut', role: 'cut' }, { label: 'Copy', role: 'copy' }, { label: 'Paste', role: 'paste' }, { label: 'Duplicate', cmd: 'duplicate' }, { label: 'Copy as image', cmd: 'copyImage' },
+    { label: 'Cut', role: 'cut' }, { label: 'Copy', role: 'copy' }, { label: 'Paste', role: 'paste' }, { label: 'Duplicate', cmd: 'duplicate' }, { label: 'Copy as image', cmd: 'copyImage' }, { label: 'Copy as SVG', cmd: 'copySvg' },
     { type: 'separator' },
     { label: 'Bring to front', cmd: 'bringFront' }, { label: 'Bring forward', cmd: 'bringForward' }, { label: 'Send backward', cmd: 'sendBackward' }, { label: 'Send to back', cmd: 'sendBack' },
     { type: 'separator' },

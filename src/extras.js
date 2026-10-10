@@ -286,6 +286,15 @@ function selectionPage(margin = 16) {
   });
   return { ...page(), width: Math.ceil(bb.w + 2 * margin), height: Math.ceil(bb.h + 2 * margin), background: page().background, objects: objsOut };
 }
+// The selection (or page) as SVG markup on the clipboard: pastes into Figma, Illustrator or Inkscape as vectors.
+async function copyAsSvg() {
+  const p = selectionPage();
+  try {
+    await window.native.copySvg(pageSvgString(p, { transparent: state.sel.length > 0 }));
+    toast(`Copied ${state.sel.length ? 'selection' : 'page'} as SVG — paste into Figma, Illustrator or Inkscape`);
+  } catch (e) { toast('Copy failed: ' + e.message); }
+}
+if (typeof ARRANGE_COMMANDS !== 'undefined') ARRANGE_COMMANDS.copySvg = copyAsSvg;
 async function copyAsImage() {
   const p = selectionPage();
   try {
