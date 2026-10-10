@@ -362,7 +362,10 @@ function showAlignPopover(anchor) {
   const items = [['alignL', '⇤ Left'], ['alignC', '↔ Centre'], ['alignR', 'Right ⇥'], ['alignT', '⤒ Top'], ['alignM', '↕ Middle'], ['alignB', 'Bottom ⤓']];
   if (state.sel.length > 2) items.push(['distH', '⇿ Distribute horizontally'], ['distV', '⇳ Distribute vertically']);
   if (multi) items.push(['matchW', '▭ Match width'], ['matchH', '▯ Match height']);
-  pop.innerHTML = `<div class="note" style="padding:2px 6px 4px">${multi ? 'Align selection' : 'Align to page'}</div>` + items.map(([c, l]) => `<button data-ctx="${c}">${l}</button>`).join('');
+  pop.innerHTML = `<div class="note" style="padding:2px 6px 4px">${multi ? 'Align selection' : 'Align to page'}</div>` + items.map(([c, l]) => `<button data-ctx="${c}">${l}</button>`).join('')
+    + (multi ? `<label style="display:flex;gap:6px;align-items:center;padding:6px;font-size:12px;width:auto"><input type="checkbox" data-alignkey ${state.view.alignToKey ? 'checked' : ''}> Align to the last-clicked object</label>` : '');
+  const ak = pop.querySelector('[data-alignkey]');
+  if (ak) ak.onchange = () => { state.view.alignToKey = ak.checked; if (typeof saveView === 'function') saveView(); };
   const r = anchor.getBoundingClientRect(), sr = stage.getBoundingClientRect();
   pop.style.left = r.left - sr.left + 'px';
   pop.style.top = r.bottom - sr.top + 6 + 'px';

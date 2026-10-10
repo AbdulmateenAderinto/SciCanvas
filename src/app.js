@@ -486,7 +486,9 @@ function align(mode) {
   const sel = selected().filter((o) => o.type !== 'connector');
   if (!sel.length) return;
   checkpoint();
-  const ref = sel.length === 1 ? { x: 0, y: 0, w: page().width, h: page().height } : unionBounds(sel);
+  // Key object: with the option on, the last-clicked object stays put and the others line up with it.
+  const key = state.view.alignToKey && sel.length > 1 && !['dh', 'dv'].includes(mode) ? sel.find((o) => o.id === state.sel[state.sel.length - 1]) : null;
+  const ref = key ? bounds(key) : sel.length === 1 ? { x: 0, y: 0, w: page().width, h: page().height } : unionBounds(sel);
   if (mode === 'dh' || mode === 'dv') {
     if (sel.length < 3) return;
     const H = mode === 'dh';
