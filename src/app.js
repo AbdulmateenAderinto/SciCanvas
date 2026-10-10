@@ -1498,6 +1498,7 @@ function renderPageProps(P) {
       row('W', el('input', { type: 'number', value: p.width, onchange: (e) => { setPage('width', Math.max(50, +e.target.value)); } })),
       row('H', el('input', { type: 'number', value: p.height, onchange: (e) => { setPage('height', Math.max(50, +e.target.value)); } }))),
     el('div', { class: 'note', textContent: `${(p.width / 96).toFixed(2)} × ${(p.height / 96).toFixed(2)} in at 1× (96 px/in). Export scales this up for print resolution.` }),
+    row('Alt text', el('textarea', { rows: 2, placeholder: 'Describe the figure for screen readers (journals often ask for this)', value: p.alt || '', oninput: (e) => { checkpoint('page:alt'); p.alt = e.target.value || undefined; markDirty(); } })),
     row('Background', el('input', { type: 'color', value: toHex(p.background), oninput: (e) => setPage('background', e.target.value) }))));
   P.append(sect('Page actions', el('div', { class: 'btnrow' },
     btn('Duplicate page', () => { checkpoint(); const cp = deep(p); cp.id = uid(); cp.name += ' copy'; cp.objects = cloneObjects(p.objects, p.objects, 0); state.doc.pages.splice(state.pageIndex + 1, 0, cp); gotoPage(state.pageIndex + 1); }),

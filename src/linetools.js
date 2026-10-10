@@ -1187,6 +1187,7 @@
       }
       if (near.length) r.issues.push({ sev: 'info', kind: 'Layout', msg: `${near.length} pair${near.length > 1 ? 's' : ''} of objects ${near.length > 1 ? 'are' : 'is'} almost aligned (0.5–3 px off), e.g. ${nameOf(near[0][0])} and ${nameOf(near[0][1])}.`, id: near[0][1].id, fixLabel: 'Line them up',
         fix: () => { const moved = new Set(); for (const [, b, k, d] of near) { if (moved.has(b.id)) continue; moved.add(b.id); if (/x|right/.test(k)) b.x -= d; else b.y -= d; } } });
+      if (r.j && r.j.id !== 'generic' && !p.alt) r.issues.push({ sev: 'info', kind: 'Accessibility', msg: 'No alt text for this figure. Add a one- or two-sentence description in Properties › Page › Alt text (many journals ask for it); it is saved in exported SVGs.' });
       const hasLegend = list.some((o) => o.type === 'group' && /legend/i.test(o.name || ''));
       if (styled.length && !hasLegend) add('info', `${styled.length} dashed, dotted or styled line${styled.length > 1 ? 's' : ''} but no line legend to say what each style means.`, null, () => insertLegend(), 'Add legend');
       return r;
