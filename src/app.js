@@ -1463,7 +1463,7 @@ function cropSection(o) {
   };
   // Crop on the canvas (crop.js) works for icons and pictures; pictures also keep the per-side sliders.
   const onCanvas = el('div', { class: 'row' }, btn('Crop on canvas', () => startCrop(o), 'primary'), o.crop ? btn('Remove crop', () => resetCrop(o)) : null);
-  const tip = el('div', { class: 'note', textContent: 'Drag the frame’s corners and sides to trim; drag inside to move the drawing. Enter or click outside to finish, Esc to cancel. Double-click a cropped object to change its crop.' });
+  const tip = el('div', { class: 'note', textContent: 'Drag the frame’s corners and sides to trim; drag inside to move the drawing. Pick Rectangle, Rounded, Circle or Custom (draw your own outline) in the bar above the frame. Enter or click outside to finish, Esc to cancel. Double-click a cropped object to change its crop.' });
   if (o.type !== 'image' || !o.nw) return sect('Crop', onCanvas, tip);
   return sect('Crop', onCanvas, tip, ...[['l', 'Left'], ['r', 'Right'], ['t', 'Top'], ['b', 'Bottom']].map(([k, l]) =>
     row(l, el('input', { type: 'range', min: 0, max: 0.45, step: 0.005, value: c[k] || 0, oninput: (e) => set(k, parseFloat(e.target.value)) }))));

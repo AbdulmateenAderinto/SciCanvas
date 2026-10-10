@@ -235,7 +235,11 @@
     e.preventDefault();
     try { openToolFlyout(b); } catch (err) { console.error(err); closeAll(); }
   });
-  document.addEventListener('mousedown', (e) => { if (panels.length && !e.target.closest('.cm-panel')) closeAll(); }, true);
+  // Close on any press outside the menu. pointerdown, not mousedown: the canvas cancels its pointerdown to run its own
+  // dragging, and a cancelled pointerdown never fires mousedown, so clicks on the canvas used to leave the menu open.
+  const outside = (e) => { if (panels.length && !(e.target.closest && e.target.closest('.cm-panel'))) closeAll(); };
+  document.addEventListener('pointerdown', outside, true);
+  document.addEventListener('mousedown', outside, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && panels.length) { e.stopPropagation(); closeAll(); } }, true);
   window.addEventListener('blur', closeAll);
   window.addEventListener('resize', closeAll);
