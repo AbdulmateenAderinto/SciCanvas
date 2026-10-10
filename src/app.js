@@ -1119,7 +1119,8 @@ document.addEventListener('drop', async (e) => {
 // A .scifig file dropped onto the window opens (after the usual unsaved-changes question).
 async function openDroppedFigure(f) {
   if (!confirmDiscard()) return;
-  try { loadDoc(JSON.parse(await f.text()), f.path || null); } catch { toast('That file could not be read'); }
+  const where = (window.native.pathForFile && window.native.pathForFile(f)) || null; // so ⌘S saves back to it
+  try { loadDoc(JSON.parse(await f.text()), where); if (where) addRecent(where); } catch { toast('That file could not be read'); }
 }
 stage.addEventListener('drop', async (e) => {
   e.preventDefault();
