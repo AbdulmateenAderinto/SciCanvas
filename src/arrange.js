@@ -304,6 +304,7 @@ const CTX_SVG = {
 };
 Object.assign(CTX_SVG, {
   lineStyle: '<path d="M2 6h10" stroke="currentColor" stroke-width="1.8"/><path d="M11 3l4 3-4 3z" fill="currentColor"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2 2"/><path d="M15 9.5v5" stroke="currentColor" stroke-width="1.8"/>',
+  colour: '<circle cx="9" cy="9" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 2.5A6.5 6.5 0 0 1 15.5 9H9z" fill="#e8743b"/><path d="M15.5 9A6.5 6.5 0 0 1 9 15.5V9z" fill="#3fa58b"/><path d="M9 15.5A6.5 6.5 0 0 1 2.5 9H9z" fill="#4a7fd6"/>',
   similar: '<circle cx="7.5" cy="7.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11 11l5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
   swap: '<path d="M3 6h11M11 3l3 3-3 3M15 12H4M7 9l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   straight: '<rect x="1.5" y="7" width="4" height="4" fill="currentColor"/><rect x="12.5" y="7" width="4" height="4" fill="currentColor"/><path d="M5.5 9h7" stroke="currentColor" stroke-width="1.8"/><path d="M9 2v3M9 13v3" stroke="currentColor" stroke-width="1.2"/>',
@@ -320,6 +321,7 @@ function updateContextBar() {
     ctxBtn('front', 'bringFront', 'Bring to front (⇧⌘])'), ctxBtn('forward', 'bringForward', 'Bring forward (⌘])'),
     ctxBtn('backward', 'sendBackward', 'Send backward (⌘[)'), ctxBtn('back', 'sendBack', 'Send to back (⇧⌘[)'),
     '<span class="ctxsep"></span>',
+    ctxBtn('colour', '@colour', 'Colour'),
     ctxBtn('align', '@align', multi ? 'Align / distribute selection' : 'Align to page'),
     ctxBtn('flip', 'flipH', 'Flip horizontally (⇧H)'),
     multi ? ctxBtn('group', 'group', 'Group (⌘G)') : hasGroup ? ctxBtn('group', 'ungroup', 'Ungroup (⇧⌘G)') : '',
@@ -347,6 +349,7 @@ function setupContextBar() {
     if (!b) return;
     const cmd = b.dataset.ctx;
     if (cmd === '@align') return showAlignPopover(b);
+    if (cmd === '@colour') return showColourPopover(b);
     if (cmd === '@lines' && globalThis.VisualMenu && VisualMenu.openLines) { const r = b.getBoundingClientRect(); return VisualMenu.openLines(r.left, r.bottom + 6); }
     runCommand(cmd);
   });
@@ -365,6 +368,35 @@ function showAlignPopover(anchor) {
   const close = (e) => { if (!pop.contains(e.target)) { pop.classList.add('hidden'); window.removeEventListener('pointerdown', close, true); } };
   setTimeout(() => window.addEventListener('pointerdown', close, true), 0);
   pop.onclick = (e) => { const b = e.target.closest('[data-ctx]'); if (b) { runCommand(b.dataset.ctx); pop.classList.add('hidden'); } };
+}
+
+// The colour that reads as "the colour" of each kind of object.
+function mainColourKey(o) {
+  if (o.type === 'icon') return typeof ICON_MAP !== 'undefined' && ICON_MAP[o.iconId] ? 'color' : 'tint';
+  if (['rect', 'ellipse', 'shape'].includes(o.type)) return 'fill';
+  if (o.type === 'path') return o.closed ? 'fill' : 'stroke';
+  return 'color'; // text, connector, brush, …
+}
+function showColourPopover(anchor) {
+  const pop = $('#alignpop');
+  const recent = [...(typeof getBrand === 'function' ? getBrand().palette || [] : []), ...(typeof docPalette === 'function' ? docPalette() : [])]; // brand kit and this figure's palette
+  const cols = [...new Set([...SWATCHES, '#000000', ...recent])];
+  pop.innerHTML = '<div class="note" style="padding:2px 6px 4px">Colour</div><div class="swatches" style="width:178px;padding:2px 4px">'
+    + cols.map((c) => `<button class="swatch" data-col="${c}" title="${c}" style="background:${c}"></button>`).join('') + '</div><label style="display:flex;gap:6px;align-items:center;padding:4px 6px;font-size:12px">More… <input type="color" data-colin></label>';
+  const r = anchor.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  pop.style.left = r.left - sr.left + 'px';
+  pop.style.top = r.bottom - sr.top + 6 + 'px';
+  pop.classList.remove('hidden');
+  const apply = (c) => {
+    checkpoint();
+    for (const o of selected()) { const k = mainColourKey(o); o[k] = c; if (k === 'tint') delete o.colorMap; if (typeof postEdit === 'function') postEdit(o); }
+    render({ props: true });
+  };
+  const close = (e) => { if (!pop.contains(e.target)) { pop.classList.add('hidden'); window.removeEventListener('pointerdown', close, true); } };
+  setTimeout(() => window.addEventListener('pointerdown', close, true), 0);
+  pop.onclick = (e) => { const b = e.target.closest('[data-col]'); if (b) { apply(b.dataset.col); pop.classList.add('hidden'); } };
+  const inp = pop.querySelector('[data-colin]');
+  inp.oninput = () => apply(inp.value);
 }
 
 // ---------- Right-click menu (native) ----------
