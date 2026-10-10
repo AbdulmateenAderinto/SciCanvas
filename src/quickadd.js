@@ -238,6 +238,33 @@
     return t;
   };
 
+  // Move / copy the selection to another page (same position there).
+  function sendToPage(i, move) {
+    const sel = selected();
+    if (!sel.length) return;
+    let target = state.doc.pages[i];
+    if (i === state.doc.pages.length) { // a new page after the last
+      target = newPage(`Page ${i + 1}`, page().width, page().height);
+      state.doc.pages.push(target);
+    }
+    if (!target || target === page()) return;
+    checkpoint();
+    target.objects.push(...cloneObjects(sel, objs(), 0));
+    if (move) { const keep = state.undo.length; deleteSelection(); state.undo.length = keep; } // one undo step for the whole move
+    render({ props: true, pages: true });
+    toast(`${move ? 'Moved' : 'Copied'} ${sel.length} object${sel.length > 1 ? 's' : ''} to ${target.name || `page ${i + 1}`}`);
+  }
+  const prevMenu7 = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu7();
+    if (!state.sel.length) return t;
+    const pages = state.doc.pages.map((p, i) => [i, p.name || `Page ${i + 1}`]).filter(([i]) => i !== state.pageIndex);
+    const sub = (move) => [...pages.map(([i, name]) => { ARRANGE_COMMANDS[`toPage:${move ? 'm' : 'c'}:${i}`] = () => sendToPage(i, move); return { label: name, cmd: `toPage:${move ? 'm' : 'c'}:${i}` }; }),
+      { type: 'separator' }, (() => { const i = state.doc.pages.length; ARRANGE_COMMANDS[`toPage:${move ? 'm' : 'c'}:${i}`] = () => sendToPage(i, move); return { label: 'New page', cmd: `toPage:${move ? 'm' : 'c'}:${i}` }; })()];
+    t.push({ label: 'Move to page', submenu: sub(true) }, { label: 'Copy to page', submenu: sub(false) });
+    return t;
+  };
+
   // Colour legend: one swatch per colour used for shapes and icons, named after the first thing in that colour.
   ARRANGE_COMMANDS.colourLegend = () => {
     const seen = new Map();
