@@ -590,6 +590,7 @@ svg.addEventListener('pointerdown', (e) => {
     else if (h === 'curve') drag = { mode: 'curve', o };
     else if (h === 'bend') drag = { mode: 'bend', o };
     else if (h.startsWith('wp')) drag = { mode: 'waypoint', o, h }; // bend points (linetools.js)
+    else if (h.startsWith('qc:')) drag = quickConnectStart(o, h.slice(3), p); // quick-connect arrows (linetools.js)
     else drag = { mode: 'resize', o, h, start: { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0 }, font: o.fontSize };
     return;
   }
@@ -890,11 +891,12 @@ window.addEventListener('pointerup', (e) => {
       }
       if (d.mode === 'connect') {
         const len = d.start ? Math.hypot(p.x - d.start.x, p.y - d.start.y) : 99;
+        if (d.qc && quickConnectEnd(d, len)) break; // a click on a quick-connect arrow adds a connected copy
         if (!o.to.id && len < 8) o.to = { x: (o.from.x ?? p.x) + 120, y: o.from.y ?? p.y }; // click = default-length arrow
         if (o.from.id && o.from.id === o.to.id && !d.left) { page().objects = objs().filter((x) => x !== o); break; }
         if (o.from.id && !o.to.id && len < 8) { const c = center(byId(o.from.id)); o.to = { x: c.x + byId(o.from.id).w / 2 + 120, y: c.y }; }
         state.sel = [o.id];
-        toolStaysHint();
+        if (!d.qc) toolStaysHint();
       }
       break;
     }

@@ -565,8 +565,42 @@
         (o.points || []).forEach((q, i) => { s += `<rect data-handle="wp:${i}" x="${q.x - hs / 2}" y="${q.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" style="cursor:move"><title>Bend point: drag to move, double-click to remove</title></rect>`; });
       }
     }
+    if (sel.length === 1 && sel[0].type !== 'connector' && !sel[0].locked && state.tool === 'select' && !(typeof nodeEdit !== 'undefined' && nodeEdit) && sel[0].w > 0) s += quickConnectSvg(sel[0]);
     prevOverlay(s + extra);
   };
+  // Quick-connect arrows: on a single selected object, drag an arrow to another object to join them, or click it to
+  // add a connected copy on that side (build a flowchart click by click).
+  const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
+  function quickConnectSvg(o) {
+    const z = state.zoom, off = 18 / z, r = 7 / z, sw = 1.5 / z;
+    const at = { e: [o.w + off, o.h / 2, 0], w: [-off, o.h / 2, 180], s: [o.w / 2, o.h + off, 90], n: [o.w / 2 + 26 / z, -off * 0.85, 270] }; // n sits beside the rotate handle, below the floating toolbar
+    let s = `<g transform="translate(${o.x} ${o.y}) rotate(${o.rot || 0} ${o.w / 2} ${o.h / 2})">`;
+    for (const [k, [x, y, a]] of Object.entries(at)) {
+      s += `<g data-handle="qc:${k}" transform="translate(${x} ${y}) rotate(${a})" style="cursor:crosshair" opacity=".8"><title>Drag to connect · click to add a connected copy</title>`
+        + `<circle r="${r}" fill="#ffffff" stroke="#3b6fd6" stroke-width="${sw}"/><path d="M${-r * 0.45} ${-r * 0.5} L${r * 0.5} 0 L${-r * 0.45} ${r * 0.5}" fill="none" stroke="#3b6fd6" stroke-width="${sw * 1.2}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+    }
+    return s + '</g>';
+  }
+  globalThis.quickConnectStart = function (src, side, p) {
+    const c = Make.connector({ id: src.id, port: side }, { x: p.x, y: p.y }, presetStyle());
+    objs().push(c);
+    return { mode: 'connect', o: c, start: p, qc: { src, side } };
+  };
+  globalThis.quickConnectEnd = function (d, len) {
+    if (len >= 8 || d.o.to.id) return false;
+    const { src, side } = d.qc, gap = 70;
+    const [copy] = cloneObjects([src], objs(), 0);
+    const dx = side === 'e' ? src.w + gap : side === 'w' ? -(src.w + gap) : 0, dy = side === 's' ? src.h + gap : side === 'n' ? -(src.h + gap) : 0;
+    copy.x = src.x + dx; copy.y = src.y + dy;
+    if (copy.type === 'text' || copy.label != null) { if (copy.type === 'text') copy.text = ''; else copy.label = ''; } // a fresh box to type in
+    if (copy.type === 'text' && !copy.text) copy.text = 'Text';
+    objs().push(copy);
+    d.o.to = { id: copy.id, port: OPP[side] };
+    state.sel = [copy.id];
+    render({ props: true });
+    return true;
+  };
+
   svg.addEventListener('dblclick', (e) => {
     const h = e.target.closest && e.target.closest('[data-handle^="wp:"]');
     if (!h) return;
