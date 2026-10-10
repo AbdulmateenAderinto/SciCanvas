@@ -270,6 +270,18 @@ const ARRANGE_COMMANDS = {
   matchW: () => matchSize('w'), matchH: () => matchSize('h'), matchSize: () => matchSize('both'),
   lock: () => setLocked(true), unlockAll: () => setLocked(false), hide: () => setHidden(true), showAll: () => setHidden(false),
   deleteSel: () => deleteSelection(),
+  // The library, searched for the selected icon's name: other styles and versions of the same thing.
+  findSimilar: () => {
+    const o = selected()[0];
+    if (!o || o.type !== 'icon') return;
+    const a = (typeof ICON_MAP !== 'undefined' && ICON_MAP[o.iconId]) || (typeof getAsset === 'function' && getAsset(o.iconId)) || {};
+    const name = String(a.name || o.name || '').replace(/\((soft|refined|classic)[^)]*\)/gi, '').replace(/[^\w\s-]/g, ' ').trim().split(/\s+/).slice(0, 2).join(' ');
+    if (!name) return;
+    const tab = document.querySelector('[data-ltab="library"]');
+    if (tab) tab.click();
+    $('#search').value = name; activeCat = 'All'; libLimit = LIB_FIRST; renderLibrary();
+    toast(`Library: icons like “${name}”`);
+  },
   toggleFavSel: () => { const o = selected()[0]; if (o && o.type === 'icon') { toggleFav(o.iconId); renderProps(); renderLibrary(); } },
   replaceSel: () => { const o = selected()[0]; if (o && o.type === 'icon') { replaceTarget = o.id; replaceAll = false; renderLibraryBanner(); $('#search').focus(); } },
   editPoints: () => { const o = selected()[0]; if (o && o.type === 'path') enterNodeEdit(o); },
@@ -370,7 +382,7 @@ function contextMenuTemplate() {
     ...(n === 2 ? [{ label: 'Crop to shape (top shape crops the object below)', cmd: 'cropToShape' }] : []),
     { label: 'Transform…', cmd: 'transform' },
     { label: 'Biology', submenu: [{ label: 'Make protein shape', cmd: 'makeProtein' }, { label: 'Add lighter partner subunit', cmd: 'lighterPartner' }, { label: 'Degrade into fragments', cmd: 'degrade' }] },
-    ...(n === 1 && sel[0].type === 'icon' ? [{ label: getFavs().includes(sel[0].iconId) ? 'Remove from favourites' : 'Add to favourites', cmd: 'toggleFavSel' }, { label: 'Replace icon…', cmd: 'replaceSel' }] : []),
+    ...(n === 1 && sel[0].type === 'icon' ? [{ label: getFavs().includes(sel[0].iconId) ? 'Remove from favourites' : 'Add to favourites', cmd: 'toggleFavSel' }, { label: 'Replace icon…', cmd: 'replaceSel' }, { label: 'Find similar icons', cmd: 'findSimilar' }] : []),
     { label: 'Select matching', submenu: [{ label: 'Same icon', cmd: 'selectSameIcon' }, { label: 'Same type', cmd: 'selectSameType' }, { label: 'Same colour', cmd: 'selectSameColour' }] },
     { label: 'Save as icon…', cmd: 'saveIcon' },
     { label: '✦ AI', submenu: [{ label: 'Edit with AI…', cmd: 'aiEdit' }, { label: 'Restyle…', cmd: 'aiRestyle' }, { label: 'Remove text', cmd: 'aiRemoveText' }, { label: 'Remove background', cmd: 'removeBg' }] },
