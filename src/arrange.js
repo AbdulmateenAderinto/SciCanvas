@@ -383,20 +383,28 @@ function showColourPopover(anchor) {
   const pop = $('#alignpop');
   const recent = [...(typeof getBrand === 'function' ? getBrand().palette || [] : []), ...(typeof docPalette === 'function' ? docPalette() : [])]; // brand kit and this figure's palette
   const cols = [...new Set([...SWATCHES, '#000000', ...recent])];
-  pop.innerHTML = '<div class="note" style="padding:2px 6px 4px">Colour</div><div class="swatches" style="width:178px;padding:2px 4px">'
-    + cols.map((c) => `<button class="swatch" data-col="${c}" title="${c}" style="background:${c}"></button>`).join('') + '</div><label style="display:flex;gap:6px;align-items:center;padding:4px 6px;font-size:12px">More… <input type="color" data-colin></label>';
+  const used = lsGet('scicanvas:recentColours', []);
+  const sw = (list) => list.map((c) => `<button class="swatch" data-col="${c}" title="${c}" style="background:${c}"></button>`).join('');
+  pop.innerHTML = '<div class="note" style="padding:2px 6px 4px">Colour</div><div class="swatches" style="width:178px;padding:2px 4px">' + sw(cols) + '</div>'
+    + (used.length ? `<div class="note" style="padding:4px 6px 2px">Recent</div><div class="swatches" style="width:178px;padding:2px 4px">${sw(used)}</div>` : '')
+    + `<label style="display:flex;gap:6px;align-items:center;padding:4px 6px;font-size:12px">More… <input type="color" data-colin>${window.EyeDropper ? '<button data-drop title="Pick a colour from anywhere on screen" style="padding:1px 6px">💧</button>' : ''}</label>`;
   const r = anchor.getBoundingClientRect(), sr = stage.getBoundingClientRect();
   pop.style.left = r.left - sr.left + 'px';
   pop.style.top = r.bottom - sr.top + 6 + 'px';
   pop.classList.remove('hidden');
   const apply = (c) => {
+    lsSet('scicanvas:recentColours', [c, ...lsGet('scicanvas:recentColours', []).filter((x) => x !== c)].slice(0, 8));
     checkpoint();
     for (const o of selected()) { const k = mainColourKey(o); o[k] = c; if (k === 'tint') delete o.colorMap; if (typeof postEdit === 'function') postEdit(o); }
     render({ props: true });
   };
   const close = (e) => { if (!pop.contains(e.target)) { pop.classList.add('hidden'); window.removeEventListener('pointerdown', close, true); } };
   setTimeout(() => window.addEventListener('pointerdown', close, true), 0);
-  pop.onclick = (e) => { const b = e.target.closest('[data-col]'); if (b) { apply(b.dataset.col); pop.classList.add('hidden'); } };
+  pop.onclick = async (e) => {
+    const b = e.target.closest('[data-col]');
+    if (b) { apply(b.dataset.col); pop.classList.add('hidden'); return; }
+    if (e.target.closest('[data-drop]')) { e.preventDefault(); const c = typeof pickScreenColour === 'function' ? await pickScreenColour() : null; if (c) apply(c); pop.classList.add('hidden'); }
+  };
   const inp = pop.querySelector('[data-colin]');
   inp.oninput = () => apply(inp.value);
 }
