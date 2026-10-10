@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const A = require('./load-app');
 
 const IDS = ['s-peyer-s-patch', 's-germinal-centre-dark-and-light-zones', 's-germinal-centre-b-cell-b220-gl7-fas',
-  's-nanopore-sequencer-minion-style', 's-nanopore-flow-cell', 's-nanopore-sequencing-strand-through-pore',
+  's-nanopore-sequencer-minion-style', 's-nanopore-sequencer-lid-open-minion-style', 's-nanopore-flow-cell', 's-nanopore-current-trace-squiggle', 's-nanopore-sequencing-strand-through-pore',
   's-long-read-sequencer-pacbio-style', 's-short-read-sequencer-illumina-style', 's-capillary-sequencer-sanger',
   's-sanger-chromatogram-abi-trace', 's-gamma-retrovirus-gfp-vector', 's-retroviral-transduction-gfp',
   's-gfp-transduced-cell', 's-retroviral-plasmid-insert-gfp-puror', 's-retroviral-plasmid-empty-gfp-puror'];

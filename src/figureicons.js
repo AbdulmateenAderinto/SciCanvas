@@ -141,48 +141,86 @@
   // =====================================================================================
   // Sequencing instruments and consumables
   // =====================================================================================
-  // Pocket nanopore sequencer (MinION-style): low charcoal body, hinged light lid opened over a flow cell, USB lead.
-  S('Nanopore sequencer (MinION-style)', CAT.seq, 'MinION nanopore sequencer Oxford Nanopore ONT portable long-read sequencing flow cell R10 device USB', [130, 70], () => {
-    const top = '#cfd6dd', front = '#3d4650', side = '#59636e';
-    let s = line('M118 44 C128 46 130 56 124 62 C120 66 112 66 106 68', '#59636e', 2.6);
-    s += path(poly([[8, 40], [24, 26], [122, 26], [106, 40]]), top, { w: 1.6 });                         // top face
-    s += path(poly([[8, 40], [106, 40], [106, 56], [8, 56]]), front, { w: 1.6 });                       // front face
-    s += path(poly([[106, 40], [122, 26], [122, 42], [106, 56]]), side, { w: 1.6 });                     // end face
-    s += path(poly([[22, 37], [33, 28.5], [104, 28.5], [93, 37]]), '#f2f5f8', { oc: '#aab4bf', w: 1.2 }); // flow cell in its bay
-    s += path(poly([[44, 35.5], [50, 30.5], [80, 30.5], [74, 35.5]]), '#2bb3c0', { oc: '#1d8090', w: 1 }); // sensor array
-    for (let k = 0; k < 6; k++) s += line(`M${f(50 + k * 5)} 31.5 L${f(45 + k * 5)} 35`, '#9ee5ec', 0.7);
-    s += ell(31, 33, 3.2, 2, '#ffffff', 0, { oc: '#8a96a3', w: 1 }) + ell(88, 33, 2.6, 1.6, '#ffffff', 0, { oc: '#8a96a3', w: 1 }); // sample and priming ports
-    s += path(poly([[24, 26], [36, 6], [128, 6], [122, 26]]), '#e5eaee', { oc: '#9aa6b2', w: 1.4 });    // lid, open
-    s += rr(14, 46, 20, 4, 2, '#2bb3c0', { w: 0.8 });                                                      // status light
+  // Pocket nanopore sequencer (MinION-style), after BioRender and Nature Methods drawings: a long, slim device in
+  // three-quarter view with a darker grey shell over a pale base, vent slots along the long side, a USB-C port on
+  // the near end, a round button on the lid and a lead from the far end. `open` lifts the lid to show the flow cell.
+  const minion = (open) => () => {
+    const q = (pts, c, o = {}) => path(poly(pts), c, { w: 1.2, ...o });
+    const add = ([x, y], [dx, dy]) => [x + dx, y + dy];
+    const TL = [10, 44], TR = [100, 14], BL = [30, 56], BR = [120, 26], H = [0, 9], H2 = [0, 15];
+    let s = line(`M${f(TR[0] + 12)} ${f(TR[1] + 8)} C132 16 136 8 140 2`, '#5b6168', 5) + line('M126 14 C134 10 137 6 140 2', '#8a9096', 1.4, { op: 0.6 });
+    s += rr(TR[0] + 8, TR[1] + 3, 10, 9, 3, '#6f757c', { w: 1 });                                         // cable boot
+    s += q([BL, BR, add(BR, H2), add(BL, H2)], '#e2e5e8', { oc: '#9aa1a8' });                             // pale base, long side
+    s += q([TL, BL, add(BL, H2), add(TL, H2)], '#d3d7db', { oc: '#9aa1a8' });                             // pale base, near end
+    s += q([BL, BR, add(BR, H), add(BL, H)], '#b9bec3', { oc: '#7d848b' });                               // shell, long side
+    s += q([TL, BL, add(BL, H), add(TL, H)], '#a9afb5', { oc: '#7d848b' });                               // shell, near end
+    for (let k = 0; k < 22; k++) { const t = 0.22 + k * 0.032, x = BL[0] + (BR[0] - BL[0]) * t, y = BL[1] + (BR[1] - BL[1]) * t; s += line(`M${f(x)} ${f(y + 10.5)} L${f(x + 1.6)} ${f(y + 13.5)}`, '#6b7178', 0.9); }
+    s += q([[13, 51], [24, 58], [24, 66], [13, 59]], '#3d4248', { oc: '#2a2e33' });                         // USB-C port
+    s += line('M15.5 55 L21.5 59', '#9aa1a8', 1.1);
+    if (!open) {
+      s += q([TL, TR, BR, BL], '#9ea4aa', { oc: '#6f767d' });                                               // lid
+      s += line(`M${f(TL[0] + 4)} ${f(TL[1] + 1)} L${f(TR[0] - 2)} ${f(TR[1] + 1)}`, '#c3c8cd', 1.4, { op: 0.8 });
+      s += ell(96, 21, 6.5, 3.4, '#b9bec3', -17, { oc: '#7d848b', w: 1 });                                   // button
+      return s;
+    }
+    s += q([TL, TR, BR, BL], '#7d848b', { oc: '#5b6168' });                                                 // open bay
+    s += q([[22, 46], [96, 21.5], [108, 27], [34, 51.5]], '#3d4248', { oc: '#24282c', w: 1 });              // flow cell
+    s += q([[44, 41], [58, 36.3], [64, 39.3], [50, 44]], '#cfd65a', { oc: '#9aa23a', w: 0.8 });             // sensor chip
+    s += line('M70 33 L76 31 L79 33 L73 35 L76 37 L82 35 L85 37 L79 39', '#8a9096', 1.3);                   // waste channel
+    s += ell(88, 27.5, 3, 1.6, '#8a9096', -17, { oc: '#5b6168', w: 0.8 });                                  // sample port
+    s += q([TL, TR, [92, -14], [4, 16]], '#8f969d', { oc: '#5b6168' });                                     // lid, raised
+    s += ell(82, -3, 6, 3.2, '#a9afb5', -17, { oc: '#6f767d', w: 1 });
     return s;
-  }, '#3d4650');
+  };
+  S('Nanopore sequencer (MinION-style)', CAT.seq, 'MinION nanopore sequencer Oxford Nanopore ONT portable long-read sequencing device USB', [140, 74], minion(false), '#9ea4aa');
+  S('Nanopore sequencer, lid open (MinION-style)', CAT.seq, 'MinION nanopore sequencer lid open flow cell loading Oxford Nanopore ONT portable long-read sequencing device', [140, 74], minion(true), '#9ea4aa');
 
-  // Nanopore flow cell (top view): sensor-array window, sample port and priming port.
-  S('Nanopore flow cell', CAT.seq, 'nanopore flow cell MinION Flongle R10.4.1 sensor array membrane pores ONT consumable', [120, 56], () => {
-    let s = rr(4, 6, 112, 44, 7, '#eef2f5', { oc: '#9aa6b2', w: 1.6 });
-    s += rr(10, 12, 18, 32, 4, '#d6dde4', { w: 1.2 });
-    s += rr(40, 14, 52, 28, 3, '#2bb3c0', { oc: '#1d8090', w: 1.2 });
-    for (let y = 18; y < 40; y += 4.4) for (let x = 44; x < 90; x += 4.4) s += ball(x, y, 0.9, '#c9f2f5', { w: 0.3 });
-    s += ell(19, 22, 4, 4, '#ffffff', 0, { oc: '#7a8794', w: 1.2 }) + ell(19, 36, 2.8, 2.8, '#ffffff', 0, { oc: '#7a8794', w: 1 });
-    s += rr(100, 14, 10, 28, 2, '#c3ccd5', { w: 1 });
+  // Nanopore flow cell (top view), after the Nature Methods drawing: dark body, yellow-green sensor chip,
+  // serpentine waste channel, sample port and priming port.
+  S('Nanopore flow cell', CAT.seq, 'nanopore flow cell MinION R10.4.1 sensor chip array membrane pores ASIC ONT consumable', [130, 56], () => {
+    let s = rr(4, 6, 122, 44, 8, '#3d4248', { oc: '#24282c', w: 1.4 });
+    s += rr(14, 14, 30, 22, 2, '#cfd65a', { oc: '#9aa23a', w: 1 });
+    for (let y = 17; y < 34; y += 3) s += line(`M16 ${y} H42`, '#b3ba45', 0.5);
+    s += ell(56, 40, 4, 4, '#8a9096', 0, { oc: '#5b6168', w: 1 }) + ell(56, 18, 2.6, 2.6, '#8a9096', 0, { oc: '#5b6168', w: 1 });
+    s += line('M70 14 V40 H78 V14 H86 V40 H94 V14 H102 V40 H110 V14', '#8a9096', 3.2);
+    s += ell(118, 40, 3, 3, '#5b6168', 0, { oc: '#24282c', w: 0.8 }) + ell(12, 44, 2, 2, '#5b6168', 0, { oc: '#24282c', w: 0.6 });
     return s;
-  }, '#2bb3c0');
+  }, '#3d4248');
 
-  // Nanopore sequencing principle: a DNA strand threading through a protein pore in a membrane, with the
-  // ionic-current trace it produces.
-  S('Nanopore sequencing (strand through pore)', CAT.dna, 'nanopore sequencing principle pore protein membrane DNA strand translocation motor protein ionic current squiggle signal long read', [120, 100], (r) => {
-    const MEM = '#f1dc9e', ML = '#d4b75f';
-    let s = `<rect x="0" y="44" width="120" height="16" fill="${MEM}" opacity=".8" data-flat="1"/>` + line('M0 44 H120 M0 60 H120', ML, 1.4);
-    s += path('M42 40 C42 34 50 32 60 32 C70 32 78 34 78 40 L70 44 L68 60 L74 66 L46 66 L52 60 L50 44 Z', '#8b5cc6', { w: 1.6 });
-    s += rr(57, 38, 6, 30, 2, '#ffffff', { oc: '#6a3fa8', w: 1 });
-    s += glob(60, 26, 13, 9, '#e8843b', r, { amp: 0.08 }); // motor protein
-    s += line('M34 6 C40 14 50 12 54 18 C57 22 60 22 60 30 L60 74 C60 84 70 88 80 92', '#3a6fc4', 2.4);
-    s += line('M28 8 C36 18 46 16 52 24', '#d64545', 2.4);
-    let d = 'M84 10', x = 84;
-    for (let k = 0; k < 10; k++) { x += 3.2; d += ` L${f(x)} ${f(12 + r() * 14)}`; }
-    s += rr(82, 4, 36, 30, 3, '#ffffff', { oc: '#9aa6b2', w: 1 }) + line(d, '#2a9fd4', 1.4);
+  // Nanopore sequencing principle, after BioRender: double-stranded DNA is unwound by a motor protein (teal, two
+  // pale lobes) sitting on a protein nanopore (blue) in a membrane; one strand passes through the channel, and the
+  // ions flowing out below carry the current that identifies each base.
+  S('Nanopore sequencing (strand through pore)', CAT.dna, 'nanopore sequencing principle pore protein membrane motor protein helicase DNA strand translocation ionic current ions cis trans long read', [120, 132], (r) => {
+    let s = `<rect x="0" y="80" width="120" height="14" fill="#e3f1fb" data-flat="1"/>` + rr(0, 78, 120, 3.5, 0, '#b9c5ce', { w: 0 }) + rr(0, 92.5, 120, 3.5, 0, '#b9c5ce', { w: 0 });
+    // the unwinding duplex coming in from the upper right, and the displaced strand leaving to the upper left
+    s += `<g transform="translate(64 34) rotate(-32)">${helix(4, 62, 0, 4.2, 2.6, { w: 2.1, c1: '#d64545', c2: '#2457c5' })}</g>`;
+    s += line('M58 32 C46 24 34 30 24 22 C16 16 10 18 4 12', '#d64545', 2.1);
+    s += path('M60 44 C80 44 92 52 92 66 L92 80 C92 90 84 92 80 87 C76 82 72 83 70 90 L70 108 L50 108 L50 90 C48 83 44 82 40 87 C36 92 28 90 28 80 L28 66 C28 52 40 44 60 44 Z', '#a7d2f4', { oc: '#3f78b5', w: 1.6 });
+    s += path('M53 46 H67 C67 56 63 60 63 66 C63 72 66 74 66 80 L66 108 L54 108 L54 80 C54 74 57 72 57 66 C57 60 53 56 53 46 Z', '#5c97d6', { oc: '#3f78b5', w: 1 });
+    s += ell(60, 40, 24, 12, '#55b3ac', 0, { oc: '#2e7f7a', w: 1.6 });                                    // motor protein
+    s += ell(49, 42, 6.5, 9.5, '#bfe9e4', 0, { oc: '#2e7f7a', w: 1.1 }) + ell(71, 42, 6.5, 9.5, '#bfe9e4', 0, { oc: '#2e7f7a', w: 1.1 });
+    s += line('M60 30 C60 40 61 50 60 60 C59 72 61 86 60 100 C59 112 62 120 66 128', '#1f3f8f', 2);         // translocating strand
+    ['#d64545', '#1f9d3a', '#e8b33c', '#8b5cc6', '#d64545', '#1f9d3a'].forEach((c, k) => { s += ball(60.4 + (k % 2 ? -1 : 1) * 2, 58 + k * 8, 1.6, c, { w: 0.5 }); });
+    for (let k = 0; k < 11; k++) s += `<circle cx="${f(46 + r() * 30)}" cy="${f(110 + r() * 18)}" r="${f(1 + r() * 0.9)}" fill="${k % 3 ? '#f2c94c' : '#e98fb4'}" opacity=".9"/>`; // ions
     return s;
-  }, '#8b5cc6');
+  }, '#3f78b5');
+
+  // Nanopore signal: the ionic current steps down as each k-mer sits in the pore, with base calls below.
+  S('Nanopore current trace (squiggle)', CAT.dna, 'nanopore signal squiggle ionic current trace pA base calling basecalling raw signal electrical current ONT', [140, 84], (r) => {
+    const COL = { A: '#1f9d3a', C: '#2457c5', G: '#e8a33c', T: '#d64545' }, calls = 'TGAACGTAAC';
+    let s = line('M10 6 V64 H136', '#5b6168', 1.4);
+    const lv = [24, 46, 30, 54, 38, 20, 44, 28, 50, 34];
+    let d = '', x = 12;
+    lv.forEach((y, i) => {
+      const w = 9 + r() * 6;
+      for (let k = 0; k <= 4; k++) { const xx = x + (w * k) / 4, yy = y + (r() - 0.5) * 3.2; d += `${d ? ' L' : 'M'}${f(xx)} ${f(yy)}`; }
+      x += w;
+      if (i < lv.length - 1) d += ` L${f(x)} ${f(lv[i + 1])}`;
+      s += txt(x - w / 2, 78, calls[i], 9, COL[calls[i]]);
+    });
+    s += line(d, '#1f3f8f', 1.4);
+    return s;
+  }, '#1f3f8f');
 
   // PacBio-style long-read instrument: tall white cabinet, dark loading door, accent light strip, touchscreen.
   S('Long-read sequencer (PacBio-style)', CAT.seq, 'PacBio Revio Sequel HiFi SMRT single-molecule real-time long-read sequencer instrument', [90, 112], () => {
