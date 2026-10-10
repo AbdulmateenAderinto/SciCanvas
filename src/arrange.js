@@ -304,6 +304,7 @@ const CTX_SVG = {
 };
 Object.assign(CTX_SVG, {
   lineStyle: '<path d="M2 6h10" stroke="currentColor" stroke-width="1.8"/><path d="M11 3l4 3-4 3z" fill="currentColor"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2 2"/><path d="M15 9.5v5" stroke="currentColor" stroke-width="1.8"/>',
+  similar: '<circle cx="7.5" cy="7.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11 11l5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
   swap: '<path d="M3 6h11M11 3l3 3-3 3M15 12H4M7 9l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   straight: '<rect x="1.5" y="7" width="4" height="4" fill="currentColor"/><rect x="12.5" y="7" width="4" height="4" fill="currentColor"/><path d="M5.5 9h7" stroke="currentColor" stroke-width="1.8"/><path d="M9 2v3M9 13v3" stroke="currentColor" stroke-width="1.2"/>',
 });
@@ -323,6 +324,7 @@ function updateContextBar() {
     ctxBtn('flip', 'flipH', 'Flip horizontally (⇧H)'),
     multi ? ctxBtn('group', 'group', 'Group (⌘G)') : hasGroup ? ctxBtn('group', 'ungroup', 'Ungroup (⇧⌘G)') : '',
     isPath ? ctxBtn('points', 'editPoints', 'Edit points') : '',
+    sel.length === 1 && sel[0].type === 'icon' ? ctxBtn('similar', 'findSimilar', 'Find similar icons in the library') : '',
     '<span class="ctxsep"></span>',
     ctxBtn('dup', 'duplicate', 'Duplicate (⌘D)'), ctxBtn('lock', 'lock', 'Lock (⌘L)'), ctxBtn('del', 'deleteSel', 'Delete (⌫)'),
   ].join('');
