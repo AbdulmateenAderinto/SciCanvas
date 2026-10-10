@@ -107,7 +107,7 @@
   }
 
   // ---------- which connectors need the extended drawing ----------
-  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow', 'labelPos', 'labelAlong', 'midArrows', 'endGap'];
+  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow', 'labelPos', 'labelAlong', 'midArrows', 'endGap', 'animate'];
   globalThis.LINE_RESET = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'ticks', 'tickLabels'];
   const set = (v) => v != null && v !== '' && v !== false && v !== 0 && v !== 'solid' && !(Array.isArray(v) && !v.length);
   const objOf = (end, objects) => (end && end.id ? objects.find((x) => x.id === end.id) : null);
@@ -441,8 +441,15 @@
     if (o.flow) s += flowSvg(o, P0, color);
     else {
       const P = slice(P0, headLen(o.tail), L - headLen(o.head));
-      const dash = dashAttr(o, sw), cap = /stroke-linecap/.test(dash) ? '' : ' stroke-linecap="round"';
-      const line = (d, w) => `<path d="${d}" stroke="${stroke}" stroke-width="${w}" fill="none" stroke-linejoin="round"${cap}${dash}/>`;
+      let dash = dashAttr(o, sw), cap = /stroke-linecap/.test(dash) ? '' : ' stroke-linecap="round"';
+      // Animated flow: the dashes travel along the line (canvas, Present mode and exported SVG).
+      let anim = '';
+      if (o.animate) {
+        if (!dash) dash = ` stroke-dasharray="${r2(sw * 3)} ${r2(sw * 2.4)}"`;
+        const nums = (dash.match(/stroke-dasharray="([^"]+)"/) || [null, '10 8'])[1].split(/[\s,]+/).map(Number), period = r2(nums.reduce((a, b) => a + b, 0) * 2);
+        anim = `<animate attributeName="stroke-dashoffset" from="${period}" to="0" dur="${r2(Math.max(0.4, period / 30))}s" repeatCount="indefinite"/>`;
+      }
+      const line = (d, w) => `<path d="${d}" stroke="${stroke}" stroke-width="${w}" fill="none" stroke-linejoin="round"${cap}${dash}>${anim}</path>`;
       const ls = o.lineStyle;
       if (ls === 'double') { const g = sw * 0.9 + 0.6; s += line(ptsD(offsetLine(P, g)), sw * 0.6) + line(ptsD(offsetLine(P, -g)), sw * 0.6); }
       else if (ls === 'wavy' || ls === 'zigzag') s += line(ptsD(wavePts(P, sw, ls, o.waveAmp || 2.5 + sw, o.waveLength || 10 + sw * 3)), sw);
@@ -1023,9 +1030,10 @@
         row('Side in', txt('sideIn', 'e.g. ATP')), row('Side out', txt('sideOut', 'e.g. ADP')),
         (o.sideIn || o.sideOut) ? row('', tick('sideFlip', 'Side arrow below the line')) : null,
       ),
-      group('Style and measure', !!(o.gradTo || o.flow || o.measure || o.midArrows),
+      group('Style and measure', !!(o.gradTo || o.flow || o.measure || o.midArrows || o.animate),
         row('Gradient to', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.gradTo || '') ? o.gradTo : '#d6584a', oninput: (e) => setProps(L, 'gradTo', e.target.value) }), o.gradTo ? btn('None', () => re('gradTo', undefined)) : null),
         row('', tick('flow', 'Flow arrow (wide, tapered)')),
+      row('', tick('animate', 'Animated flow (dashes move along the line)')),
         o.flow ? row('Flow width', el('input', { type: 'range', min: 6, max: 80, step: 1, value: o.flowWidth || 22, oninput: (e) => setProps(L, 'flowWidth', +e.target.value) })) : null,
         row('', tick('measure', 'Show length (scale bar)')),
         o.measure ? row('Units', txt('measureUnit', 'px'), el('input', { type: 'number', step: 'any', value: o.measureScale || 1, title: 'Units per pixel', style: 'width:70px', onchange: (e) => re('measureScale', parseFloat(e.target.value) || undefined) })) : null,
