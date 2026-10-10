@@ -23,7 +23,7 @@ function localOutlineD(o) {
   if (o.type === 'path' && o.closed) return nodesToD(scaledNodes(o), true);
   if (o.type === 'rect') { const r = Math.min(o.radius || 0, o.w / 2, o.h / 2); return r ? `M${r} 0H${o.w - r}A${r} ${r} 0 0 1 ${o.w} ${r}V${o.h - r}A${r} ${r} 0 0 1 ${o.w - r} ${o.h}H${r}A${r} ${r} 0 0 1 0 ${o.h - r}V${r}A${r} ${r} 0 0 1 ${r} 0Z` : `M0 0H${o.w}V${o.h}H0Z`; }
   if (o.type === 'ellipse') return `M0 ${o.h / 2}A${o.w / 2} ${o.h / 2} 0 1 1 ${o.w} ${o.h / 2}A${o.w / 2} ${o.h / 2} 0 1 1 0 ${o.h / 2}Z`;
-  if (o.type === 'shape' && !OPEN_SHAPES.has(o.kind)) return shapePath(o.kind, o.w, o.h).split(/(?=M)/)[0];
+  if (o.type === 'shape' && !OPEN_SHAPES.has(o.kind)) return shapePath(o.kind, o.w, o.h, o).split(/(?=M)/)[0];
   return null;
 }
 const canBoolean = (o) => !!localOutlineD(o);
