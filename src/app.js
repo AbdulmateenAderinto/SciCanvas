@@ -1527,7 +1527,34 @@ async function trimTransparent(src, pad = 6) {
 
 // ---------- Files ----------
 function confirmDiscard() { return !state.dirty || confirm('You have unsaved changes. Discard them?'); }
+// Figures from older versions, or damaged files, still open: missing pages, page sizes, object lists, children and
+// ids are filled in and empty entries dropped. Existing ids are kept (duplicated pages can share them).
+function repairDoc(doc) {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('Not a SciCanvas figure');
+  const fix = (list) => (Array.isArray(list) ? list : []).filter((o) => o && typeof o === 'object' && typeof o.type === 'string').map((o) => {
+    if (!o.id) o.id = uid();
+    if (o.type === 'group') o.children = fix(o.children);
+    if (o.type === 'connector') {
+      if (!o.from || typeof o.from !== 'object') o.from = { x: 0, y: 0 };
+      if (!o.to || typeof o.to !== 'object') o.to = { x: 100, y: 0 };
+    } else {
+      for (const k of ['x', 'y']) if (!Number.isFinite(o[k])) o[k] = 0;
+      for (const k of ['w', 'h']) if (!Number.isFinite(o[k])) o[k] = 100;
+      if (o.type === 'group') { if (!(o.w0 > 0)) o.w0 = o.w; if (!(o.h0 > 0)) o.h0 = o.h; }
+    }
+    return o;
+  });
+  doc.pages = (Array.isArray(doc.pages) ? doc.pages : []).filter((p) => p && typeof p === 'object');
+  if (!doc.pages.length) doc.pages = [newPage()];
+  for (const p of doc.pages) {
+    if (!(p.width > 0)) p.width = 1000;
+    if (!(p.height > 0)) p.height = 700;
+    p.objects = fix(p.objects);
+  }
+  return doc;
+}
 function loadDoc(doc, filePath) {
+  repairDoc(doc);
   delete doc.thumb;
   state.doc = doc;
   if (filePath && window.native.watchFile) window.native.watchFile(filePath);
