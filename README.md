@@ -11,6 +11,7 @@ library → canvas → relationships → data → review → export.
 - **The whole NIH BioArt collection built in**: 4,821 images from all 958 entries of NIAID's BioArt Source (bioart.niaid.nih.gov), in every version BioArt offers (colours, black and white, views), so a search shows all of them next to the other libraries. They're public domain except the Human Reference Atlas images (CC BY); File › Credits adds NIH's credit line.
 - **Organs drawn from professional medical artwork**: 75 organ, tissue and disease icons now use Servier Medical Art, Reactome and DBCLS illustrations (heart, lungs, brain, liver, kidney, gut, glands, bones, vessels, disease views such as infarct, stroke, pneumonia, aneurysm, DVT and pulmonary embolism), plus new Larynx, Aorta, Heart conduction system, Pulmonary embolism and Brain (horizontal section) icons. Classic icon style keeps the earlier drawings.
 - **One shaded finish for every built-in icon**, matching the reference illustrations (Classic turns it off).
+- **PowerPoint export keeps the design tools**: fill-editor gradients, patterns, fill opacity, inner glow, warped and perspective shapes, per-corner radii, text box columns and spacing, and label leader lines stay editable in PowerPoint; textures, blurs, halos and cutaways go in as pictures.
 - **About 26,800 icons in all**: 2,154 built-in, the four icon libraries (about 19,900) and NIH BioArt (4,821).
 
 **New in 1.1**
