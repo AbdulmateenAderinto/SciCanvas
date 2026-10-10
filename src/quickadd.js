@@ -173,6 +173,35 @@
     return t;
   };
 
+  // Colour legend: one swatch per colour used for shapes and icons, named after the first thing in that colour.
+  ARRANGE_COMMANDS.colourLegend = () => {
+    const seen = new Map();
+    for (const o of objs()) {
+      if (o.hidden || ['connector', 'text', 'image', 'chart', 'table', 'group', 'comment'].includes(o.type)) continue;
+      const k = typeof mainColourKey === 'function' ? mainColourKey(o) : 'fill', c = String(o[k] || '').toLowerCase();
+      if (!/^#[0-9a-f]{6}$/.test(c) || c === '#ffffff' || seen.has(c)) continue;
+      seen.set(c, (o.name || o.label || layerName(o) || '').toString().replace(/\s*\((soft|refined)\)/i, '').slice(0, 30));
+      if (seen.size >= 12) break;
+    }
+    if (!seen.size) { toast('No coloured shapes or icons on this page'); return; }
+    checkpoint();
+    const pg = page(), rows = [...seen], x0 = 30, y0 = pg.height - 40 - rows.length * 24 - 26, made = [];
+    const title = Make.text('{b|Key}', x0, y0, { fontSize: 14 });
+    made.push(title);
+    rows.forEach(([c, name], i) => {
+      const y = y0 + 30 + i * 24;
+      made.push(Make.rect(x0, y, 18, 14, { fill: c, stroke: 'none', radius: 3 }), Make.text(name || 'Label', x0 + 26, y - 2, { fontSize: 13 }));
+    });
+    for (const m of made) if (m.type === 'text' && typeof postEdit === 'function') postEdit(m);
+    objs().push(...made);
+    state.sel = made.map((m) => m.id);
+    groupSelection();
+    const g = selected()[0];
+    if (g) g.name = 'Colour legend';
+    render({ props: true });
+    toast(`Colour key with ${rows.length} entr${rows.length > 1 ? 'ies' : 'y'}: double-click a name to edit it`);
+  };
+
   // Paste here: what was copied in SciCanvas, centred on the spot that was right-clicked.
   ARRANGE_COMMANDS.pasteHere = async () => {
     const at = (globalThis.ShapeLib && ShapeLib.menuPoint()) || viewCenter();
