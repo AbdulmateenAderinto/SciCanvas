@@ -1204,6 +1204,12 @@
           if (best < 1) o.labelSize = Math.max(6, Math.floor(fs * best * 10) / 10);
         } });
       }
+      // Lines of the same kind at different widths look accidental: offer the most common width per kind.
+      const byKind = new Map();
+      for (const c of lines) { if (c.flow) continue; const k = `${c.head || 'arrow'}|${c.dashStyle || 'solid'}`; if (!byKind.has(k)) byKind.set(k, []); byKind.get(k).push(c); }
+      const mixed = [...byKind.values()].filter((g) => new Set(g.map((c) => c.width || 2)).size > 1);
+      if (mixed.length) r.issues.push({ sev: 'info', kind: 'Lines', msg: `Lines of the same kind use different widths (${mixed.map((g) => [...new Set(g.map((c) => c.width || 2))].join(' / ')).join('; ')} px).`, id: mixed[0][0].id, fixLabel: 'Make them match',
+        fix: () => { for (const g of mixed) { const n = new Map(); for (const c of g) n.set(c.width || 2, (n.get(c.width || 2) || 0) + 1); const w = [...n].sort((a, b) => b[1] - a[1])[0][0]; for (const c of g) c.width = w; } } });
       // Icons and photos stretched out of proportion.
       const squashed = [];
       const walkS = (os) => { for (const o of os) {
