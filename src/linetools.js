@@ -108,7 +108,7 @@
 
   // ---------- which connectors need the extended drawing ----------
   const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow', 'labelPos', 'labelAlong', 'midArrows', 'endGap', 'animate'];
-  globalThis.LINE_RESET = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'ticks', 'tickLabels'];
+  globalThis.LINE_RESET = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'ticks', 'tickLabels', 'animate'];
   const set = (v) => v != null && v !== '' && v !== false && v !== 0 && v !== 'solid' && !(Array.isArray(v) && !v.length);
   const objOf = (end, objects) => (end && end.id ? objects.find((x) => x.id === end.id) : null);
   const selfLoop = (o) => !!(o.from && o.to && o.from.id && o.from.id === o.to.id);
@@ -950,6 +950,7 @@
     ['Double line', { head: 'none', tail: 'none', style: 'straight', lineStyle: 'double' }],
     ['Wavy arrow', { head: 'arrow', tail: 'none', style: 'straight', lineStyle: 'wavy' }],
     ['Zigzag arrow (energy, light)', { head: 'arrow', tail: 'none', style: 'straight', lineStyle: 'zigzag' }],
+    ['Animated flow', { head: 'arrow', tail: 'none', style: 'curved', curve: 30, width: 2.5, color: '#3b6fd6', animate: true }],
     ['Auto-routed elbow', { head: 'arrow', tail: 'none', style: 'elbow', route: 'auto', radius: 8 }],
     ['Crossing with hops', { head: 'arrow', tail: 'none', style: 'straight', jumps: true }],
     ['SBGN consumption', { head: 'none', tail: 'none', style: 'straight', width: 1.5 }],
