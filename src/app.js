@@ -1111,8 +1111,16 @@ document.addEventListener('dragover', (e) => { if (!e.defaultPrevented) e.preven
 document.addEventListener('drop', async (e) => {
   if (e.defaultPrevented) return;
   e.preventDefault();
-  for (const f of (e.dataTransfer && e.dataTransfer.files) || []) if (/image\/(png|jpe?g|svg\+xml|gif|webp|tiff?)/.test(f.type)) await importFile(f);
+  for (const f of (e.dataTransfer && e.dataTransfer.files) || []) {
+    if (/\.scifig$/i.test(f.name)) { await openDroppedFigure(f); return; }
+    if (/image\/(png|jpe?g|svg\+xml|gif|webp|tiff?)/.test(f.type)) await importFile(f);
+  }
 });
+// A .scifig file dropped onto the window opens (after the usual unsaved-changes question).
+async function openDroppedFigure(f) {
+  if (!confirmDiscard()) return;
+  try { loadDoc(JSON.parse(await f.text()), f.path || null); } catch { toast('That file could not be read'); }
+}
 stage.addEventListener('drop', async (e) => {
   e.preventDefault();
   const p = toWorld(e);
@@ -1120,7 +1128,7 @@ stage.addEventListener('drop', async (e) => {
   const upload = e.dataTransfer.getData('application/x-scicanvas-upload');
   if (icon) return addIcon(icon, p);
   if (upload) return importDataUrl('Upload', upload, p);
-  for (const f of e.dataTransfer.files) if (/image\/(png|jpe?g|svg\+xml)/.test(f.type)) await importFile(f, p);
+  for (const f of e.dataTransfer.files) { if (/\.scifig$/i.test(f.name)) { await openDroppedFigure(f); return; } if (/image\/(png|jpe?g|svg\+xml)/.test(f.type)) await importFile(f, p); }
 });
 
 function renderUploads() {
