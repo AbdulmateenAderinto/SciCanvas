@@ -767,7 +767,7 @@
     state.sel = made.map((m) => m.id);
     groupSelection();
     const g = selected()[0];
-    if (g) g.name = 'Line legend';
+    if (g) { g.name = 'Line legend'; if (typeof placeInFreeSpot === 'function') placeInFreeSpot(g); }
     render({ props: true });
     toast(`Legend with ${rows.length} line type${rows.length > 1 ? 's' : ''}: double-click a name to edit it`);
   }

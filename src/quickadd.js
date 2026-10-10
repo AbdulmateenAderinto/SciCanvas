@@ -173,6 +173,19 @@
     return t;
   };
 
+  // Put a new group (legend, key) where it covers the least: the four corners, then the middles of the edges.
+  function placeInFreeSpot(g) {
+    if (!g) return;
+    const pg = page(), m = 24, others = objs().filter((o) => o !== g && !o.hidden && o.type !== 'connector').map((o) => bounds(o, objs()));
+    const spots = [[pg.width - g.w - m, pg.height - g.h - m], [m, pg.height - g.h - m], [pg.width - g.w - m, m], [m, m],
+      [(pg.width - g.w) / 2, pg.height - g.h - m], [pg.width - g.w - m, (pg.height - g.h) / 2], [m, (pg.height - g.h) / 2]];
+    const overlap = (x, y) => others.reduce((s, b) => s + Math.max(0, Math.min(x + g.w, b.x + b.w) - Math.max(x, b.x)) * Math.max(0, Math.min(y + g.h, b.y + b.h) - Math.max(y, b.y)), 0);
+    let best = null;
+    for (const [x, y] of spots) { const v = overlap(x, y); if (!best || v < best.v - 1) best = { x, y, v }; }
+    g.x = best.x; g.y = best.y;
+  }
+  globalThis.placeInFreeSpot = placeInFreeSpot;
+
   // Colour legend: one swatch per colour used for shapes and icons, named after the first thing in that colour.
   ARRANGE_COMMANDS.colourLegend = () => {
     const seen = new Map();
@@ -197,7 +210,7 @@
     state.sel = made.map((m) => m.id);
     groupSelection();
     const g = selected()[0];
-    if (g) g.name = 'Colour legend';
+    if (g) { g.name = 'Colour legend'; placeInFreeSpot(g); }
     render({ props: true });
     toast(`Colour key with ${rows.length} entr${rows.length > 1 ? 'ies' : 'y'}: double-click a name to edit it`);
   };
