@@ -32,3 +32,19 @@ test('no element in an exported page repeats an attribute', () => {
     assert.deepEqual(repeatedAttrs(svg), [], p.name || 'line variants');
   }
 });
+
+test('a figure using the line tools draws the same after saving and reopening', () => {
+  const M = A.Make, a = M.rect(60, 60, 120, 60), b = M.rect(460, 60, 120, 60), c = M.rect(260, 300, 120, 60);
+  const trunk = M.connector({ id: a.id }, { id: b.id }, {});
+  const objects = [a, b, c, trunk,
+    M.connector({ id: a.id }, { id: c.id }, { points: [{ x: 120, y: 330 }], style: 'curved', label: 'binds', labelAlong: true, labelPos: 0.3 }),
+    M.connector({ id: a.id }, { id: b.id }, { route: 'auto', style: 'elbow', radius: 8 }),
+    M.connector({ id: c.id }, { id: c.id }, { loopSide: 'e' }),
+    M.connector({ id: c.id }, { id: trunk.id, t: 0.5 }, { head: 'bar' }),
+    M.connector({ id: a.id, at: [1, 0.2] }, { id: c.id }, { offset: 5, endGap: 6, labelBg: 'none' }),
+    M.connector({ x: 40, y: 480 }, { x: 600, y: 480 }, { lineStyle: 'zigzag', animate: true, midArrows: 2, jumps: true, gradTo: '#ff0000' }),
+  ];
+  const page = { width: 700, height: 620, background: '#ffffff', objects };
+  const again = JSON.parse(JSON.stringify(page));
+  assert.equal(G.pageSvgString(again), G.pageSvgString(page));
+});
