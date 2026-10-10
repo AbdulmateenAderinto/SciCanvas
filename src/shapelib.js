@@ -210,6 +210,8 @@
   const TOOLS = [['select', 'Select', 'V'], ['pan', 'Pan', 'H'], ['text', 'Text', 'T'], ['rect', 'Rectangle', 'R'], ['ellipse', 'Ellipse', 'E'], ['shape', 'Shapes', 'S'], ['line', 'Line', 'L'], ['arrow', 'Arrow', 'A'], ['connector', 'Connector', 'C'],
     ['pen', 'Pen', 'P'], ['pencil', 'Pencil', 'D'], ['airbrush', 'Shading airbrush', 'W'], ['eraser', 'Eraser', 'X'], ['badge', 'Numbered badge', 'N'], ['table', 'Table', ''], ['comment', 'Comment', 'M']];
   const BRUSHES = [['membrane', 'Lipid bilayer'], ['dna', 'DNA helix'], ['actin', 'Actin filament'], ['microtubule', 'Microtubule'], ['epithelium', 'Epithelial layer'], ['cells', 'Row of cells'], ['vessel', 'Blood vessel'], ['vesicles', 'Vesicles'], ['ubiquitin', 'Ubiquitin / bead chain']];
+  // Shared with the visual right-click menus (ctxmenu.js).
+  globalThis.ShapeLib = { LIB, LINES, TOOLS, BRUSHES, shapeThumb, lineThumb, insertShape, useLinePreset, menuPoint: () => menuAt, setMenuPoint: (p) => { menuAt = p; } };
   for (const [t] of TOOLS) ARRANGE_COMMANDS['tool:' + t] = () => setTool(t);
   for (const [k] of BRUSHES) ARRANGE_COMMANDS['brush:' + k] = () => setTool('brush', k);
   for (const k of SHAPES.map((s) => s[0])) ARRANGE_COMMANDS['shapetool:' + k] = () => { if ($('#shapeKind')) $('#shapeKind').value = k; setTool('shape'); toast(`Drag on the page to draw: ${(SHAPES.find((s) => s[0] === k) || [null, k])[1]}`); };
@@ -219,9 +221,9 @@
   for (const [cat, items] of LIB) for (const it of items) ARRANGE_COMMANDS[`insertshape:${cat}|${it.label}`] = () => insertShape(it, menuAt);
   svg.addEventListener('contextmenu', (e) => { menuAt = toWorld(e); }, true);
 
-  const toolsMenu = () => ({ label: 'Tools', submenu: [...TOOLS.map(([t, l, k]) => ({ label: `${l}${k ? `   (${k})` : ''}`, cmd: 'tool:' + t })), { type: 'separator' }, { label: 'Brushes', submenu: BRUSHES.map(([k, l]) => ({ label: l, cmd: 'brush:' + k })) }] });
-  const shapesMenu = () => ({ label: 'Insert shape', submenu: LIB.map(([cat, items]) => ({ label: cat, submenu: items.map((it) => ({ label: it.label, cmd: `insertshape:${cat}|${it.label}` })) })) });
-  const linesMenu = (label = 'Line style') => ({ label, submenu: LINES.map(([n]) => ({ label: n, cmd: 'line:' + n })) });
+  const toolsMenu = () => ({ label: 'Tools', visual: 'tools', submenu: [...TOOLS.map(([t, l, k]) => ({ label: `${l}${k ? `   (${k})` : ''}`, cmd: 'tool:' + t })), { type: 'separator' }, { label: 'Brushes', submenu: BRUSHES.map(([k, l]) => ({ label: l, cmd: 'brush:' + k })) }] });
+  const shapesMenu = () => ({ label: 'Insert shape', visual: 'shapes', submenu: LIB.map(([cat, items]) => ({ label: cat, submenu: items.map((it) => ({ label: it.label, cmd: `insertshape:${cat}|${it.label}` })) })) });
+  const linesMenu = (label = 'Line style') => ({ label, visual: 'lines', submenu: LINES.map(([n]) => ({ label: n, cmd: 'line:' + n })) });
   const prevMenu = contextMenuTemplate;
   contextMenuTemplate = function () {
     const base = prevMenu(), none = !state.sel.length;
@@ -229,22 +231,5 @@
     return none ? [...extra, { type: 'separator' }, ...base] : [...base, { type: 'separator' }, ...extra];
   };
 
-  // Photoshop-style flyouts: right-click a toolbar button for its variants.
-  const FLY = {
-    shape: () => SHAPES.map(([k, l]) => ({ label: l, cmd: 'shapetool:' + k })),
-    connector: () => LINES.map(([n]) => ({ label: n, cmd: 'line:' + n })),
-    arrow: () => LINES.map(([n]) => ({ label: n, cmd: 'line:' + n })),
-    line: () => LINES.map(([n]) => ({ label: n, cmd: 'line:' + n })),
-    brush: () => BRUSHES.map(([k, l]) => ({ label: l, cmd: 'brush:' + k })),
-    pencil: () => [['free', 'Freehand'], ['shape', 'Custom shape (closes into a filled shape)'], ['protein', 'Soft protein']].map(([m, l]) => ({ label: l, cmd: 'pencilmode:' + m })),
-    rect: () => LIB[0][1].slice(0, 2).concat(LIB[0][1].filter((it) => /Frame|Capsule/.test(it.label))).map((it) => ({ label: it.label, cmd: `insertshape:Basic|${it.label}` })),
-    ellipse: () => LIB[0][1].filter((it) => /Circle|Ellipse|Semicircle|Ring|Pie|Crescent/.test(it.label)).map((it) => ({ label: it.label, cmd: `insertshape:Basic|${it.label}` })),
-  };
-  document.addEventListener('contextmenu', (e) => {
-    const b = e.target.closest && e.target.closest('[data-tool]');
-    if (!b) return;
-    e.preventDefault();
-    const items = (FLY[b.dataset.tool] || (() => []))();
-    if (window.native && window.native.contextMenu) window.native.contextMenu([{ label: `${b.title.split(' — ')[0]}`, enabled: false }, { type: 'separator' }, ...(items.length ? items : TOOLS.map(([t, l]) => ({ label: l, cmd: 'tool:' + t })))]);
-  });
+  // Toolbar flyouts (right-click a tool for its variants) are drawn as picture grids by ctxmenu.js.
 })();

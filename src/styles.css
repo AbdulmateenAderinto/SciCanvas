@@ -315,3 +315,44 @@ button.aimenu span { color: var(--muted); font-size: 11.5px; }
 .textbar-pop .swatches { display: flex; flex-wrap: wrap; gap: 4px; width: 170px; }
 
 #lib-shapes .searchrow input { flex: 1; width: 100%; }
+
+/* Picture right-click menus (ctxmenu.js) */
+.cm-panel { position: fixed; z-index: 1000; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(20,28,40,.22); padding: 6px; width: 268px; max-height: calc(100vh - 8px); overflow-y: auto; font-size: 13px; user-select: none; }
+.cm-panel.cm-wide { width: 344px; }
+.cm-panel h4 { margin: 6px 4px 3px; font-size: 11px; font-weight: 600; color: #6b7480; text-transform: uppercase; letter-spacing: .03em; }
+.cm-head { font-size: 11px; font-weight: 600; color: #6b7480; text-transform: uppercase; letter-spacing: .03em; padding: 3px 6px 4px; }
+.cm-sep { height: 1px; background: var(--border); margin: 5px 2px; }
+.cm-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: default; min-height: 26px; }
+.cm-row:hover, .cm-row.open { background: var(--accent-soft); }
+.cm-row.off { color: #9aa1aa; }
+.cm-row .cm-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-row .cm-chev { color: #8a929c; font-size: 15px; line-height: 1; }
+.cm-strip-pics { display: flex; gap: 3px; align-items: center; }
+.cm-strip-pics svg { height: 20px; width: 20px; }
+.cm-strip-pics.lines svg, .cm-strip-pics.brushes svg { width: 40px; }
+.cm-strip { display: flex; flex-wrap: wrap; gap: 2px; padding: 1px 0; }
+.cm-grid { display: grid; gap: 3px; }
+.cm-grid.tools { grid-template-columns: repeat(8, 1fr); }
+.cm-grid.shapes { grid-template-columns: repeat(7, 1fr); }
+.cm-grid.shapes.capped { grid-template-columns: repeat(4, 1fr); }
+.cm-grid.lines { grid-template-columns: repeat(2, 1fr); }
+.cm-grid.brushes { grid-template-columns: repeat(2, 1fr); }
+.cm-grid.pencil { grid-template-columns: repeat(3, 1fr); }
+.cm-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px; border: 1px solid transparent; border-radius: 7px; background: none; min-width: 0; }
+.cm-tile:hover:not(:disabled) { background: var(--accent-soft); border-color: #c9d8f5; }
+.cm-tile.on { border-color: var(--accent); background: var(--accent-soft); }
+.cm-tile:disabled { opacity: .4; }
+.cm-tile .cm-pic { display: flex; align-items: center; justify-content: center; }
+.cm-tile .cm-cap { font-size: 10px; color: #4a525c; line-height: 1.15; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-tile.action { width: 60px; }
+.cm-tile.action .cm-pic svg { width: 20px; height: 20px; color: #333; }
+.cm-tile.tool { padding: 5px 0; }
+.cm-tile.tool svg { width: 20px; height: 20px; stroke: #333; stroke-width: 1.7; fill: #333; }
+.cm-tile.tool.on svg { stroke: var(--accent); fill: var(--accent); }
+.cm-tile.tool path[fill=none], .cm-tile.tool rect[fill=none], .cm-tile.tool ellipse[fill=none], .cm-tile.tool circle[fill=none] { fill: none; }
+.cm-tile.thumb .cm-pic svg { width: 36px; height: 36px; }
+.cm-tile.line .cm-pic svg { width: 112px; height: 40px; }
+.cm-tile.brush .cm-pic svg { width: 112px; height: 46px; }
+.cm-tile.pencil .cm-pic svg { width: 40px; height: 40px; }
+.cm-tile.line .cm-cap, .cm-tile.brush .cm-cap { white-space: normal; }
+.cm-strip-pics svg[stroke="currentColor"] { width: 17px; height: 17px; color: #555; }
