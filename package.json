@@ -7,6 +7,7 @@
   "scripts": {
     "start": "electron .",
     "icons": "node scripts/packs.js all",
+    "icons:bioart": "node scripts/bioart.js",
     "setup": "sh scripts/setup-electron.sh",
     "dist": "electron-builder --mac dmg --arm64",
     "dist:intel": "electron-builder --mac dmg --x64",

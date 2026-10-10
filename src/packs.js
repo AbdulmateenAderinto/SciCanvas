@@ -8,10 +8,11 @@ const LICENSE_NAMES = {
   'cc-by-sa-3.0': 'CC BY-SA 3.0', 'cc-by-sa-4.0': 'CC BY-SA 4.0', mit: 'MIT', bsd: 'BSD', own: 'Your own',
   'cc-by-nc-3.0': 'CC BY-NC 3.0 (non-commercial)', 'cc-by-nc-4.0': 'CC BY-NC 4.0 (non-commercial)',
   'cc-by-nc-sa-3.0': 'CC BY-NC-SA 3.0 (non-commercial)', 'cc-by-nc-sa-4.0': 'CC BY-NC-SA 4.0 (non-commercial)',
+  'cc-by': 'CC BY',
 };
 const needsAttribution = (lic) => !!lic && !['cc-0', 'pd', 'own', 'mit', 'built-in'].includes(lic);
 const isNonCommercial = (lic) => /-nc/.test(lic || '');
-const PACK_LABEL = { bioicons: 'Bioicons (bioicons.com)', reactome: 'Reactome icon library (reactome.org)', healthicons: 'Health Icons (healthicons.org)', phylopic: 'PhyloPic (phylopic.org)', mine: 'Your own icons' };
+const PACK_LABEL = { bioicons: 'Bioicons (bioicons.com)', reactome: 'Reactome icon library (reactome.org)', healthicons: 'Health Icons (healthicons.org)', phylopic: 'PhyloPic (phylopic.org)', bioart: 'NIAID NIH BioArt Source (bioart.niaid.nih.gov)', mine: 'Your own icons' };
 
 // Everyday names → terms used in the libraries (PhyloPic uses scientific names).
 const SYNONYMS = {
@@ -314,6 +315,11 @@ function creditsText(doc) {
       lines.push(`Icons from ${label}: ` + Object.entries(byAuthor).map(([who, names]) => `${[...names].join(', ')} by ${who}`).join('; ') + '.');
     }
     if (free) lines.push(`${free} public-domain / permissively licensed icon${free > 1 ? 's' : ''} from ${label}.`);
+    // NIH asks for "Illustration from NIAID NIH BioArt Source (bioart.niaid.nih.gov/bioart/###)" for every BioArt image.
+    if (pack === 'bioart') {
+      const ids = [...new Set(list.map((a) => (/bioart\/(\d+)/.exec(a.attribution || '') || [])[1]).filter(Boolean))];
+      if (ids.length) lines.push(`Illustration${ids.length > 1 ? 's' : ''} from NIAID NIH BioArt Source (${ids.map((n) => `bioart.niaid.nih.gov/bioart/${n}`).join(', ')}).`);
+    }
   }
   const pdb = sources.filter((s) => s.startsWith('PDB ')).map((s) => s.slice(4));
   if (pdb.length) lines.push(`Protein structures from the RCSB Protein Data Bank: ${[...new Set(pdb)].join(', ')}; rendered with 3Dmol.js.`);
