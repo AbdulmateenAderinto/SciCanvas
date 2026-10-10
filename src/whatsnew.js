@@ -16,6 +16,7 @@
     ['Alt text', 'Properties › Page › Alt text, with Draft from figure (what’s on the page and what the arrows say); saved in exported SVGs.'],
     ['Images', 'Right-click › Trim white / transparent edges crops pasted plots and screenshots to their content.'],
     ['Pathway from text', 'New notation: <=> reversible, -o catalysis, “ : verb” labels and [ATP → ADP] cofactors.'],
+    ['Presenting', 'In Present mode, L toggles a laser pointer and B blanks the screen.'],
     ['Copy as SVG', 'Edit › Copy as SVG pastes into Figma, Illustrator or Inkscape as editable vectors.'],
   ];
   function openWhatsNew() {
@@ -27,6 +28,24 @@
   }
   globalThis.openWhatsNew = openWhatsNew;
   ARRANGE_COMMANDS.whatsNew = openWhatsNew;
+
+  // Present mode extras: L laser pointer (red dot following the mouse), B blank (black) screen.
+  if (typeof presentKey === 'function') {
+    const pres = document.getElementById('present');
+    const dot = el('div', { class: 'laser hidden' }), blank = el('div', { class: 'present-blank hidden' });
+    if (pres) pres.append(dot, blank);
+    let laser = false;
+    if (pres) pres.addEventListener('mousemove', (e) => { if (laser) { dot.style.left = e.clientX + 'px'; dot.style.top = e.clientY + 'px'; } });
+    const prevKey = presentKey;
+    presentKey = function (e) {
+      const k = e.key.toLowerCase();
+      if (k === 'l') { laser = !laser; dot.classList.toggle('hidden', !laser); pres.classList.toggle('laser-on', laser); return; }
+      if (k === 'b' || k === '.') { blank.classList.toggle('hidden'); return; }
+      if (e.key === 'Escape') { laser = false; dot.classList.add('hidden'); blank.classList.add('hidden'); pres.classList.remove('laser-on'); }
+      if (!blank.classList.contains('hidden')) blank.classList.add('hidden');
+      return prevKey(e);
+    };
+  }
 
   // A short guided tour: a bubble beside each part of the window, Next / Back / Done.
   const TOUR = [

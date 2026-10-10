@@ -1693,7 +1693,7 @@ function showSlide() {
   const k2 = Math.min(window.innerWidth / p.width, (window.innerHeight - notesH) / p.height) * 0.96;
   $('#presentStage').innerHTML = pageSvgString(p).replace('<svg ', `<svg style="width:${p.width * k2}px;height:${p.height * k2}px" `)
     + (notesH ? `<div class="pnotes">${esc(p.notes)}</div>` : '');
-  $('#presentHint').textContent = `${presentIndex + 1} / ${state.doc.pages.length} · ← → to navigate · N for speaker notes · P to ${narrating ? 'stop' : 'play'} narration · Esc to exit`;
+  $('#presentHint').textContent = `${presentIndex + 1} / ${state.doc.pages.length} · ← → to navigate · N for speaker notes · L laser pointer · B blank screen · P to ${narrating ? 'stop' : 'play'} narration · Esc to exit`;
   if (narrating) speakSlide();
 }
 // Narrated slides: reads each page's narration (or speaker notes) aloud; auto-advances when it finishes.

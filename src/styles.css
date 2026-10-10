@@ -405,3 +405,7 @@ button.aimenu span { color: var(--muted); font-size: 11.5px; }
 .tour-box b { display: block; font-size: 14px; margin: 2px 0 4px; }
 .tour-box p { margin: 0 0 10px; line-height: 1.45; color: #333; }
 .tour-hi { outline: 3px solid var(--accent) !important; outline-offset: 2px; border-radius: 8px; }
+/* Present mode: laser pointer and blank screen (whatsnew.js) */
+#present .laser { position: fixed; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #ff2a2a; box-shadow: 0 0 10px 4px rgba(255,42,42,.6); pointer-events: none; z-index: 10; }
+#present.laser-on, #present.laser-on * { cursor: none !important; }
+#present .present-blank { position: fixed; inset: 0; background: #000; z-index: 9; }
