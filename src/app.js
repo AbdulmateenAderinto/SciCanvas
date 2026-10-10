@@ -1506,7 +1506,7 @@ function renderPageProps(P) {
     btn('◀ Move', () => movePage(-1)), btn('Move ▶', () => movePage(1)),
     state.doc.pages.length > 1 ? btn('Delete page', () => { if (!confirm(`Delete “${p.name}”?`)) return; checkpoint(); state.doc.pages.splice(state.pageIndex, 1); gotoPage(Math.max(0, state.pageIndex - 1)); }, 'danger') : null)));
   P.append(sect('Tips', el('div', { class: 'note', innerHTML:
-    'Drag icons from the library · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Moving, resizing and rotating snap to other objects’ edges, sizes and angles (and lines to 0° / 45° / 90°); hold ⌘ (Ctrl on Windows) to turn snapping off.' })));
+    'Drag icons from the library, or press <b>/</b> over the page to add one at the pointer · Select an object and drag a side arrow to connect it · Right-click for picture menus · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Moving, resizing and rotating snap to other objects’ edges, sizes and angles (and lines to 0° / 45° / 90°); hold ⌘ (Ctrl on Windows) to turn snapping off.' })));
 }
 function movePage(d) {
   const i = state.pageIndex, j = i + d;
