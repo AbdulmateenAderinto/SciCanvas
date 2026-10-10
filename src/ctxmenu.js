@@ -240,5 +240,5 @@
   window.addEventListener('blur', closeAll);
   window.addEventListener('resize', closeAll);
   document.addEventListener('wheel', (e) => { if (panels.length && !e.target.closest('.cm-panel')) closeAll(); }, { capture: true, passive: true });
-  globalThis.VisualMenu = { openCanvasMenu, openToolFlyout, closeAll, ICON };
+  globalThis.VisualMenu = { openCanvasMenu, openToolFlyout, closeAll, ICON, brushThumb };
 })();
