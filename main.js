@@ -102,6 +102,7 @@ function buildMenu() {
         { label: 'Check Spelling…', click: send('spellCheck') },
         { label: 'Gene & Protein Names…', click: send('geneStyle') },
         { label: 'Format Chemical Formulas (H₂O, Ca²⁺)', click: send('formatChemistry') },
+        { label: 'Tidy Units & Symbols (µm, °C, ±, →)', click: send('tidyUnits') },
         { label: 'Select Matching', submenu: [{ label: 'Same Icon', click: send('selectSameIcon') }, { label: 'Same Type', click: send('selectSameType') }, { label: 'Same Colour', click: send('selectSameColour') },
           { label: 'Same Fill (incl. gradient)', click: send('selectSameFill') }, { label: 'Same Outline', click: send('selectSameStroke') }, { label: 'Same Effects', click: send('selectSameEffects') },
           { label: 'Same Font', click: send('selectSameFont') }, { label: 'Same Graphic Style', click: send('selectSameStyle') }] },

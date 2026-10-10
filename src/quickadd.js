@@ -103,6 +103,41 @@
     return t;
   };
 
+  // Units and symbols in scientific text, conservatively (only after a number, or unambiguous arrows / ±).
+  function tidyUnits(text) {
+    const N = '(\\d(?:[\\d.,]*\\d)?)\\s?';
+    return text
+      .replace(new RegExp(N + '(u|μ)(m|M|g|L|l|mol|s|A|V|Ci)\\b', 'g'), (m, n, u, unit) => `${n} µ${unit === 'l' ? 'L' : unit}`)
+      .replace(new RegExp(N + '(n|m|p|f)l\\b', 'g'), (m, n, p) => `${n} ${p}L`)
+      .replace(new RegExp(N + 'ml\\b', 'g'), (m, n) => `${n} mL`)
+      .replace(/\/ml\b/g, '/mL').replace(/\/ul\b/gi, '/µL').replace(/\/ug\b/g, '/µg')
+      .replace(new RegExp(N + '(?:deg\\s?C|oC|º\\s?C|° C|C)(?![A-Za-z0-9])', 'g'), (m, n) => (/\d/.test(n) && Number(n.replace(',', '.')) <= 150 ? `${n} °C` : m))
+      .replace(/\+\/-|\+-(?=\s?\d)/g, '±')
+      .replace(/<=>/g, '⇌').replace(/<->/g, '↔').replace(/(^|[^-<])->/g, '$1→').replace(/<-(?!>|-)/g, '←')
+      .replace(/(\d)\s?x\s?10\^?(-?\d+)/g, (m, a, e) => `${a} × 10^{${e.replace('-', '−')}}`)
+      .replace(/(\d)x(?=\s|$|[,.;)])/g, '$1×');
+  }
+  globalThis.tidyUnits = tidyUnits;
+  ARRANGE_COMMANDS.tidyUnits = () => {
+    const list = selected().filter((o) => o.type === 'text' || o.label);
+    if (!list.length) { toast('Select text (or shapes with labels) to tidy'); return; }
+    checkpoint();
+    let n = 0;
+    for (const o of list) for (const k of ['text', 'label']) {
+      if (typeof o[k] !== 'string') continue;
+      const v = tidyUnits(o[k]);
+      if (v !== o[k]) { o[k] = v; n++; if (typeof postEdit === 'function') postEdit(o); }
+    }
+    render({ props: true });
+    toast(n ? 'Units and symbols tidied' : 'Nothing to tidy');
+  };
+  const prevMenu3 = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu3();
+    if (selected().some((o) => o.type === 'text' || o.label)) t.push({ label: 'Tidy units & symbols (µm, °C, ±, →)', cmd: 'tidyUnits' });
+    return t;
+  };
+
   // Paste here: what was copied in SciCanvas, centred on the spot that was right-clicked.
   ARRANGE_COMMANDS.pasteHere = async () => {
     const at = (globalThis.ShapeLib && ShapeLib.menuPoint()) || viewCenter();
