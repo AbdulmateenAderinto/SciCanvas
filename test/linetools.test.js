@@ -115,3 +115,10 @@ test('a line whose object disappears keeps its last position instead of breaking
   const never = line({ id: 'never', from: { id: 'zz' }, to: { x: 50, y: 50 } });
   assert.equal(G.connectorSvg(never, [never], true), '', 'nothing to draw from an unknown object');
 });
+
+test('free-floating lines can be found under the pointer (to branch from or restyle)', () => {
+  const free = line({ id: 'free', from: { x: 0, y: 100 }, to: { x: 300, y: 100 } });
+  const hit = G.connectorAtPoint({ x: 150, y: 102 }, undefined, [free], 1);
+  assert.ok(hit && hit.o.id === 'free' && Math.abs(hit.t - 0.5) < 0.01);
+  assert.equal(G.connectorAtPoint({ x: 150, y: 102 }, 'free', [free], 1), null, 'the line being dragged is skipped');
+});

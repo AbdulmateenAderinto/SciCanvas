@@ -526,12 +526,12 @@
     return dx <= dy ? [Math.round(u) ? 1 : 0, Math.round(cv * 1000) / 1000] : [Math.round(cu * 1000) / 1000, Math.round(v) ? 1 : 0];
   };
   // The line under p (for branching from / merging into it), skipping o and lines that hang off o.
-  globalThis.connectorAtPoint = function (p, excludeId) {
-    const tol = 8 / state.zoom, list = objs();
+  globalThis.connectorAtPoint = function (p, excludeId, list = objs(), zoom = state.zoom) {
+    const tol = 8 / zoom;
     let best = null;
     for (const c of list) {
       if (c.type !== 'connector' || c.id === excludeId || c.hidden || c.style === 'zoom') continue;
-      if ((c.from && c.from.id === excludeId) || (c.to && c.to.id === excludeId)) continue;
+      if (excludeId && ((c.from && c.from.id === excludeId) || (c.to && c.to.id === excludeId))) continue;
       const P = geom(c, list).pts, n = nearestOn(P, p);
       if (n.d < tol && (!best || n.d < best.d)) best = { o: c, t: Math.round(n.t * 1000) / 1000, d: n.d };
     }
