@@ -570,9 +570,17 @@
     }
     const i = +d.h.slice(3);
     let q = { x: p.x, y: p.y };
-    if (e && e.shiftKey) { // shift: line up with the neighbouring point
-      const V = [connectorEnds(o, objs())[0], ...o.points, connectorEnds(o, objs())[1]], nb = V[i];
-      if (nb) { if (Math.abs(q.x - nb.x) < Math.abs(q.y - nb.y)) q.x = nb.x; else q.y = nb.y; }
+    const [ea, eb] = connectorEnds({ ...o, points: o.points.filter((_, j) => j !== i).length ? o.points : undefined }, objs());
+    const V = [ea, ...o.points, eb], prevP = V[i], nextP = V[i + 2];
+    if (e && e.shiftKey) { // shift: line up with the previous point
+      if (prevP) { if (Math.abs(q.x - prevP.x) < Math.abs(q.y - prevP.y)) q.x = prevP.x; else q.y = prevP.y; }
+    } else if (!(e && (e.metaKey || e.ctrlKey))) { // snap level / upright with either neighbour when close (⌘ turns it off)
+      const tol = 6 / state.zoom;
+      for (const nb of [prevP, nextP]) {
+        if (!nb) continue;
+        if (Math.abs(q.x - nb.x) < tol) q.x = nb.x;
+        if (Math.abs(q.y - nb.y) < tol) q.y = nb.y;
+      }
     }
     o.points[i] = { x: r2(q.x), y: r2(q.y) };
   };
