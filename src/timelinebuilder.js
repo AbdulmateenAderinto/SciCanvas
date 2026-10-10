@@ -8,7 +8,13 @@
     [/vaccin|immuni[sz]|boost|prime/, ['s-vaccine-vial-and-syringe', 'syringe']], [/dose|treat|inject|administ|drug|therapy|i\.?p\.?|i\.?v\.?/, ['syringe']],
     [/measur|caliper|tumou?r (size|volume|growth)/, ['r-digital-caliper']], [/bleed|blood|serum|plasma/, ['s-blood-collection-tube-edta']],
     [/biops/, ['s-biopsy-needle']], [/harvest|sacrific|euthan|necrops|endpoint|collect|dissect|tissue/, ['s-scalpel']],
-    [/flow|facs|cytometr/, ['s-flow-cytometer', 'r-flow-cytometer']], [/imag|microscop|ivis|histolog|stain/, ['microscope']],
+    [/analy[sz]|quantif|statist|bioinform|comput|flowjo|software/, ['computer']], [/stain|antibod|label/, ['s-antibody-fitc-conjugate', 'antibody']],
+    [/flow|facs|cytometr/, ['s-flow-cytometer', 'r-flow-cytometer']], [/imag|microscop|ivis|histolog/, ['microscope']],
+    [/centrifug|spin|pellet/, ['centrifuge']], [/isolat|purif|ficoll|pbmc|density/, ['s-centrifuge-tube-50-ml', 'centrifuge']],
+    [/incubat|culture \d|overnight|\d+ ?h\b/, ['s-incubator', 's-cell-culture-flask']],
+    [/western|immunoblot/, ['s-western-blot', 'gel']], [/gel|electrophor/, ['s-gel-electrophoresis', 'gel']], [/elisa|plate|assay/, ['r-96-well-plate', 'wellplate']],
+    [/transfect|transduc|plasmid|clon/, ['s-plasmid', 'r-plasmid']], [/colon|bacteri|agar/, ['s-petri-dish-with-colonies', 'petri']],
+    [/stimulat|activat/, ['s-cell-culture-flask']],
     [/infect|virus|challenge/, ['virus']], [/sequenc|rna-?seq|dna|genotyp|pcr/, ['dna']], [/culture|passage|seed|plate/, ['s-cell-culture-flask']],
   ];
   function iconFor(text) {
@@ -218,12 +224,59 @@
       ta, el('div', { class: 'btnrow', style: 'margin-top:8px' }, go)));
   }
   ARRANGE_COMMANDS.blotBuilder = openBlotBuilder;
+
+  // Workflow: "Isolate PBMCs > Stimulate > Stain > Flow cytometry" → numbered steps with icons, joined by arrows.
+  const parseSteps = (text) => String(text).split(/>|→|\n/).map((x) => x.trim()).filter(Boolean);
+  globalThis.parseSteps = parseSteps;
+  function openWorkflowBuilder() {
+    const ta = el('textarea', { rows: 4, style: 'width:100%;font-family:inherit', value: 'Isolate PBMCs > Stimulate with anti-CD3/CD28 > Culture 72 h > Stain surface markers > Flow cytometry' });
+    const perRow = el('input', { type: 'number', min: 2, max: 10, value: 5, style: 'width:60px' });
+    const go = el('button', { class: 'primary', textContent: 'Insert workflow', onclick: async () => {
+      const steps = parseSteps(ta.value);
+      if (steps.length < 2) { toast('Add at least two steps separated by “>”'); return; }
+      const n = Math.max(2, +perRow.value || 5), cellW = 170, cellH = 170, at = viewCenter(), o = [];
+      const cols = Math.min(n, steps.length), rows = Math.ceil(steps.length / n), x0 = at.x - (cols * cellW) / 2, y0 = at.y - (rows * cellH) / 2;
+      let prev = null, prevLab = null;
+      for (let i = 0; i < steps.length; i++) {
+        const row = Math.floor(i / n), col = row % 2 ? n - 1 - (i % n) : i % n; // snake: every other row runs right to left
+        const cx = x0 + col * cellW + cellW / 2, cy = y0 + row * cellH + 50;
+        const it = iconFor(steps[i]);
+        let ic = null;
+        if (it && it.native) ic = Make.icon(it.id, cx - 36, cy - 36, 72);
+        else if (it && !(it.kb > 2500)) ic = await packIcon(it, cx, cy, 72);
+        if (!ic) ic = Make.ellipse(cx - 30, cy - 30, 60, 60, { fill: '#eef4fb', stroke: '#4a7fd6' });
+        ic.x = cx - ic.w / 2; ic.y = cy - ic.h / 2; // centred, so arrows between steps run level
+        const badge = Make.badge(i + 1, cx - 44, cy - 40);
+        const lab = Make.text(steps[i], 0, 0, { fontSize: 13, bold: true, color: '#33475b', boxW: 150, align: 'center' });
+        if (typeof postEdit === 'function') postEdit(lab);
+        lab.x = cx - lab.w / 2; lab.y = cy + 44;
+        o.push(ic, badge, lab);
+        if (prev) {
+          const wrap = i % n === 0, rtl = Math.floor(i / n) % 2 === 1;
+          const ports = wrap ? ['s', 'n'] : rtl ? ['w', 'e'] : ['e', 'w'];
+          o.push(Make.connector({ id: (wrap ? prevLab : prev).id, port: ports[0] }, { id: ic.id, port: ports[1] }, { head: 'arrow', width: 2.5, color: '#56657a', endGap: 8 })); // a wrap starts below the label
+        }
+        prevLab = lab;
+        prev = ic;
+      }
+      closeModal();
+      addObjects(o);
+      groupSelection();
+      const g = selected()[0];
+      if (g) g.name = 'Workflow';
+      render({ props: true });
+    } });
+    openModal('Workflow builder', el('div', { style: 'width:min(560px,80vw)' },
+      el('p', { class: 'note', textContent: 'Steps separated by “>” (or one per line). Each step gets a number and an icon picked from its words; swap any with Replace icon.' }),
+      ta, el('div', { class: 'row', style: 'margin:8px 0' }, el('label', { textContent: 'Steps per row' }), perRow), el('div', { class: 'btnrow' }, go)));
+  }
+  ARRANGE_COMMANDS.workflowBuilder = openWorkflowBuilder;
   globalThis.parseTimeline = parse;
   ARRANGE_COMMANDS.timelineBuilder = openTimelineBuilder;
   const prevMenu = contextMenuTemplate;
   contextMenuTemplate = function () {
     const t = prevMenu();
-    if (!state.sel.length) t.push({ label: 'Builders', submenu: [{ label: 'Timeline…', cmd: 'timelineBuilder' }, { label: 'Cohort / study groups…', cmd: 'cohortBuilder' }, { label: 'Gating strategy…', cmd: 'gatingBuilder' }, { label: 'Western blot…', cmd: 'blotBuilder' }] });
+    if (!state.sel.length) t.push({ label: 'Builders', submenu: [{ label: 'Workflow…', cmd: 'workflowBuilder' }, { label: 'Timeline…', cmd: 'timelineBuilder' }, { label: 'Cohort / study groups…', cmd: 'cohortBuilder' }, { label: 'Gating strategy…', cmd: 'gatingBuilder' }, { label: 'Western blot…', cmd: 'blotBuilder' }] });
     return t;
   };
 })();

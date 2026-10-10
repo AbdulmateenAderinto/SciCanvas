@@ -134,7 +134,7 @@ function buildMenu() {
         { label: 'Table', click: send('insertTable') },
         { label: 'Equation (LaTeX)…', click: send('equation') },
         { label: 'Builders', submenu: [
-          { label: 'Timeline…', click: send('timelineBuilder') }, { label: 'Cohort / Study Groups…', click: send('cohortBuilder') },
+          { label: 'Workflow…', click: send('workflowBuilder') }, { label: 'Timeline…', click: send('timelineBuilder') }, { label: 'Cohort / Study Groups…', click: send('cohortBuilder') },
           { label: 'Gating Strategy…', click: send('gatingBuilder') }, { label: 'Western Blot…', click: send('blotBuilder') },
         ] },
         { label: 'Line Legend', click: send('lineLegend') },

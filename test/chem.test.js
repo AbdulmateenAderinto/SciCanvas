@@ -54,3 +54,7 @@ test('version comparison for update checks', () => {
   assert.ok(n('1.3.0', '1.2.0') && n('1.10.0', '1.9.9') && n('2.0', '1.9.9'));
   assert.ok(!n('1.2.0', '1.2.0') && !n('1.2.0', '1.3.0'));
 });
+
+test('workflow steps', () => {
+  assert.equal(JSON.stringify(A.globals.parseSteps('Isolate > Stain → Analyse\nReport')), JSON.stringify(['Isolate', 'Stain', 'Analyse', 'Report']));
+});
