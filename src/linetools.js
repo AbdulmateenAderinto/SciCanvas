@@ -764,9 +764,26 @@
   Object.assign(ARRANGE_COMMANDS, {
     lineBranch: () => branch('branch'), lineMerge: () => branch('merge'), lineTwoWay: twoWay, lineSelfLoop: selfLoopCmd,
     lineAddBranch: addBranchFromLine, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
-    lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }),
+    lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }), lineStraighten: straighten,
     equation: () => openEquationEditor(), geneStyle: () => openGeneHelper(),
   });
+  // Straighten: move the object at the end of each selected line so the line runs exactly level or upright.
+  function straighten() {
+    const L = selected().filter((o) => o.type === 'connector');
+    if (!L.length) { toast('Select a line between two objects'); return; }
+    checkpoint();
+    let moved = 0;
+    for (const c of L) {
+      const A = objOf(c.from, objs()), B = objOf(c.to, objs());
+      if (!A || !B || A === B || A.type === 'connector' || B.type === 'connector' || B.locked) continue;
+      const ca = c.from.at ? edgePoint(A, c.from.at) : c.from.port ? portPoint(A, c.from.port) : center(A);
+      const cb = c.to.at ? edgePoint(B, c.to.at) : c.to.port ? portPoint(B, c.to.port) : center(B);
+      if (Math.abs(cb.x - ca.x) >= Math.abs(cb.y - ca.y)) B.y += ca.y - cb.y; else B.x += ca.x - cb.x;
+      moved++;
+    }
+    render({ props: true });
+    if (!moved) toast('Straighten works on lines attached to two objects');
+  }
   function setLines(p) {
     const L = selected().filter((o) => o.type === 'connector');
     if (!L.length) return;
@@ -780,7 +797,7 @@
     const t = prevMenu(), sel = selected(), lines = sel.filter((o) => o.type === 'connector'), others = sel.filter((o) => o.type !== 'connector');
     const items = [];
     if (lines.length) items.push({ label: 'Line', submenu: [
-      { label: 'Route around objects', cmd: 'lineAutoRoute' }, { label: 'Remove bend points / routing', cmd: 'lineClearBends' }, { label: 'Hop over crossing lines', cmd: 'lineJumps' },
+      { label: 'Straighten (move the end object)', cmd: 'lineStraighten' }, { label: 'Route around objects', cmd: 'lineAutoRoute' }, { label: 'Remove bend points / routing', cmd: 'lineClearBends' }, { label: 'Hop over crossing lines', cmd: 'lineJumps' },
       { label: 'Add parallel return arrow', cmd: 'lineTwoWay' }, ...(lines.length === 1 ? [{ label: 'Add a branch from this line', cmd: 'lineAddBranch' }] : []),
     ] });
     if (others.length === 2) items.push({ label: 'Two-way arrows between these', cmd: 'lineTwoWay' });

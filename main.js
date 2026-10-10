@@ -227,7 +227,7 @@ function buildMenu() {
         { label: 'Distribute', submenu: [{ label: 'Horizontally', click: send('distH') }, { label: 'Vertically', click: send('distV') }] },
         { label: 'Match Size', submenu: [{ label: 'Width', click: send('matchW') }, { label: 'Height', click: send('matchH') }, { label: 'Width and Height', click: send('matchSize') }] },
         { label: 'Lines', submenu: [
-          { label: 'Route Around Objects', click: send('lineAutoRoute') }, { label: 'Remove Bend Points / Routing', click: send('lineClearBends') },
+          { label: 'Straighten (Move the End Object)', click: send('lineStraighten') }, { label: 'Route Around Objects', click: send('lineAutoRoute') }, { label: 'Remove Bend Points / Routing', click: send('lineClearBends') },
           { label: 'Hop over Crossing Lines', click: send('lineJumps') }, { type: 'separator' },
           { label: 'Two-way Arrows (Parallel)', click: send('lineTwoWay') }, { label: 'Add Branch from Line', click: send('lineAddBranch') },
           { label: 'Branch: One → Many (Select 3+ Objects)', click: send('lineBranch') }, { label: 'Merge: Many → One (Select 3+ Objects)', click: send('lineMerge') },
