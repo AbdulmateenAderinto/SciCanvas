@@ -587,7 +587,7 @@
         (o.points || []).forEach((q, i) => { s += `<rect data-handle="wp:${i}" x="${q.x - hs / 2}" y="${q.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" style="cursor:move"><title>Bend point: drag to move, double-click to remove</title></rect>`; });
       }
     }
-    if (sel.length === 1 && sel[0].type !== 'connector' && sel[0].type !== 'comment' && !sel[0].locked && state.tool === 'select' && !(typeof nodeEdit !== 'undefined' && nodeEdit) && sel[0].w > 0) s += quickConnectSvg(sel[0]);
+    if (state.view.quickConnect !== false && sel.length === 1 && sel[0].type !== 'connector' && sel[0].type !== 'comment' && !sel[0].locked && state.tool === 'select' && !(typeof nodeEdit !== 'undefined' && nodeEdit) && sel[0].w > 0) s += quickConnectSvg(sel[0]);
     prevOverlay(s + extra);
   };
   // Quick-connect arrows: on a single selected object, drag an arrow to another object to join them, or click it to
@@ -767,6 +767,7 @@
 
   Object.assign(ARRANGE_COMMANDS, {
     lineBranch: () => branch('branch'), lineMerge: () => branch('merge'), lineTwoWay: twoWay, lineSelfLoop: selfLoopCmd,
+    toggleQuickConnect: () => { state.view.quickConnect = state.view.quickConnect === false; if (typeof saveView === 'function') saveView(); renderOverlay(); toast(`Quick-connect arrows ${state.view.quickConnect === false ? 'off' : 'on'}`); },
     lineSwap: () => { const L = selected().filter((o) => o.type === 'connector'); if (!L.length) return; checkpoint(); for (const c of L) { [c.from, c.to] = [c.to, c.from]; if (c.points) c.points.reverse(); } render({ props: true }); },
     lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, pasteInPlace, removeFromPath, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
     lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }), lineStraighten: straighten,

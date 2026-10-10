@@ -319,6 +319,7 @@ function buildMenu() {
         { label: 'Toggle Grid', accelerator: "CmdOrCtrl+'", click: send('toggleGrid') },
         { label: 'Toggle Rulers', accelerator: 'CmdOrCtrl+R', click: send('toggleRulers') },
         { label: 'Toggle Smart Alignment', click: send('toggleSnap') },
+        { label: 'Toggle Quick-connect Arrows', click: send('toggleQuickConnect') },
         { label: 'Snap to Grid', click: send('toggleSnapGrid') },
         { label: 'Outline View', accelerator: 'CmdOrCtrl+Y', click: send('outlineView') },
         { label: 'Isometric Grid', click: send('toggleIsoGrid') },
