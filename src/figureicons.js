@@ -402,6 +402,30 @@
   };
   S('Retroviral plasmid (insert, GFP, PuroR)', CAT.dna, 'retroviral plasmid vector map pMX insert GFP puromycin resistance LTR cloning Aicda', [100, 100], plasmid(true), GFP);
   S('Retroviral plasmid (empty, GFP, PuroR)', CAT.dna, 'retroviral plasmid vector map pMX empty vector control GFP puromycin resistance LTR', [100, 100], plasmid(false), GFP);
+  // B cells in the style of the soft B cell (im-bcell, immunoicons.js), drawn from it at render time so they match:
+  // a group of three for a sorted population, and a germinal-centre B cell carrying the sorting markers between its
+  // antibody receptors (B220 teal stalk, GL7 pink glycan beads, Fas orange trimer), at the receptors' own weight.
+  // Uses the B cell's original drawing (classicDraw) so these get the same styling passes as im-bcell, once.
+  const imB = (c) => { const ic = ICON_MAP['im-bcell']; return ic ? (ic.classicDraw || ic.draw)(c) : ''; };
+  const thin = (d, c, w = 2) => `<path d="${d}" fill="none" stroke="${Color.dark(c, 0.34)}" stroke-width="${w + 2.6}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const bead = (x, y, r, c) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="${Color.dark(c, 0.34)}" stroke-width="1"/>`;
+  const MARK = {
+    b220: thin('M50 8 L50 -3', '#2a9d8f') + bead(50, -4.5, 2.6, '#2a9d8f'),
+    gl7: thin('M50 8 L50 1', '#c9578c', 1.6) + bead(47.6, -0.6, 2, '#e98fb4') + bead(52.4, -0.6, 2, '#e98fb4') + bead(50, -4.2, 2, '#c9578c'),
+    fas: thin('M50 8 L50 0', '#e8a33c') + bead(47.3, -2.2, 2.1, '#e8a33c') + bead(52.7, -2.2, 2.1, '#e8a33c') + bead(50, -5.6, 2.1, '#f2c14e'),
+  };
+  S('Germinal-centre B cells (group)', CAT.imm, 'germinal centre center GC B cells group population sorted B cells lymphocytes several cells cluster', [120, 104], () => {
+    const at = (x, y, k) => `<g transform="translate(${x} ${y}) scale(${k})">${imB('#3e6db5')}</g>`;
+    return `<svg x="0" y="0" width="120" height="104" viewBox="-4 -6 128 116" overflow="visible">${at(2, 4, 0.6) + at(62, 2, 0.6) + at(26, 36, 0.7)}</svg>`;
+  }, '#3e6db5');
+  S('Germinal-centre B cell (soft, with markers)', CAT.imm, 'germinal centre center GC B cell B220 CD45R GL7 Fas CD95 markers sorted activated lymphocyte', [100, 100], () => {
+    let s = imB('#3e6db5');
+    ['b220', 'gl7', 'fas', 'b220', 'gl7', 'fas'].forEach((k, i) => { s += `<g transform="rotate(${30 + i * 60} 50 50)">${MARK[k]}</g>`; });
+    return s;
+  }, '#3e6db5');
+
   // Flat like BioRender: mark these as finished so iconfinish.js does not add its shadow bands and light streaks.
+  // The two soft B-cell icons stay unfinished, so they are shaded exactly like the im-bcell they are drawn from.
+  NAMES.delete('Germinal-centre B cells (group)'); NAMES.delete('Germinal-centre B cell (soft, with markers)');
   for (const ic of ICONS) if (NAMES.has(ic.name) && /^s-/.test(ic.id)) ic.finished = true;
 })();
