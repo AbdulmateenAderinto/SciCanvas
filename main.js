@@ -232,6 +232,7 @@ function buildMenu() {
           { label: 'Two-way Arrows (Parallel)', click: send('lineTwoWay') }, { label: 'Add Branch from Line', click: send('lineAddBranch') },
           { label: 'Branch: One → Many (Select 3+ Objects)', click: send('lineBranch') }, { label: 'Merge: Many → One (Select 3+ Objects)', click: send('lineMerge') },
           { label: 'Add Feedback Loop', click: send('lineSelfLoop') },
+          { type: 'separator' }, { label: 'Connect Selected in Order', click: send('lineConnectOrder') }, { label: 'Select Connected (Whole Pathway)', click: send('selectConnected') },
         ] },
         { label: 'Transform…', accelerator: 'Alt+CmdOrCtrl+T', click: send('transform') },
         { label: 'Crop to Shape', click: send('cropToShape') },

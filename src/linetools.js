@@ -763,7 +763,7 @@
 
   Object.assign(ARRANGE_COMMANDS, {
     lineBranch: () => branch('branch'), lineMerge: () => branch('merge'), lineTwoWay: twoWay, lineSelfLoop: selfLoopCmd,
-    lineAddBranch: addBranchFromLine, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
+    lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
     lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }), lineStraighten: straighten,
     equation: () => openEquationEditor(), geneStyle: () => openGeneHelper(),
   });
@@ -784,6 +784,49 @@
     render({ props: true });
     if (!moved) toast('Straighten works on lines attached to two objects');
   }
+  // Everything joined to the selection through lines (a whole pathway), lines included.
+  function selectConnected() {
+    const list = objs(), seen = new Set(state.sel);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const c of list) {
+        if (c.type !== 'connector') continue;
+        const ends = [c.from && c.from.id, c.to && c.to.id].filter(Boolean);
+        if (seen.has(c.id) || ends.some((id) => seen.has(id))) {
+          for (const id of [c.id, ...ends]) if (!seen.has(id)) { seen.add(id); grew = true; }
+        }
+      }
+    }
+    state.sel = list.filter((o) => seen.has(o.id) && !o.locked && !o.hidden).map((o) => o.id);
+    render({ props: true });
+    toast(`${state.sel.length} objects and lines selected`);
+  }
+  // Join the selected objects with lines in reading order (rows top to bottom, left to right within a row).
+  function connectInOrder() {
+    const list = nonLines();
+    if (list.length < 2) { toast('Select two or more objects to connect'); return; }
+    const rowH = Math.max(...list.map((o) => o.h)) * 0.6;
+    const order = [...list].sort((a, b) => (Math.abs(center(a).y - center(b).y) > rowH ? center(a).y - center(b).y : center(a).x - center(b).x));
+    checkpoint();
+    const made = [];
+    for (let i = 1; i < order.length; i++) made.push(Make.connector({ id: order[i - 1].id }, { id: order[i].id }, presetStyle()));
+    objs().push(...made);
+    state.sel = made.map((c) => c.id);
+    render({ props: true });
+  }
+  // Tab / Shift+Tab: select the next / previous object (handy for small or overlapping ones).
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey || (typeof isTyping === 'function' && isTyping())) return;
+    if (!document.querySelector('#modal').classList.contains('hidden')) return;
+    const list = objs().filter((o) => !o.hidden && !o.locked);
+    if (!list.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const i = state.sel.length ? list.findIndex((o) => o.id === state.sel[state.sel.length - 1]) : -1;
+    const next = list[(i + (e.shiftKey ? -1 : 1) + list.length) % list.length];
+    state.sel = [next.id];
+    render({ props: true });
+  }, true);
   function setLines(p) {
     const L = selected().filter((o) => o.type === 'connector');
     if (!L.length) return;
@@ -800,7 +843,9 @@
       { label: 'Straighten (move the end object)', cmd: 'lineStraighten' }, { label: 'Route around objects', cmd: 'lineAutoRoute' }, { label: 'Remove bend points / routing', cmd: 'lineClearBends' }, { label: 'Hop over crossing lines', cmd: 'lineJumps' },
       { label: 'Add parallel return arrow', cmd: 'lineTwoWay' }, ...(lines.length === 1 ? [{ label: 'Add a branch from this line', cmd: 'lineAddBranch' }] : []),
     ] });
+    if (others.length >= 2) items.push({ label: 'Connect in order (arrows)', cmd: 'lineConnectOrder' });
     if (others.length === 2) items.push({ label: 'Two-way arrows between these', cmd: 'lineTwoWay' });
+    if (sel.length) items.push({ label: 'Select connected (whole pathway)', cmd: 'selectConnected' });
     if (others.length >= 3) items.push({ label: 'Branch: one → many', cmd: 'lineBranch' }, { label: 'Merge: many → one', cmd: 'lineMerge' });
     if (others.length === 1 && !lines.length) items.push({ label: 'Add feedback loop', cmd: 'lineSelfLoop' });
     if (!sel.length) items.push({ label: 'Insert equation (LaTeX)…', cmd: 'equation' }, { label: 'Insert line legend', cmd: 'lineLegend' }, { label: 'Gene & protein names…', cmd: 'geneStyle' });
@@ -913,6 +958,7 @@
       ['SBGN', 'Shapes › SBGN has the process-description glyphs; Line style has the SBGN arcs (production, consumption, catalysis, stimulation, necessary stimulation, modulation, inhibition). Insert › Line Legend explains the lines on a page.'],
       ['Equations', 'Insert › Equation (LaTeX)… renders LaTeX and chemistry (\\ce{…}) without internet. Double-click an equation to edit it.'],
       ['Gene and protein names', 'Edit › Gene & Protein Names… lists gene / protein symbols in your text, guesses which is which from nearby words, and sets italics (genes) and human or mouse capitalisation once you have checked them.'],
+      ['Connect and select pathways', 'Select several objects, right-click › Connect in order to join them with arrows in reading order. Select connected (right-click or Arrange › Lines) selects everything linked to the selection through lines, so a whole pathway moves together. Tab / Shift+Tab steps through objects one at a time.'],
       ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
   }
 
