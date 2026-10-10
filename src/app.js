@@ -86,16 +86,19 @@ function markDirty() {
   updateTitle();
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
-    const save = () => { try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ doc: state.doc, filePath: state.filePath })); } catch (e) { /* quota — ignore */ } };
-    window.requestIdleCallback ? requestIdleCallback(save, { timeout: 4000 }) : save();
+    window.requestIdleCallback ? requestIdleCallback(writeAutosave, { timeout: 4000 }) : writeAutosave();
   }, 1500);
 }
 // Don't lose the last few seconds: write the autosave at once when the window closes or is hidden, and re-arm it
 // when a drag ends (the timer may have fired mid-drag, before the final position).
-function flushAutosave() {
-  clearTimeout(autosaveTimer);
-  try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ doc: state.doc, filePath: state.filePath })); } catch (e) { /* quota — ignore */ }
+// Browser storage holds tens of MB; a figure full of large images can be bigger, so it then goes to a file.
+function writeAutosave() {
+  const text = JSON.stringify({ doc: state.doc, filePath: state.filePath });
+  try { localStorage.setItem('scicanvas:autosave', text); } catch (e) {
+    if (window.native && window.native.autosaveFile) { window.native.autosaveFile(text); try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ inFile: true })); } catch { /* ignore */ } }
+  }
 }
+function flushAutosave() { clearTimeout(autosaveTimer); writeAutosave(); }
 window.addEventListener('beforeunload', () => { if (state.dirty) flushAutosave(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state.dirty) flushAutosave(); });
 window.addEventListener('pointerup', () => { if (state.dirty) markDirty(); }, true);

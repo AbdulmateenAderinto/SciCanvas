@@ -630,7 +630,8 @@ function insertObjectsGrouped(list, replace) {
   renderLibrary();
   let restored = false;
   try {
-    const saved = JSON.parse(localStorage.getItem('scicanvas:autosave') || 'null');
+    let saved = JSON.parse(localStorage.getItem('scicanvas:autosave') || 'null');
+    if (saved && saved.inFile && window.native.readAutosaveFile) saved = JSON.parse((await window.native.readAutosaveFile()) || 'null'); // too big for browser storage
     if (saved && saved.doc && saved.doc.pages && saved.doc.pages.some((p) => p.objects.length)) {
       loadDoc(saved.doc, saved.filePath);
       state.dirty = true; updateTitle();

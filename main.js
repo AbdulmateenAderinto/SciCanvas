@@ -695,6 +695,13 @@ ipcMain.handle('delete-user-icon', (_e, file) => {
 // ---------- Clipboard ----------
 // SVG markup as text: Figma, Illustrator and Inkscape paste it as editable vectors.
 ipcMain.handle('read-clipboard-text', () => clipboard.readText());
+// Autosave for figures too big for browser storage (written atomically).
+const autosavePath = () => path.join(app.getPath('userData'), 'autosave.json');
+ipcMain.on('autosave-file', (_e, text) => {
+  if (typeof text !== 'string' || text.length > 2e9) return;
+  try { fs.writeFileSync(autosavePath() + '.tmp', text); fs.renameSync(autosavePath() + '.tmp', autosavePath()); } catch { /* disk full: nothing to do */ }
+});
+ipcMain.handle('read-autosave-file', () => { try { return fs.readFileSync(autosavePath(), 'utf8'); } catch { return null; } });
 ipcMain.handle('copy-svg', (_e, svg) => { if (typeof svg === 'string' && svg.startsWith('<svg') && svg.length < 50e6) clipboard.writeText(svg); });
 ipcMain.handle('copy-image', (_e, dataUrl) => {
   clipboard.writeImage(nativeImage.createFromDataURL(dataUrl));
