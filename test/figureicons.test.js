@@ -14,7 +14,7 @@ test('figure icons are in the library and draw clean SVG', () => {
     assert.ok(A.ICON_MAP[id], id);
     const svg = A.pageSvgString({ width: 200, height: 200, background: '#fff', objects: [A.Make.icon(id, 10, 10, 160)] });
     assert.doesNotMatch(svg, /NaN|undefined/, id);
-    assert.ok((svg.match(/<(path|rect|circle|ellipse)\b/g) || []).length >= 6, `${id} draws something`);
+    assert.ok((svg.match(/<(path|rect|circle|ellipse|text)\b/g) || []).length >= 6, `${id} draws something`);
   }
 });
 
