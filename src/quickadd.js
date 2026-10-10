@@ -221,10 +221,20 @@
     order.forEach((o, i) => { const a = -Math.PI / 2 + (i * 2 * Math.PI) / sel.length; o.x = cx + R * Math.cos(a) - o.w / 2; o.y = cy + R * Math.sin(a) - o.h / 2; });
     render({ props: true });
   };
+  // Swap two objects' places (centres), e.g. to reorder panels or steps.
+  ARRANGE_COMMANDS.swapPositions = () => {
+    const sel = selected().filter((o) => o.type !== 'connector');
+    if (sel.length !== 2) { toast('Select exactly two objects'); return; }
+    const [a, b] = sel, ca = center(a), cb = center(b);
+    checkpoint();
+    a.x = cb.x - a.w / 2; a.y = cb.y - a.h / 2; b.x = ca.x - b.w / 2; b.y = ca.y - b.h / 2;
+    render({ props: true });
+  };
   const prevMenu5 = contextMenuTemplate;
   contextMenuTemplate = function () {
     const t = prevMenu5();
     if (selected().filter((o) => o.type !== 'connector').length >= 3) t.push({ label: 'Tidy into grid', cmd: 'tidyGrid' }, { label: 'Arrange in a circle', cmd: 'arrangeCircle' });
+    if (selected().filter((o) => o.type !== 'connector').length === 2) t.push({ label: 'Swap positions', cmd: 'swapPositions' });
     return t;
   };
 
