@@ -352,6 +352,11 @@ function applyCornerPreset(o, i) {
   o.warp = { kind: pr.kind, corners: pr.corners };
   render({ props: true });
 }
+function warpable() {
+  const o = selected().find((x) => x.type !== 'connector' && x.type !== 'comment' && Number.isFinite(x.w) && Number.isFinite(x.h));
+  if (!o) toast(selected().length ? 'Lines can’t be warped: select a shape, icon, image, text or group' : 'Select an object to distort');
+  return o || null;
+}
 function editWarpCorners(o) {
   if (!o.warp || !['free', 'perspective'].includes(o.warp.kind)) { checkpoint(); o.warp = { kind: 'perspective', corners: [[0, 0], [1, 0], [1, 1], [0, 1]] }; render({ props: true }); }
   const w = o.warp;
@@ -748,8 +753,9 @@ renderProps = function () {
 Object.assign(ARRANGE_COMMANDS, {
   offsetPath: openOffsetDialog, outlineStroke, knifeTool: startKnife, scissorsTool: startScissors, joinPaths: joinSelection,
   simplifyPath: () => pathToolCmd('simplify'), smoothPath: () => pathToolCmd('smooth'), roundCorners: () => pathToolCmd('round'),
-  warpCorners: () => { const o = selected()[0]; if (o) editWarpCorners(o); else toast('Select an object to distort'); },
-  isoTop: () => { const o = selected()[0]; if (o) applyCornerPreset(o, 0); }, isoLeft: () => { const o = selected()[0]; if (o) applyCornerPreset(o, 1); }, isoRight: () => { const o = selected()[0]; if (o) applyCornerPreset(o, 2); },
+  // Only objects with a box can be warped (lines and comment pins have none: the corners came out NaN).
+  warpCorners: () => { const o = warpable(); if (o) editWarpCorners(o); },
+  isoTop: () => { const o = warpable(); if (o) applyCornerPreset(o, 0); }, isoLeft: () => { const o = warpable(); if (o) applyCornerPreset(o, 1); }, isoRight: () => { const o = warpable(); if (o) applyCornerPreset(o, 2); },
   removeWarp: () => { const s = selected().filter((o) => o.warp); if (!s.length) return; checkpoint(); s.forEach((o) => delete o.warp); render({ props: true }); },
   toggleIsoGrid: () => { state.view.isoGrid = !state.view.isoGrid; renderOverlay(); toast(state.view.isoGrid ? 'Isometric grid on' : 'Isometric grid off'); },
   cutWedge: () => startCutaway('wedge'), cutLine: () => startCutaway('line'), cutShape: () => startCutaway('shape'),
