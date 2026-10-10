@@ -122,6 +122,47 @@
       ta, el('div', { class: 'row', style: 'margin:8px 0' }, el('label', { textContent: 'Show as' }), subj), el('div', { class: 'btnrow' }, go)));
   }
   ARRANGE_COMMANDS.cohortBuilder = openCohortBuilder;
+
+  // Gating strategy: "Lymphocytes > Single cells > Live > CD3+ > CD4+ / CD8+" → gated dot plots joined by arrows.
+  function parseGates(text) {
+    return String(text).split(/>|→|\n/).map((x) => x.trim()).filter(Boolean).map((step) => step.split(/\s*\/\s*|\s*\|\s*/).filter(Boolean));
+  }
+  globalThis.parseGates = parseGates;
+  function openGatingBuilder() {
+    const ta = el('textarea', { rows: 3, style: 'width:100%;font-family:inherit', value: 'Lymphocytes > Single cells > Live > CD3+ > CD4+ / CD8+' });
+    const go = el('button', { class: 'primary', textContent: 'Insert gating strategy', onclick: () => {
+      const steps = parseGates(ta.value);
+      if (!steps.length) return;
+      const plotId = ['s-flow-cytometry-dot-plot-with-gate', 's-flow-cytometry-quadrant-plot', 'r-flow-cytometry-plot'].find((id) => typeof ICON_MAP !== 'undefined' && ICON_MAP[id]);
+      const size = 80, gapX = 70, colW = size + gapX, at = viewCenter(), o = [];
+      const x0 = at.x - (steps.length * colW - gapX) / 2;
+      let prev = [];
+      steps.forEach((names, si) => {
+        const colH = names.length * (size + 40) - 40, cur = [];
+        names.forEach((nm, ni) => {
+          const x = x0 + si * colW, y = at.y - colH / 2 + ni * (size + 40);
+          const ic = plotId ? Make.icon(plotId, x, y, size) : Make.rect(x, y, size, size, { fill: '#f4f6fa', stroke: '#7a8a96' });
+          const lab = Make.text(`{b|${nm}}`, 0, 0, { fontSize: 13, color: '#222222' });
+          if (typeof postEdit === 'function') postEdit(lab);
+          lab.x = x + size / 2 - lab.w / 2; lab.y = y + size + 4;
+          o.push(ic, lab);
+          for (const p of prev) o.push(Make.connector({ id: p.id, port: 'e' }, { id: ic.id, port: 'w' }, { head: 'arrow', width: 2, color: '#56657a', style: names.length > 1 || prev.length > 1 ? 'elbow' : 'straight', radius: 8 }));
+          cur.push(ic);
+        });
+        prev = cur;
+      });
+      closeModal();
+      addObjects(o);
+      groupSelection();
+      const g = selected()[0];
+      if (g) g.name = 'Gating strategy';
+      render({ props: true });
+    } });
+    openModal('Gating strategy builder', el('div', { style: 'width:min(560px,80vw)' },
+      el('p', { class: 'note', textContent: 'Gates from parent to child separated by “>”; split a gate with “/” (CD4+ / CD8+). Each gate is a dot-plot icon you can replace with your own plots.' }),
+      ta, el('div', { class: 'btnrow', style: 'margin-top:8px' }, go)));
+  }
+  ARRANGE_COMMANDS.gatingBuilder = openGatingBuilder;
   globalThis.parseTimeline = parse;
   ARRANGE_COMMANDS.timelineBuilder = openTimelineBuilder;
 })();

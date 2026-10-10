@@ -34,3 +34,7 @@ test('cohort builder reads group sizes', () => {
   assert.equal(JSON.stringify(A.globals.parseCohorts('Vehicle: 8\nDrug (n=6)\nControl = 10\nNo number')), JSON.stringify([
     { name: 'Vehicle', n: 8 }, { name: 'Drug', n: 6 }, { name: 'Control', n: 10 }, { name: 'No number', n: 5 }]));
 });
+
+test('gating strategy steps and splits', () => {
+  assert.equal(JSON.stringify(A.globals.parseGates('Lymphocytes > Live → CD3+ > CD4+ / CD8+')), JSON.stringify([['Lymphocytes'], ['Live'], ['CD3+'], ['CD4+', 'CD8+']]));
+});

@@ -9,7 +9,7 @@
     ['Quick add', 'Press / over the canvas and type to add an icon or shape at the pointer.'],
     ['Text helpers', 'Format chemical formulas (H₂O, Ca²⁺), tidy units (µm, °C, ±), LaTeX equations, and gene / protein name styling.'],
     ['Figure check fixes', 'The Check tab now fixes what it finds: small text, hairlines, off-page objects, labels that don’t fit, red/green colours, loose line ends, near-misalignments, mixed fonts — or Fix all.'],
-    ['Timeline and cohort builders', 'Insert › Timeline Builder (“Day 0: implant” lines → a study timeline with icons) and Cohort Builder (“Vehicle: 8” → rows of coloured animals with n).'],
+    ['Timeline and cohort builders', 'Insert › Timeline Builder (“Day 0: implant” lines → a study timeline with icons) Cohort Builder (“Vehicle: 8” → rows of coloured animals with n) and Gating Strategy Builder (“Live > CD3+ > CD4+ / CD8+”).'],
     ['Legends and brackets', 'Insert a line legend or a colour legend (placed where there is room), and significance brackets between two bars.'],
     ['Faster arranging', 'Smart duplicate (⌘D repeats the step), paste in place (⇧⌘V) or right-click › Paste here, Tidy into grid, Move / Copy to page, Format painter, Tab through objects.'],
     ['Library', 'Library → category → clade dropdowns (PhyloPic in 20 groups), hover previews, Find similar icons.'],
