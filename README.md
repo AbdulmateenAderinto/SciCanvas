@@ -20,6 +20,12 @@ library → canvas → relationships → data → review → export.
 - **Line legend**: right-click the page › Insert line legend adds one sample of each kind of line on the page, with names you can edit.
 - **Equations**: right-click the page › Insert equation (LaTeX)… renders LaTeX and chemistry (`\ce{…}`) offline with MathJax; double-click an equation to edit it.
 - **Gene & protein names**: right-click the page › Gene & protein names… lists every gene/protein symbol in the page's text, guesses gene or protein from the nearby words, and sets italics and human or mouse capitalisation once you've checked them.
+- **Builders** (Insert › Builders): Workflow, Timeline, Cohort / study groups, Gating strategy and Western blot, each from a few lines of text, with icons picked automatically. Pathway from text adds `<=>`, `-o`, `: verb` labels and `[ATP -> ADP]` cofactors.
+- **Images**: double-click to crop on the canvas; right-click › Trim white edges.
+- **Layout**: Arrange in a circle (cycles), Swap positions, exact gaps (align popover), align to the last-clicked object.
+- **Accessibility**: page alt text (with Draft from figure), saved into exported SVGs; contrast and colour-blind checks with fixes.
+- **Safety**: autosave flushes on quit and handles very large figures; undo no longer duplicates embedded images; files dropped outside the canvas can no longer replace the app; drop a .scifig onto the window to open it.
+- **Help**: What's New, a guided tour, keyboard shortcut list, Check for Updates. Present mode: L laser pointer, B blank screen.
 - **Pathway editing**: drop an icon on a line to insert it into the path; right-click › Remove from pathway, Select connected, Connect in order; drag line styles from the Shapes tab onto the page or a line; floating-toolbar Style / Swap / Straighten for lines; end gaps, label boxes, animated flow.
 - **Quick add**: press / over the canvas and type to add an icon or shape at the pointer. Right-click › Paste here, ⇧⌘V paste in place, smart ⌘D (repeats the step you moved the last copy by).
 - **Text helpers**: Format chemical formulas (H2O → H₂O, Ca2+ → Ca²⁺), Tidy units & symbols (µm, °C, ±, →), H₂O button in the text bar.
