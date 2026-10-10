@@ -1,0 +1,50 @@
+name: Publish release
+
+# Run by hand from the Actions tab: tags main as v<version>, publishes the GitHub Release, then starts
+# "Build installers" for that tag so the Windows and Mac installers get attached to it.
+# (A release published by this workflow doesn't trigger build.yml on its own, so it is started here.)
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, matching package.json (e.g. 1.2.0)'
+        required: true
+      title:
+        description: 'Release title (default: SciCanvas <version>)'
+        required: false
+        default: ''
+      notes:
+        description: 'Release notes in Markdown (default: generated from merged pull requests)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the version matches package.json
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          [ "$PKG" = "$VERSION" ] || { echo "::error::package.json is $PKG, not $VERSION"; exit 1; }
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          TITLE: ${{ inputs.title }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then echo "::error::Release $TAG already exists"; exit 1; fi
+          if [ -n "$NOTES" ]; then printf '%s\n' "$NOTES" > notes.md; NOTE_ARGS=(--notes-file notes.md); else NOTE_ARGS=(--generate-notes); fi
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "${TITLE:-SciCanvas $VERSION}" "${NOTE_ARGS[@]}"
+      - name: Build and attach the installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --ref main -f tag="v${{ inputs.version }}"

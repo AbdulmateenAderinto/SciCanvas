@@ -59,7 +59,7 @@ Icon libraries live in `assets/iconpacks/` (about 640 MB in total). Reinstall or
 Anyone with write access to the repo can publish; GitHub builds the installers (`.github/workflows/build.yml`).
 
 1. Bump `"version"` in `package.json` and `package-lock.json` (for example `npm version 1.0.2 --no-git-tag-version`) in a pull request and merge it once its checks pass. Pull requests that touch `package.json` also run a test build of every installer.
-2. On GitHub: **Releases › Draft a new release**. Type the tag (`v1.0.2`, matching the version), choose **Create new tag** on `main`, add a title and notes, and click **Publish release**.
+2. On GitHub: **Releases › Draft a new release**. Type the tag (`v1.0.2`, matching the version), choose **Create new tag** on `main`, add a title and notes, and click **Publish release**. Or run **Actions › Publish release** with the version: it tags `main`, publishes the release and starts the installer builds.
 3. A few minutes later the Windows `.exe` and both Mac `.dmg` files appear on the release (progress is under the **Actions** tab). Each build is started once as a smoke test before it's attached.
 
 Only releases whose tag starts with `v` (like `v1.1.0`) get installers; others, such as the `icon-libraries` release, are left alone. The build downloads the icon libraries from that `icon-libraries` release (`iconpacks.tar.gz`) and puts them inside the installers. To refresh them: run `npm run icons`, then `COPYFILE_DISABLE=1 tar -czf iconpacks.tar.gz -C assets iconpacks` (on a Mac, `COPYFILE_DISABLE=1` keeps hidden `._` files out) and replace the file on that release.
