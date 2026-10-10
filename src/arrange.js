@@ -418,6 +418,25 @@ const LAYER_ICON = { icon: '◉', rect: '▭', ellipse: '◯', shape: '⬡', tex
 let layersShape = null, layerSerial = 0;
 const layerObjIds = new WeakMap(); // undo swaps in new object copies, which must rebuild the rows
 const layerObjId = (o) => { if (!layerObjIds.has(o)) layerObjIds.set(o, ++layerSerial); return layerObjIds.get(o); };
+// A small picture of each layer, drawn from the object itself (cached until the object changes).
+const layerThumbCache = new Map();
+function layerThumb(o, list) {
+  if (o.type === 'comment') return '';
+  let key;
+  try { key = innerKey(o, list) + `|${o.w}x${o.h}`; } catch { return ''; }
+  const hit = layerThumbCache.get(o.id);
+  if (hit && hit[0] === key) return hit[1];
+  let svgText = '';
+  try {
+    const b = bounds(o, list), m = Math.max(b.w, b.h, 1) * 0.08, s = Math.max(b.w, b.h, 1) + 2 * m;
+    const inner = renderObjectString(o, list, true);
+    svgText = `<svg viewBox="${b.x + b.w / 2 - s / 2} ${b.y + b.h / 2 - s / 2} ${s} ${s}" width="22" height="22">${inner}</svg>`;
+    if (/NaN|undefined/.test(svgText) || svgText.length > 400000) svgText = '';
+  } catch { svgText = ''; }
+  if (layerThumbCache.size > 3000) layerThumbCache.clear();
+  layerThumbCache.set(o.id, [key, svgText]);
+  return svgText;
+}
 function renderLayers() {
   const Lp = $('#layers');
   if (Lp.classList.contains('hidden')) { layersShape = null; return; } // drawn when the Layers tab opens
@@ -450,7 +469,10 @@ function renderLayers() {
       inp.addEventListener('blur', done);
       inp.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') inp.blur(); if (ev.key === 'Escape') { inp.value = o.name || ''; inp.blur(); } });
     });
-    r.append(caret, el('span', { class: 'kind', textContent: LAYER_ICON[o.type] || '•', title: o.type }), name);
+    const kind = el('span', { class: 'kind', textContent: LAYER_ICON[o.type] || '•', title: o.type });
+    const pic = layerThumb(o, parent ? parent.children : objs());
+    if (pic) { kind.textContent = ''; kind.classList.add('lthumb'); kind.innerHTML = pic; }
+    r.append(caret, kind, name);
     if (!parent) {
       r.append(
         el('button', { class: 'lbtn' + (o.hidden ? ' on' : ''), title: o.hidden ? 'Show' : 'Hide', textContent: o.hidden ? '◌' : '👁', onclick: (e) => { e.stopPropagation(); checkpoint(); o.hidden = !o.hidden; if (o.hidden) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }),

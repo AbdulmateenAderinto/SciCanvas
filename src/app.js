@@ -344,7 +344,12 @@ function layerName(o) {
     case 'text': return stripMarkup(o.text).split('\n')[0].slice(0, 28) || 'Text';
     case 'rect': case 'ellipse': return o.label ? stripMarkup(o.label).split('\n')[0].slice(0, 28) : o.type === 'rect' ? 'Rectangle' : 'Ellipse';
     case 'shape': return o.label ? stripMarkup(o.label).split('\n')[0].slice(0, 28) : (SHAPES.find((x) => x[0] === o.kind) || [null, 'Shape'])[1];
-    case 'connector': return o.label || 'Connector';
+    case 'connector': { // name a line by what it joins: “Glucose → G6P”
+      if (o.label) return o.label;
+      const end = (e, deep = true) => { const t = e && e.id && objs().find((x) => x.id === e.id); return t ? (t.type === 'connector' ? (deep && end(t.from, false) && end(t.to, false) ? `(${end(t.from, false)}→${end(t.to, false)})` : 'line') : (t.name || t.label || (t.type === 'text' ? String(t.text || '').replace(/\{[^|{}]*\||\}|[\^_]\{|\}/g, '') : '') || layerName(t)).toString().slice(0, 18)) : ''; };
+      const a = end(o.from), b = end(o.to);
+      return a && b ? `${a} → ${b}` : a ? `${a} →` : b ? `→ ${b}` : 'Line';
+    }
     case 'path': return o.closed ? 'Drawn shape' : o.headEnd === 'arrow' || o.headStart === 'arrow' ? 'Arrow' : 'Drawn line';
     case 'brush': return `${o.kind[0].toUpperCase()}${o.kind.slice(1)} brush`;
     case 'chart': return o.cfg.title || `${o.cfg.kind} graph`;
