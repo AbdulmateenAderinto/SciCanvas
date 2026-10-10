@@ -13,6 +13,9 @@
     ['Legends and brackets', 'Insert a line legend or a colour legend (placed where there is room), and significance brackets between two bars.'],
     ['Faster arranging', 'Smart duplicate (⌘D repeats the step), paste in place (⇧⌘V) or right-click › Paste here, Tidy into grid, Move / Copy to page, Format painter, Tab through objects.'],
     ['Library', 'Library → category → clade dropdowns (PhyloPic in 20 groups), hover previews, Find similar icons.'],
+    ['Alt text', 'Properties › Page › Alt text, with Draft from figure (what’s on the page and what the arrows say); saved in exported SVGs.'],
+    ['Images', 'Right-click › Trim white / transparent edges crops pasted plots and screenshots to their content.'],
+    ['Pathway from text', 'New notation: <=> reversible, -o catalysis, “ : verb” labels and [ATP → ADP] cofactors.'],
     ['Copy as SVG', 'Edit › Copy as SVG pastes into Figma, Illustrator or Inkscape as editable vectors.'],
   ];
   function openWhatsNew() {
