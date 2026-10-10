@@ -948,30 +948,48 @@
     const tick = (k, label) => el('label', { style: 'display:flex;gap:4px;align-items:center;width:auto;color:inherit' }, el('input', { type: 'checkbox', checked: !!o[k], onchange: (e) => re(k, e.target.checked || undefined) }), label);
     const txt = (k, ph) => el('input', { type: 'text', value: o[k] || '', placeholder: ph || '', oninput: (e) => { checkpoint('prop:' + k + L.map((x) => x.id).join()); for (const x of L) { if (e.target.value) x[k] = e.target.value; else delete x[k]; } renderScene(); markDirty(); } });
     const loop = selfLoop(o);
+    // Collapsible groups: open when in use, otherwise as last left (remembered).
+    const openState = (() => { try { return JSON.parse(localStorage.getItem('scicanvas:lineGroups') || '{}'); } catch { return {}; } })();
+    const group = (title, used, ...kids) => {
+      const d = el('details', { class: 'lx-group' }, el('summary', { textContent: title }), ...kids.filter(Boolean));
+      d.open = used || !!openState[title];
+      d.addEventListener('toggle', () => { openState[title] = d.open; try { localStorage.setItem('scicanvas:lineGroups', JSON.stringify(openState)); } catch { /* ignore */ } });
+      return d;
+    };
     const s = sect('Line extras',
-      row('Line', sel('lineStyle', [['', 'Single'], ['double', 'Double ═'], ['wavy', 'Wavy ∿'], ['zigzag', 'Zigzag ⩘']])),
-      row('Route', sel('route', [['', 'As drawn'], ['auto', 'Around objects']])),
-      (o.points && o.points.length) ? row('', btn(`Remove ${o.points.length} bend point${o.points.length > 1 ? 's' : ''}`, () => re('points', undefined))) : null,
-      row('', tick('jumps', 'Hop over lines it crosses')),
-      row('Gap at ends', el('input', { type: 'range', min: 0, max: 30, step: 1, value: o.endGap || 0, title: 'Stop the line short of the objects it joins', oninput: (e) => setProps(L, 'endGap', +e.target.value || undefined) })),
-      row('Offset', el('input', { type: 'range', min: -20, max: 20, step: 1, value: o.offset || 0, oninput: (e) => setProps(L, 'offset', +e.target.value || 0) })),
-      loop ? row('Loop side', sel('loopSide', [['n', 'Top'], ['e', 'Right'], ['s', 'Bottom'], ['w', 'Left']])) : null,
-      loop ? row('Loop size', el('input', { type: 'range', min: 14, max: 140, step: 2, value: o.loopSize || 40, oninput: (e) => setProps(L, 'loopSize', +e.target.value) })) : null,
-      row('Above', txt('labelAbove', o.measure ? 'auto: length' : 'e.g. kinase')), row('Below', txt('labelBelow', 'e.g. 37 °C')),
-      row('Labels at', el('input', { type: 'range', min: 0.05, max: 0.95, step: 0.01, value: o.labelPos ?? 0.5, oninput: (e) => setProps(L, 'labelPos', Math.abs(+e.target.value - 0.5) < 0.015 ? undefined : +e.target.value) })),
-      row('', tick('labelAlong', 'Labels follow the line’s angle')),
-      row('Label box', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.labelBg || '') ? o.labelBg : '#ffffff', title: 'Colour of the box behind the label', oninput: (e) => setProps(L, 'labelBg', e.target.value) }),
-        btn(o.labelBg === 'none' ? 'Show box' : 'No box', () => re('labelBg', o.labelBg === 'none' ? undefined : 'none'))),
-      row('Mid arrows', el('input', { type: 'number', min: 0, max: 20, step: 1, value: o.midArrows || 0, style: 'width:60px', title: 'Arrowheads along the line, showing its direction', onchange: (e) => re('midArrows', +e.target.value || undefined) })),
-      row('Side in', txt('sideIn', 'e.g. ATP')), row('Side out', txt('sideOut', 'e.g. ADP')),
-      (o.sideIn || o.sideOut) ? row('', tick('sideFlip', 'Side arrow below the line')) : null,
-      row('Gradient to', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.gradTo || '') ? o.gradTo : '#d6584a', oninput: (e) => setProps(L, 'gradTo', e.target.value) }), o.gradTo ? btn('None', () => re('gradTo', undefined)) : null),
-      row('', tick('flow', 'Flow arrow (wide, tapered)')),
-      o.flow ? row('Flow width', el('input', { type: 'range', min: 6, max: 80, step: 1, value: o.flowWidth || 22, oninput: (e) => setProps(L, 'flowWidth', +e.target.value) })) : null,
-      row('', tick('measure', 'Show length (scale bar)')),
-      o.measure ? row('Units', txt('measureUnit', 'px'), el('input', { type: 'number', step: 'any', value: o.measureScale || 1, title: 'Units per pixel', style: 'width:70px', onchange: (e) => re('measureScale', parseFloat(e.target.value) || undefined) })) : null,
-      row('Ticks', el('input', { type: 'number', min: 0, max: 40, step: 1, value: o.ticks || 0, style: 'width:60px', onchange: (e) => re('ticks', +e.target.value || undefined) })),
-      row('Tick labels', txt('tickLabels', 'Day 0, Day 3, Day 7')),
+      group('Path', true,
+        row('Line', sel('lineStyle', [['', 'Single'], ['double', 'Double ═'], ['wavy', 'Wavy ∿'], ['zigzag', 'Zigzag ⩘']])),
+        row('Route', sel('route', [['', 'As drawn'], ['auto', 'Around objects']])),
+        (o.points && o.points.length) ? row('', btn(`Remove ${o.points.length} bend point${o.points.length > 1 ? 's' : ''}`, () => re('points', undefined))) : null,
+        row('', tick('jumps', 'Hop over lines it crosses')),
+        row('Gap at ends', el('input', { type: 'range', min: 0, max: 30, step: 1, value: o.endGap || 0, title: 'Stop the line short of the objects it joins', oninput: (e) => setProps(L, 'endGap', +e.target.value || undefined) })),
+        row('Offset', el('input', { type: 'range', min: -20, max: 20, step: 1, value: o.offset || 0, oninput: (e) => setProps(L, 'offset', +e.target.value || 0) })),
+        loop ? row('Loop side', sel('loopSide', [['n', 'Top'], ['e', 'Right'], ['s', 'Bottom'], ['w', 'Left']])) : null,
+        loop ? row('Loop size', el('input', { type: 'range', min: 14, max: 140, step: 2, value: o.loopSize || 40, oninput: (e) => setProps(L, 'loopSize', +e.target.value) })) : null,
+      ),
+      group('Labels', !!(o.labelAbove || o.labelBelow || o.labelPos != null || o.labelAlong || o.labelBg),
+        row('Above', txt('labelAbove', o.measure ? 'auto: length' : 'e.g. kinase')), row('Below', txt('labelBelow', 'e.g. 37 °C')),
+        row('Labels at', el('input', { type: 'range', min: 0.05, max: 0.95, step: 0.01, value: o.labelPos ?? 0.5, oninput: (e) => setProps(L, 'labelPos', Math.abs(+e.target.value - 0.5) < 0.015 ? undefined : +e.target.value) })),
+        row('', tick('labelAlong', 'Labels follow the line’s angle')),
+        row('Label box', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.labelBg || '') ? o.labelBg : '#ffffff', title: 'Colour of the box behind the label', oninput: (e) => setProps(L, 'labelBg', e.target.value) }),
+          btn(o.labelBg === 'none' ? 'Show box' : 'No box', () => re('labelBg', o.labelBg === 'none' ? undefined : 'none'))),
+      ),
+      group('Reaction (cofactors)', !!(o.sideIn || o.sideOut),
+        row('Side in', txt('sideIn', 'e.g. ATP')), row('Side out', txt('sideOut', 'e.g. ADP')),
+        (o.sideIn || o.sideOut) ? row('', tick('sideFlip', 'Side arrow below the line')) : null,
+      ),
+      group('Style and measure', !!(o.gradTo || o.flow || o.measure || o.midArrows),
+        row('Gradient to', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.gradTo || '') ? o.gradTo : '#d6584a', oninput: (e) => setProps(L, 'gradTo', e.target.value) }), o.gradTo ? btn('None', () => re('gradTo', undefined)) : null),
+        row('', tick('flow', 'Flow arrow (wide, tapered)')),
+        o.flow ? row('Flow width', el('input', { type: 'range', min: 6, max: 80, step: 1, value: o.flowWidth || 22, oninput: (e) => setProps(L, 'flowWidth', +e.target.value) })) : null,
+        row('', tick('measure', 'Show length (scale bar)')),
+        o.measure ? row('Units', txt('measureUnit', 'px'), el('input', { type: 'number', step: 'any', value: o.measureScale || 1, title: 'Units per pixel', style: 'width:70px', onchange: (e) => re('measureScale', parseFloat(e.target.value) || undefined) })) : null,
+        row('Mid arrows', el('input', { type: 'number', min: 0, max: 20, step: 1, value: o.midArrows || 0, style: 'width:60px', title: 'Arrowheads along the line, showing its direction', onchange: (e) => re('midArrows', +e.target.value || undefined) })),
+      ),
+      group('Timeline', !!(o.ticks || o.tickLabels),
+        row('Ticks', el('input', { type: 'number', min: 0, max: 40, step: 1, value: o.ticks || 0, style: 'width:60px', onchange: (e) => re('ticks', +e.target.value || undefined) })),
+        row('Tick labels', txt('tickLabels', 'Day 0, Day 3, Day 7')),
+      ),
       el('div', { class: 'btnrow' }, btn('Two-way', twoWay), btn('Add branch', addBranchFromLine), btn('Legend', insertLegend)),
       el('div', { class: 'note', textContent: 'Drop a line end onto another line to branch from it or merge into it; drop it on an object’s outline to pin it to that exact spot. Drag the small orange circles to add bend points.' }));
     const P = $('#props'), anchor = [...P.querySelectorAll('h3')].filter((h) => h.textContent === 'Connector').pop(); // the style section, after the name

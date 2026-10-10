@@ -25,6 +25,7 @@
     { test: (s) => same(s, ['straight', 'curved', 'elbow']), pic: pathPic },
     { test: (s) => same(s, ['solid', 'dashed', 'dotted', 'dashdot']), pic: dashPic },
     { test: (s) => same(s, ['', 'double', 'wavy', 'zigzag']), pic: stylePic },
+    { test: (s) => same(s, ['', 'auto']), pic: (v) => line(v === 'auto' ? '<rect x="26" y="4" width="12" height="14" rx="2" fill="#e8eef8" stroke="#8a9bb0"/><path d="M6 11 H18 V20 H46 V11 H58" fill="none" stroke="#333" stroke-width="2" stroke-linejoin="round"/>' : '<rect x="26" y="4" width="12" height="14" rx="2" fill="#e8eef8" stroke="#8a9bb0"/><line x1="6" y1="11" x2="58" y2="11" stroke="#333" stroke-width="2"/>') },
     { test: (s) => has(s, ['membrane', 'dna', 'actin', 'vesicles']) && vals(s).length <= 14, pic: brushPic, wide: true },
   ];
   let pop = null;
