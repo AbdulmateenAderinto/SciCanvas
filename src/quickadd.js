@@ -186,6 +186,32 @@
   }
   globalThis.placeInFreeSpot = placeInFreeSpot;
 
+  // Tidy into grid: the selection in reading order, in an even grid starting where it already is.
+  ARRANGE_COMMANDS.tidyGrid = () => {
+    const sel = selected().filter((o) => o.type !== 'connector');
+    if (sel.length < 3) { toast('Select three or more objects'); return; }
+    const rowH = Math.max(...sel.map((o) => o.h)) * 0.5;
+    const order = [...sel].sort((a, b) => (Math.abs(center(a).y - center(b).y) > rowH ? center(a).y - center(b).y : center(a).x - center(b).x));
+    // keep the number of rows they already roughly have, if any
+    let rows = 1;
+    for (let i = 1; i < order.length; i++) if (center(order[i]).y - center(order[i - 1]).y > rowH) rows++;
+    const cols = rows > 1 && rows < order.length ? Math.ceil(order.length / rows) : Math.ceil(Math.sqrt(order.length));
+    const cw = Math.max(...sel.map((o) => o.w)), ch = Math.max(...sel.map((o) => o.h)), gap = Math.round(Math.min(cw, ch) * 0.25 + 8);
+    const bb = unionBounds(sel, objs());
+    checkpoint();
+    order.forEach((o, i) => {
+      const cx = bb.x + (i % cols) * (cw + gap) + cw / 2, cy = bb.y + Math.floor(i / cols) * (ch + gap) + ch / 2;
+      o.x = cx - o.w / 2; o.y = cy - o.h / 2;
+    });
+    render({ props: true });
+  };
+  const prevMenu5 = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu5();
+    if (selected().filter((o) => o.type !== 'connector').length >= 3) t.push({ label: 'Tidy into grid', cmd: 'tidyGrid' });
+    return t;
+  };
+
   // Colour legend: one swatch per colour used for shapes and icons, named after the first thing in that colour.
   ARRANGE_COMMANDS.colourLegend = () => {
     const seen = new Map();

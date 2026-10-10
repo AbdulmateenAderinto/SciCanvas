@@ -230,6 +230,7 @@ function buildMenu() {
           { label: 'Top', click: send('alignT') }, { label: 'Middle', click: send('alignM') }, { label: 'Bottom', click: send('alignB') },
         ] },
         { label: 'Distribute', submenu: [{ label: 'Horizontally', click: send('distH') }, { label: 'Vertically', click: send('distV') }] },
+        { label: 'Tidy into Grid', click: send('tidyGrid') },
         { label: 'Match Size', submenu: [{ label: 'Width', click: send('matchW') }, { label: 'Height', click: send('matchH') }, { label: 'Width and Height', click: send('matchSize') }] },
         { label: 'Lines', submenu: [
           { label: 'Straighten (Move the End Object)', click: send('lineStraighten') }, { label: 'Route Around Objects', click: send('lineAutoRoute') }, { label: 'Remove Bend Points / Routing', click: send('lineClearBends') },
