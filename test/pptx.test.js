@@ -145,3 +145,22 @@ test('design-tool fills, warps, typography and effects export natively, the rest
   assert.equal(r.pictures.cutaways, 1);
   assert.equal(r.pictures['warped objects'], undefined, 'no warped shape needed a picture');
 });
+
+test('every kind of line from the line tools exports to a valid deck', async () => {
+  const M = A.Make, a = M.rect(60, 60, 120, 60), b = M.rect(460, 60, 120, 60), c = M.rect(260, 300, 120, 60), wall = M.rect(300, 40, 40, 140);
+  const trunk = M.connector({ id: a.id }, { id: b.id }, {});
+  const objs = [a, b, c, wall, trunk,
+    M.connector({ id: a.id }, { id: c.id }, { points: [{ x: 120, y: 330 }], style: 'curved', label: 'binds', labelAlong: true }),
+    M.connector({ id: a.id }, { id: b.id }, { route: 'auto', style: 'elbow', radius: 8 }),
+    M.connector({ id: c.id }, { id: c.id }, { loopSide: 'e' }),
+    M.connector({ id: c.id }, { id: trunk.id, t: 0.5 }, { head: 'bar' }),
+    M.connector({ id: a.id, at: [1, 0.2] }, { id: c.id }, { offset: 5, endGap: 6 }),
+    M.connector({ x: 40, y: 420 }, { x: 600, y: 420 }, { flow: true, gradTo: '#d6584a' }),
+    M.connector({ x: 40, y: 480 }, { x: 600, y: 480 }, { lineStyle: 'wavy', animate: true, midArrows: 2, jumps: true }),
+    M.connector({ x: 40, y: 540 }, { x: 600, y: 540 }, { tickLabels: 'Day 0, Day 7, Day 14', sideIn: 'ATP', sideOut: 'ADP', labelAbove: 'x', labelBelow: 'y', measure: true }),
+  ];
+  const r = await build([{ name: 'Lines', width: 700, height: 620, background: '#ffffff', objects: objs }]);
+  const [slide] = await checkDeck(r.base64, 'line tools');
+  assert.match(slide, /<p:pic>/, 'special lines go in as pictures');
+  assert.match(slide, /<p:cxnSp>/, 'plain lines stay native connectors');
+});
