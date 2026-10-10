@@ -1102,6 +1102,31 @@
     };
   }
 
+  // ---------- Alt text drafted from the figure: what's on it and what the arrows say ----------
+  const VERB = { bar: 'inhibits', circle: 'catalyses', dot: 'binds', diamond: 'associates with', odiamond: 'modulates', otriangle: 'stimulates', necstim: 'is required for' };
+  globalThis.draftAltText = function (pg = page()) {
+    const plain = (t) => String(t || '').replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').replace(/\s+/g, ' ').trim();
+    const list = pg.objects.filter((o) => !o.hidden);
+    const title = list.filter((o) => o.type === 'text').sort((a, b) => (b.fontSize || 16) - (a.fontSize || 16))[0];
+    const named = (o) => plain(o.label || (o.type === 'text' ? o.text : '') || o.name || (o.type === 'icon' ? layerName(o) : ''));
+    const things = [...new Set(list.filter((o) => o.type !== 'connector' && o !== title && o.type !== 'text').map(named).filter(Boolean))].slice(0, 12);
+    const rel = list.filter((o) => o.type === 'connector').map((c) => {
+      const a = objOf(c.from, list), b = objOf(c.to, list);
+      if (!a || !b || a.type === 'connector') return '';
+      const step = (k) => { const x = objOf(k.from, list), y = objOf(k.to, list); return x && y && x.type !== 'connector' && y.type !== 'connector' ? `the ${named(x)} → ${named(y)} step` : ''; };
+      const na = named(a), nb = b.type === 'connector' ? step(b) : named(b); // regulation of a reaction
+      if (!na || !nb) return '';
+      const v = c.head === 'harpoon' && c.tail === 'harpoon' ? '⇌' : VERB[c.head] || (c.head === 'none' ? 'is linked to' : b.type === 'connector' ? 'acts on' : '→');
+      if (v === '⇌') return `${na} ⇌ ${nb}${plain(c.label || c.labelBelow || c.labelAbove) ? ` (${plain(c.label || c.labelBelow || c.labelAbove)})` : ''}`;
+      const lab = plain(c.label || c.labelBelow || c.labelAbove);
+      return v === '→' ? `${na} → ${nb}${lab ? ` (${lab})` : ''}` : `${na} ${v} ${nb}${lab ? ` (${lab})` : ''}`;
+    }).filter(Boolean).slice(0, 12);
+    let out = title ? `${plain(title.text)}. ` : '';
+    if (things.length) out += `Figure showing ${things.slice(0, -1).join(', ')}${things.length > 1 ? ' and ' : ''}${things[things.length - 1]}. `;
+    if (rel.length) out += `${rel.join('; ')}.`;
+    return out.trim() || 'Figure.';
+  };
+
   // ---------- Figure check (Check tab): common line mistakes ----------
   if (typeof checkFigure === 'function') {
     const prevCheck = checkFigure;
