@@ -83,6 +83,45 @@
     setTimeout(() => ta.focus(), 50);
   }
   globalThis.openTimelineBuilder = openTimelineBuilder;
+
+  // Cohort builder: "Vehicle: 8" lines → one row per group with that many animals, a colour each, and n.
+  const COHORT_COLOURS = ['#7a8a96', '#4a7fd6', '#e8743b', '#3fa58b', '#9b7fd1', '#d64545', '#e8b33c', '#5bb5e0'];
+  const SUBJECTS = [['mouse', 'Mice'], ['s-mouse-soft', 'Mice (soft)'], ['rat', 'Rats'], ['human', 'People'], ['s-cell-culture-flask', 'Flasks'], ['tube', 'Tubes']];
+  function parseCohorts(text) {
+    return String(text).split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+      const m = /^(.+?)\s*[:=(]\s*n?\s*=?\s*(\d+)\)?\s*$/i.exec(l);
+      return m ? { name: m[1].trim(), n: Math.min(40, +m[2]) } : { name: l, n: 5 };
+    });
+  }
+  globalThis.parseCohorts = parseCohorts;
+  function openCohortBuilder() {
+    const ta = el('textarea', { rows: 6, style: 'width:100%;font-family:inherit', value: 'Vehicle: 8\nDrug A 10 mg/kg: 8\nDrug A 30 mg/kg: 8\nDrug A + anti-PD-1: 8' });
+    const subj = el('select', {}, ...SUBJECTS.filter(([id]) => typeof ICON_MAP === 'undefined' || ICON_MAP[id]).map(([id, l]) => el('option', { value: id, textContent: l })));
+    const go = el('button', { class: 'primary', textContent: 'Insert groups', onclick: () => {
+      const groups = parseCohorts(ta.value);
+      if (!groups.length) return;
+      const at = viewCenter(), size = 44, gapX = 8, rowH = size + 26, labelW = 190, o = [];
+      const maxN = Math.max(...groups.map((g) => g.n)), W = labelW + maxN * (size + gapX), H = groups.length * rowH;
+      const x0 = at.x - W / 2, y0 = at.y - H / 2;
+      groups.forEach((g, gi) => {
+        const col = COHORT_COLOURS[gi % COHORT_COLOURS.length], y = y0 + gi * rowH;
+        const label = Make.text(`{b|${g.name}}\nn = ${g.n}`, x0, y + 4, { fontSize: 13, color: '#222222' });
+        if (typeof postEdit === 'function') postEdit(label);
+        o.push(label);
+        for (let i = 0; i < g.n; i++) o.push(Make.icon(subj.value, x0 + labelW + i * (size + gapX), y, size, { color: col }));
+      });
+      closeModal();
+      addObjects(o);
+      groupSelection();
+      const grp = selected()[0];
+      if (grp) grp.name = 'Study groups';
+      render({ props: true });
+    } });
+    openModal('Cohort builder', el('div', { style: 'width:min(520px,80vw)' },
+      el('p', { class: 'note', textContent: 'One line per group: “name: number”. Each group gets its own colour; ungroup to recolour or mark animals.' }),
+      ta, el('div', { class: 'row', style: 'margin:8px 0' }, el('label', { textContent: 'Show as' }), subj), el('div', { class: 'btnrow' }, go)));
+  }
+  ARRANGE_COMMANDS.cohortBuilder = openCohortBuilder;
   globalThis.parseTimeline = parse;
   ARRANGE_COMMANDS.timelineBuilder = openTimelineBuilder;
 })();

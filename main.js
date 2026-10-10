@@ -127,6 +127,7 @@ function buildMenu() {
         { label: 'Table', click: send('insertTable') },
         { label: 'Equation (LaTeX)…', click: send('equation') },
         { label: 'Timeline Builder…', click: send('timelineBuilder') },
+        { label: 'Cohort / Study Groups Builder…', click: send('cohortBuilder') },
         { label: 'Line Legend', click: send('lineLegend') },
         { label: 'Colour Legend', click: send('colourLegend') },
         { label: 'Significance Bracket (Select Two Objects)', click: send('sigBracket') },

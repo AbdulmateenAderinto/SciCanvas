@@ -29,3 +29,8 @@ test('timeline builder reads "time: event" lines in several notations', () => {
   assert.equal(JSON.stringify(p('Day 0: implant\nWeek 2 - boost\n E12.5: harvest \n\n48 h')), JSON.stringify([
     { when: 'Day 0', what: 'implant' }, { when: 'Week 2', what: 'boost' }, { when: 'E12.5', what: 'harvest' }, { when: '48 h', what: '' }]));
 });
+
+test('cohort builder reads group sizes', () => {
+  assert.equal(JSON.stringify(A.globals.parseCohorts('Vehicle: 8\nDrug (n=6)\nControl = 10\nNo number')), JSON.stringify([
+    { name: 'Vehicle', n: 8 }, { name: 'Drug', n: 6 }, { name: 'Control', n: 10 }, { name: 'No number', n: 5 }]));
+});
