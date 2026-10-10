@@ -122,3 +122,15 @@ test('free-floating lines can be found under the pointer (to branch from or rest
   assert.ok(hit && hit.o.id === 'free' && Math.abs(hit.t - 0.5) < 0.01);
   assert.equal(G.connectorAtPoint({ x: 150, y: 102 }, 'free', [free], 1), null, 'the line being dragged is skipped');
 });
+
+test('Shift over a shape: the straight line meets its edge and attaches there', () => {
+  const B = box('B', 420, 360, 120, 140);
+  const hit = G.straightOntoObject({ x: 180, y: 425 }, { x: 470, y: 425 }, B);
+  assert.equal(JSON.stringify(hit.pt), JSON.stringify({ x: 420, y: 425 }), 'enters through the left edge, still level');
+  assert.equal(hit.at[0], 0);
+  assert.ok(Math.abs(hit.at[1] - 65 / 140) < 1e-9);
+  const diag = G.straightOntoObject({ x: 300, y: 240 }, { x: 440, y: 380 }, B);
+  assert.ok(Math.abs((diag.pt.y - 240) - (diag.pt.x - 300)) < 1e-9 && diag.pt.y === 360, '45° line meets the top edge');
+  assert.equal(G.straightOntoObject({ x: 0, y: 0 }, { x: 100, y: 0 }, B), null, 'a line that misses the shape stays free');
+  assert.equal(G.straightOntoObject({ x: 180, y: 425 }, { x: 470, y: 425 }, { ...B, rot: 30 }), null, 'rotated shapes are left alone');
+});

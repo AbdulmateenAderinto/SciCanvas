@@ -216,6 +216,24 @@ function rotateGuides(o, snapped, matched) {
   return g + label(c.x, c.y + Math.hypot(o.w, o.h) / 2 + 22 / z, `${Math.round((o.rot || 0) * 10) / 10}°`); // below the turning box
 }
 // Straighten a line from `a` to `p`: returns the snapped end point and a small angle readout.
+// Shift held over an object: carry the locked straight line on until it meets the object's edge, and attach there
+// (as an `at` position on the edge) so the line stays straight and stays connected. Null when the line misses it.
+function straightOntoObject(a, q, target) {
+  if (!target || target.rot || !(target.w > 0) || !(target.h > 0)) return null;
+  const dx = q.x - a.x, dy = q.y - a.y, len = Math.hypot(dx, dy);
+  if (len < 1e-6) return null;
+  const ux = dx / len, uy = dy / len;
+  let t0 = -Infinity, t1 = Infinity;
+  for (const [o, u, lo, hi] of [[a.x, ux, target.x, target.x + target.w], [a.y, uy, target.y, target.y + target.h]]) {
+    if (Math.abs(u) < 1e-9) { if (o < lo || o > hi) return null; continue; }
+    const ta = (lo - o) / u, tb = (hi - o) / u;
+    t0 = Math.max(t0, Math.min(ta, tb)); t1 = Math.min(t1, Math.max(ta, tb));
+  }
+  if (t1 < t0 || t1 < 0) return null;
+  const t = t0 > 0 ? t0 : t1, pt = { x: a.x + ux * t, y: a.y + uy * t };
+  const clamp = (v) => Math.max(0, Math.min(1, v));
+  return { pt, at: [clamp((pt.x - target.x) / target.w), clamp((pt.y - target.y) / target.h)] };
+}
 function snapLinePoint(a, p, e) {
   const ang = (Math.atan2(p.y - a.y, p.x - a.x) * 180) / Math.PI, len = Math.hypot(p.x - a.x, p.y - a.y);
   if (len * state.zoom < 8) return { p, guides: '' };

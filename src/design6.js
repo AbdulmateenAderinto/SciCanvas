@@ -167,13 +167,24 @@ $('#textEditor').addEventListener('input', (e) => {
   if (typeof ta.oninput === 'function') ta.oninput();
 }, true);
 
-// Box text: dragging a corner changes the box instead of the font size.
+// Text boxes reshape by dragging. The side handles of any text change the box: left / right set the width and the
+// words re-wrap (plain text becomes a text box on the first drag), top / bottom set the box height. Corners scale
+// the font of plain text, and change both sides of a text box.
 const _handlePointerMoveD6 = handlePointerMove;
 handlePointerMove = function (e) {
+  const side = typeof drag !== 'undefined' && drag && drag.mode === 'resize' && drag.o.type === 'text' && !drag.o.curve && drag.h.length === 1;
+  if (side && !(drag.o.boxW > 0)) drag.o.boxW = Math.max(30, Math.round(drag.start.w));
   if (typeof drag !== 'undefined' && drag && drag.mode === 'resize' && drag.o.type === 'text' && drag.o.boxW > 0) {
-    const o = drag.o, r = computeResize(drag, toWorld(e), false);
+    const o = drag.o, r = computeResize(drag, toWorld(e), false), minH = Math.round((o.fontSize || 16) * (o.lineHeight || 1.25));
+    if (side) {
+      if (drag.h === 'e' || drag.h === 'w') { o.boxW = Math.max(30, Math.round(r.w)); o.x = r.x; }
+      else { o.boxH = Math.max(minH, Math.round(r.h)); o.y = r.y; }
+      postEdit(o);
+      renderSceneOnly(new Set([o.id])); renderOverlay();
+      return;
+    }
     o.boxW = Math.max(30, Math.round(r.w)); o.x = r.x;
-    if (o.boxH > 0) { o.boxH = Math.max(o.fontSize, Math.round(r.h)); o.y = r.y; } else if (drag.h.includes('n')) o.y = r.y;
+    if (o.boxH > 0) { o.boxH = Math.max(minH, Math.round(r.h)); o.y = r.y; } else if (drag.h.includes('n')) o.y = r.y;
     postEdit(o);
     renderSceneOnly(new Set([o.id])); renderOverlay();
     return;

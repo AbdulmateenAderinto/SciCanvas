@@ -210,7 +210,7 @@ function renderOverlay(extra = '') {
     s += `<rect width="${o.w}" height="${o.h}" fill="none" stroke="${selCol}" stroke-width="${sw}" pointer-events="none"${sel.length > 1 ? ` stroke-dasharray="${4 / z}"` : ''}/>`;
     if (sel.length === 1 && !o.locked) {
       let handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-      if (o.type === 'text') handles = ['nw', 'ne', 'se', 'sw'];
+      if (o.type === 'text' && o.curve) handles = ['nw', 'ne', 'se', 'sw']; // curved text only scales; boxes reshape (design6.js)
       if (o.type === 'protocol') handles = ['e', 'w'];
       const pos = { n: [0.5, 0], s: [0.5, 1], e: [1, 0.5], w: [0, 0.5], nw: [0, 0], ne: [1, 0], se: [1, 1], sw: [0, 1] };
       const cursors = { n: 'ns', s: 'ns', e: 'ew', w: 'ew', nw: 'nwse', se: 'nwse', ne: 'nesw', sw: 'nesw' };
@@ -823,9 +823,12 @@ function handlePointerMove(e) {
     case 'endpoint': {
       const over = objectAtPoint(e.clientX, e.clientY, drag.o.id);
       let q = p, guides = '';
-      if (!over) { // a free end pulls straight (horizontal / vertical / 45°) relative to the other end
-        const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
-        ({ p: q, guides } = snapLinePoint(drag.end === 'to' ? a : b, p, e));
+      drag.shiftAt = null;
+      if (!over || e.shiftKey) { // a free end pulls straight (horizontal / vertical / 45°); Shift keeps it straight even over an object
+        const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs()), from = drag.end === 'to' ? a : b;
+        ({ p: q, guides } = snapLinePoint(from, p, e));
+        const hit = e.shiftKey && over ? straightOntoObject(from, q, over) : null;
+        if (hit) { q = hit.pt; drag.shiftAt = { id: over.id, at: hit.at }; }
       }
       drag.o[drag.end] = { x: q.x, y: q.y };
       $('#guides').innerHTML = guides;
@@ -872,7 +875,13 @@ function handlePointerMove(e) {
     case 'connect': {
       const over = objectAtPoint(e.clientX, e.clientY, drag.o.id);
       let q = p, guides = '';
-      if (!over) { const [a] = connectorEnds({ ...drag.o, style: 'straight' }, objs()); ({ p: q, guides } = snapLinePoint(a, p, e)); }
+      drag.shiftAt = null;
+      if (!over || e.shiftKey) {
+        const [a] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
+        ({ p: q, guides } = snapLinePoint(a, p, e));
+        const hit = e.shiftKey && over && over.id !== drag.o.from.id ? straightOntoObject(a, q, over) : null;
+        if (hit) { q = hit.pt; drag.shiftAt = { id: over.id, at: hit.at }; }
+      }
       drag.o.to = { x: q.x, y: q.y };
       if (!over || over.id !== drag.o.from.id) drag.left = true; // went outside the start object: back onto it makes a loop
       $('#guides').innerHTML = guides;
@@ -923,7 +932,9 @@ window.addEventListener('pointerup', (e) => {
       const o = d.o, end = d.mode === 'connect' ? 'to' : d.end;
       const target = objectAtPoint(e.clientX, e.clientY, o.id);
       const other = end === 'to' ? o.from : o.to;
-      if (target && (target.id !== other.id || d.left)) {
+      if (e.shiftKey && target) { // Shift: keep the line straight, attached where it meets the edge (or left free if it misses)
+        if (d.shiftAt) o[end] = { id: d.shiftAt.id, at: d.shiftAt.at };
+      } else if (target && (target.id !== other.id || d.left)) {
         const port = nearestPort(target, p, 14 / state.zoom);
         const at = !port && typeof edgePointAt === 'function' ? edgePointAt(target, p) : null; // anywhere on the edge
         o[end] = port ? { id: target.id, port } : at ? { id: target.id, at } : { id: target.id };

@@ -387,6 +387,11 @@ function nodeEditDown(e, p) {
 function nodeDragMove(e, p, d) {
   const o = d.o, n = o.nodes[d.index], q = worldToPathLocal(o, p);
   if (d.kind === 'node') {
+    if (e.shiftKey && o.nodes.length > 1) { // Shift: level, upright or 45° from the previous node (the next one for the first)
+      const nb = o.nodes[d.index > 0 ? d.index - 1 : 1], len = Math.hypot(q.x - nb.x, q.y - nb.y);
+      const ang = Math.round(Math.atan2(q.y - nb.y, q.x - nb.x) / (Math.PI / 4)) * (Math.PI / 4);
+      q.x = nb.x + Math.cos(ang) * len; q.y = nb.y + Math.sin(ang) * len;
+    }
     const dx = q.x - n.x, dy = q.y - n.y;
     n.x = q.x; n.y = q.y;
     if (n.ix != null) { n.ix += dx; n.iy += dy; }

@@ -42,6 +42,8 @@ library → canvas → relationships → data → review → export.
 - **Pathway editing**: drop an icon on a line to insert it into the path; right-click › Remove from pathway, Select connected, Connect in order; drag line styles from the Shapes tab onto the page or a line; floating-toolbar Style / Swap / Straighten for lines; end gaps, label boxes, animated flow.
 - **Quick add**: press / over the canvas and type to add an icon or shape at the pointer. Right-click › Paste here, ⇧⌘V paste in place, smart ⌘D (repeats the step you moved the last copy by).
 - **Text helpers**: Format chemical formulas (H2O → H₂O, Ca2+ → Ca²⁺), Tidy units & symbols (µm, °C, ±, →), H₂O button in the text bar.
+- **Reshape text boxes by dragging**: the side handles of any text set the box width (words re-wrap) and height; the corners still scale the font.
+- **Shift keeps lines straight**: hold Shift while drawing or dragging a line end, even over a shape (the line attaches where it meets the edge), or while moving a node in Edit Points.
 - **Figure additions**: significance brackets between two bars, colour legend, Tidy into grid, Move / Copy to page, Format painter, Colour button on the floating toolbar.
 - **Figure check fixes**: small text, hairlines, off-page objects, labels that don't fit, red/green pairs (Okabe–Ito swap), mixed fonts, near-misalignments, overlapping text, loose line ends — with Fix and Fix all.
 - **Pictures everywhere**: Properties dropdowns for arrowheads, path, dash, line style, shading, pattern, warp, shadow, fade, taper, caps, alignment, lists, crop, shape kind and font show previews; Layers show thumbnails and name lines by what they join; library hover previews; Help lists every keyboard shortcut; What's New window.
