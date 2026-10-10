@@ -69,6 +69,20 @@
     });
   }
   globalThis.formatChemistry = formatChemistry;
+  // A button in the text bar: format the selected words (or all the text being edited).
+  const tb = document.getElementById('textbar'), ta = document.getElementById('textEditor');
+  if (tb && ta) {
+    const b = el('button', { title: 'Format chemical formulas in the selection, or all the text (H2O → H₂O, Ca2+ → Ca²⁺)', onclick: () => {
+      const s0 = ta.selectionStart, s1 = ta.selectionEnd, all = s0 === s1;
+      const part = all ? ta.value : ta.value.slice(s0, s1), done = formatChemistry(part);
+      if (done === part) { toast('No formulas found (e.g. H2O, CO2, Ca2+)'); return; }
+      ta.value = all ? done : ta.value.slice(0, s0) + done + ta.value.slice(s1);
+      ta.dispatchEvent(new Event('input')); ta.focus();
+    } });
+    b.innerHTML = 'H<sub>2</sub>O';
+    const sep = [...tb.querySelectorAll('.tb-sep')].pop();
+    if (sep) sep.before(b); else tb.append(b);
+  }
   ARRANGE_COMMANDS.formatChemistry = () => {
     const list = selected().filter((o) => o.type === 'text' || o.label);
     if (!list.length) { toast('Select text (or shapes with labels) to format'); return; }
