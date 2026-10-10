@@ -123,6 +123,41 @@
   setTimeout(setupToolbar, 0);
   if (typeof setTool === 'function') { const prevTool = setTool; setTool = function (...a) { const r = prevTool.apply(this, a); setupToolbar(); return r; }; }
 
+  // Library hover preview: rest on an icon for a moment to see it large, with its name and licence.
+  const grid = document.getElementById('icongrid');
+  if (grid) {
+    const tip = document.createElement('div');
+    tip.className = 'icon-preview hidden';
+    document.body.append(tip);
+    let timer = null, cur = null;
+    const hide = () => { clearTimeout(timer); tip.classList.add('hidden'); cur = null; };
+    grid.addEventListener('mouseover', (e) => {
+      const cell = e.target.closest('.icon-cell');
+      if (!cell || cell === cur) return;
+      hide(); cur = cell;
+      timer = setTimeout(() => {
+        const pic = cell.querySelector('svg, img, .pp-thumb');
+        if (!pic) return;
+        const [name, ...rest] = (cell.title || '').split(' — ');
+        tip.innerHTML = '';
+        const big = pic.cloneNode(true);
+        big.removeAttribute('loading');
+        big.classList.add('big');
+        tip.append(big);
+        const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = name; tip.append(cap);
+        if (rest.length) { const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = rest.join(' — '); tip.append(sub); }
+        tip.classList.remove('hidden');
+        const r = cell.getBoundingClientRect(), tr = tip.getBoundingClientRect();
+        tip.style.left = Math.min(innerWidth - tr.width - 8, grid.getBoundingClientRect().right + 12) + 'px'; // beside the library, not over it
+        tip.style.top = Math.max(8, Math.min(innerHeight - tr.height - 8, r.top + r.height / 2 - tr.height / 2)) + 'px';
+      }, 450);
+    });
+    grid.addEventListener('mouseleave', hide);
+    grid.addEventListener('mousedown', hide);
+    grid.addEventListener('dragstart', hide);
+    grid.addEventListener('scroll', hide, { passive: true });
+  }
+
   const prev = renderProps;
   renderProps = function () {
     close();
