@@ -127,6 +127,7 @@ function buildMenu() {
         { label: 'Table', click: send('insertTable') },
         { label: 'Equation (LaTeX)…', click: send('equation') },
         { label: 'Line Legend', click: send('lineLegend') },
+        { label: 'Significance Bracket (Select Two Objects)', click: send('sigBracket') },
         { label: 'Frame', submenu: [{ label: 'Rectangle Frame', click: send('frameRect') }, { label: 'Circle Frame', click: send('frameCircle') }] },
         { label: 'Antibody Builder…', click: send('antibody') },
         { label: 'Protein Shape…', click: send('proteinShape') },

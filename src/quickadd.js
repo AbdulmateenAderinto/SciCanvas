@@ -138,6 +138,33 @@
     return t;
   };
 
+  // Significance bracket between two objects: ⊓ above them with “*” (edit to **, ns, p = 0.03…), grouped.
+  ARRANGE_COMMANDS.sigBracket = () => {
+    const sel = selected().filter((o) => o.type !== 'connector');
+    if (sel.length !== 2) { toast('Select the two things to compare'); return; }
+    const [a, b] = [...sel].sort((p, q) => center(p).x - center(q).x), ba = bounds(a, objs()), bb = bounds(b, objs());
+    const top = Math.min(ba.y, bb.y), h = Math.max(8, Math.min(ba.h, bb.h) * 0.08), y = top - 14 - h;
+    const xa = center(a).x, xb = center(b).x;
+    checkpoint();
+    const path = makePathFromNodes([{ x: xa, y: y + h }, { x: xa, y }, { x: xb, y }, { x: xb, y: y + h }], { strokeWidth: 1.6, stroke: '#222222', cap: 'butt', name: 'Significance bracket' });
+    const t = Make.text('*', 0, 0, { fontSize: 18, bold: true, color: '#222222' });
+    if (typeof postEdit === 'function') postEdit(t);
+    t.x = (xa + xb) / 2 - t.w / 2; t.y = y - t.h - 1;
+    objs().push(path, t);
+    state.sel = [path.id, t.id];
+    groupSelection();
+    const g = selected()[0];
+    if (g) g.name = 'Significance *';
+    render({ props: true });
+    toast('Double-click the * to change it (**, ***, ns, p = 0.03…)');
+  };
+  const prevMenu4 = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu4();
+    if (selected().filter((o) => o.type !== 'connector').length === 2) t.push({ label: 'Significance bracket (*) between these', cmd: 'sigBracket' });
+    return t;
+  };
+
   // Paste here: what was copied in SciCanvas, centred on the spot that was right-clicked.
   ARRANGE_COMMANDS.pasteHere = async () => {
     const at = (globalThis.ShapeLib && ShapeLib.menuPoint()) || viewCenter();
