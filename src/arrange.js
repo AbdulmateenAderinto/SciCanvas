@@ -356,6 +356,16 @@ function setupContextBar() {
     runCommand(cmd);
   });
 }
+// Space the selection exactly `gap` apart along one axis, in order, starting from the first object.
+function spaceExactly(axis, gap) {
+  const sel = selected().filter((o) => o.type !== 'connector');
+  if (sel.length < 2) return;
+  checkpoint();
+  const items = sel.map((o) => ({ o, b: bounds(o, objs()) })).sort((a, b) => a.b[axis] - b.b[axis]);
+  let cur = items[0].b[axis] + items[0].b[axis === 'x' ? 'w' : 'h'] + gap;
+  for (const it of items.slice(1)) { it.o[axis] += cur - it.b[axis]; cur += it.b[axis === 'x' ? 'w' : 'h'] + gap; }
+  render({ props: true });
+}
 function showAlignPopover(anchor) {
   const pop = $('#alignpop');
   const multi = state.sel.length > 1;
@@ -364,6 +374,21 @@ function showAlignPopover(anchor) {
   if (multi) items.push(['matchW', '▭ Match width'], ['matchH', '▯ Match height']);
   pop.innerHTML = `<div class="note" style="padding:2px 6px 4px">${multi ? 'Align selection' : 'Align to page'}</div>` + items.map(([c, l]) => `<button data-ctx="${c}">${l}</button>`).join('')
     + (multi ? `<label style="display:flex;gap:6px;align-items:center;padding:6px;font-size:12px;width:auto"><input type="checkbox" data-alignkey ${state.view.alignToKey ? 'checked' : ''}> Align to the last-clicked object</label>` : '');
+  if (multi) {
+    const gapRow = el('div', { style: 'display:flex;gap:4px;align-items:center;padding:4px 6px;font-size:12px' }, 'Gap',
+      el('input', { type: 'number', min: 0, step: 1, value: lsGet('scicanvas:spaceGap', 20), style: 'width:56px', 'data-gap': '1' }), 'px',
+      el('button', { 'data-space': 'x', title: 'Space exactly this far apart, left to right', textContent: '⇿' }), el('button', { 'data-space': 'y', title: 'Space exactly this far apart, top to bottom', textContent: '⇳' }));
+    gapRow.addEventListener('keydown', (e) => e.stopPropagation());
+    pop.append(gapRow);
+    gapRow.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-space]');
+      if (!b) return;
+      e.stopPropagation();
+      const gap = +gapRow.querySelector('[data-gap]').value || 0;
+      lsSet('scicanvas:spaceGap', gap);
+      spaceExactly(b.dataset.space, gap);
+    });
+  }
   const ak = pop.querySelector('[data-alignkey]');
   if (ak) ak.onchange = () => { state.view.alignToKey = ak.checked; if (typeof saveView === 'function') saveView(); };
   const r = anchor.getBoundingClientRect(), sr = stage.getBoundingClientRect();
