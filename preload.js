@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('native', {
   onPackProgress: (fn) => ipcRenderer.on('pack-progress', (_e, p) => fn(p)),
   copyImage: (dataUrl) => ipcRenderer.invoke('copy-image', dataUrl),
   copySvg: (svg) => ipcRenderer.invoke('copy-svg', svg),
+  readClipboardText: () => ipcRenderer.invoke('read-clipboard-text'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   aiGenerate: (req) => ipcRenderer.invoke('ai-generate', req),

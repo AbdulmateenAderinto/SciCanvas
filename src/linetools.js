@@ -763,7 +763,7 @@
 
   Object.assign(ARRANGE_COMMANDS, {
     lineBranch: () => branch('branch'), lineMerge: () => branch('merge'), lineTwoWay: twoWay, lineSelfLoop: selfLoopCmd,
-    lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
+    lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, pasteInPlace, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
     lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }), lineStraighten: straighten,
     equation: () => openEquationEditor(), geneStyle: () => openGeneHelper(),
   });
@@ -827,6 +827,33 @@
     state.sel = [next.id];
     render({ props: true });
   }, true);
+  // Smart duplicate: after duplicating and moving the copy, the next ⌘D repeats that step (rows, grids, series).
+  let lastDup = null; // { ids, from: { x, y } of the first copy when made, step: offset used }
+  const firstPos = (ids) => { const o = objs().find((x) => x.id === ids[0]); return o ? (o.type === 'connector' ? connectorEnds(o, objs())[0] : { x: o.x, y: o.y }) : null; };
+  if (typeof duplicateSelection === 'function') {
+    duplicateSelection = function () {
+      const sel = selected();
+      if (!sel.length) return;
+      let step = { x: 20, y: 20 };
+      if (lastDup && lastDup.ids.length === state.sel.length && lastDup.ids.every((id, i) => id === state.sel[i])) {
+        const now = firstPos(state.sel); // the copy was moved since: repeat its offset from the original
+        if (now) step = { x: now.x - lastDup.orig.x, y: now.y - lastDup.orig.y };
+      }
+      const orig = firstPos(state.sel);
+      const copies = cloneObjects(sel, objs(), 0);
+      for (const c of copies) {
+        if (c.type === 'connector') { for (const k of ['from', 'to']) if (!c[k].id) c[k] = { x: c[k].x + step.x, y: c[k].y + step.y }; if (c.points) c.points = c.points.map((q) => ({ x: q.x + step.x, y: q.y + step.y })); } else { c.x += step.x; c.y += step.y; }
+      }
+      addObjects(copies);
+      lastDup = { ids: [...state.sel], orig };
+    };
+  }
+  // Paste in place (⇧⌘V): what was copied, at its original position (e.g. onto another page).
+  async function pasteInPlace() {
+    const txt = window.native.readClipboardText ? await window.native.readClipboardText() : '';
+    if (!txt || !txt.startsWith('scicanvas:')) { toast('Copy objects in SciCanvas first'); return; }
+    try { addObjects(cloneObjects(JSON.parse(txt.slice(10)), [], 0)); } catch { toast('Could not paste'); }
+  }
   function setLines(p) {
     const L = selected().filter((o) => o.type === 'connector');
     if (!L.length) return;
