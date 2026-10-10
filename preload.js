@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, webFrame } = require('electron');
+const { contextBridge, ipcRenderer, webFrame, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('native', {
   onMenu: (fn) => ipcRenderer.on('menu', (_e, cmd) => fn(cmd)),
@@ -40,6 +40,12 @@ contextBridge.exposeInMainWorld('native', {
   deleteUserIcon: (file) => ipcRenderer.invoke('delete-user-icon', file),
   onPackProgress: (fn) => ipcRenderer.on('pack-progress', (_e, p) => fn(p)),
   copyImage: (dataUrl) => ipcRenderer.invoke('copy-image', dataUrl),
+  copySvg: (svg) => ipcRenderer.invoke('copy-svg', svg),
+  readClipboardText: () => ipcRenderer.invoke('read-clipboard-text'),
+  checkUpdates: () => ipcRenderer.invoke('check-updates'),
+  pathForFile: (file) => { try { return webUtils.getPathForFile(file) || null; } catch { return null; } },
+  autosaveFile: (text) => ipcRenderer.send('autosave-file', text),
+  readAutosaveFile: () => ipcRenderer.invoke('read-autosave-file'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   aiGenerate: (req) => ipcRenderer.invoke('ai-generate', req),

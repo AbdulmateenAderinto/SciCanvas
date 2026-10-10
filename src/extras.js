@@ -286,6 +286,15 @@ function selectionPage(margin = 16) {
   });
   return { ...page(), width: Math.ceil(bb.w + 2 * margin), height: Math.ceil(bb.h + 2 * margin), background: page().background, objects: objsOut };
 }
+// The selection (or page) as SVG markup on the clipboard: pastes into Figma, Illustrator or Inkscape as vectors.
+async function copyAsSvg() {
+  const p = selectionPage();
+  try {
+    await window.native.copySvg(pageSvgString(p, { transparent: state.sel.length > 0 }));
+    toast(`Copied ${state.sel.length ? 'selection' : 'page'} as SVG — paste into Figma, Illustrator or Inkscape`);
+  } catch (e) { toast('Copy failed: ' + e.message); }
+}
+if (typeof ARRANGE_COMMANDS !== 'undefined') ARRANGE_COMMANDS.copySvg = copyAsSvg;
 async function copyAsImage() {
   const p = selectionPage();
   try {
@@ -621,7 +630,8 @@ function insertObjectsGrouped(list, replace) {
   renderLibrary();
   let restored = false;
   try {
-    const saved = JSON.parse(localStorage.getItem('scicanvas:autosave') || 'null');
+    let saved = JSON.parse(localStorage.getItem('scicanvas:autosave') || 'null');
+    if (saved && saved.inFile && window.native.readAutosaveFile) saved = JSON.parse((await window.native.readAutosaveFile()) || 'null'); // too big for browser storage
     if (saved && saved.doc && saved.doc.pages && saved.doc.pages.some((p) => p.objects.length)) {
       loadDoc(saved.doc, saved.filePath);
       state.dirty = true; updateTitle();

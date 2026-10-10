@@ -592,8 +592,29 @@ function flattenNestedSvg(s) {
 // Anything without a native equivalent: an SVG picture (PNG fallback), or PNG only when it uses SVG features Office
 // can't draw (filters, masks, text on a path, blend modes).
 const PICTURE_KIND = { icon: 'icons', brush: 'brushes', chart: 'charts', protocol: 'protocol strips', text: 'curved text', image: 'images with scale bars or masks', path: 'tube / blurred paths' };
+// A line has no box of its own: its picture covers where it is drawn, with the rest of the page present but hidden so
+// its ends, route, hops and attachments to other lines come out as on the canvas.
+function connectorMini(o, objects) {
+  const b = bounds(o, objects || []), labels = o.label || o.labelAbove || o.labelBelow || o.measure || o.ticks || o.tickLabels;
+  const pad = 10 + (o.width || 2) * 3 + (labels ? 34 : 0);
+  const dx = pad - b.x, dy = pad - b.y;
+  const shift = (x) => {
+    const c = JSON.parse(JSON.stringify(x));
+    if (c.type === 'connector') {
+      for (const k of ['from', 'to']) if (c[k] && !c[k].id) c[k] = { x: c[k].x + dx, y: c[k].y + dy };
+      if (c.points) c.points = c.points.map((q) => ({ x: q.x + dx, y: q.y + dy }));
+    } else { c.x += dx; c.y += dy; }
+    return c;
+  };
+  const list = (objects && objects.length ? objects : [o]).map((x) => (x === o || x.id === o.id ? { ...shift(o), opacity: 1, link: null } : { ...shift(x), hidden: true, pictureContext: true }));
+  return { pad, b, mini: { width: b.w + 2 * pad, height: b.h + 2 * pad, background: '#ffffff', objects: list } };
+}
 async function pictureXml(o, objects, T, ctx, id, name, alpha) {
   const k = slideK(T);
+  if (o.type === 'connector') {
+    const { pad: cp, b, mini: cm } = connectorMini(o, objects);
+    return picturePart(o, T, ctx, id, name, alpha, k, cm, slideBox(T, b.x - cp, b.y - cp, b.w + 2 * cp, b.h + 2 * cp));
+  }
   const warpGrow = o.warp && o.warp.kind ? Math.max(o.w, o.h) * 0.6 : 0;
   const pad = Math.max(6, (o.size || 0) * 1.5, (o.strokeWidth || 0) * 2, o.type === 'icon' ? Math.max(o.w, o.h) * 0.08 : 0, (o.depthBlur || 0) * 3, o.halo ? (o.halo.width ?? 2.5) + 2 : 0, warpGrow);
   const solo = { ...o, x: pad, y: pad, rot: 0, flipX: false, flipY: false, opacity: 1, shadow: null, glow: null, link: null, leader: null };
@@ -604,7 +625,9 @@ async function pictureXml(o, objects, T, ctx, id, name, alpha) {
     solo.backdropBlur = 0;
     if (bd) mini.objects.unshift({ id: `${o.id}-bd`, type: 'image', x: pad, y: pad, w: o.w, h: o.h, rot: 0, src: 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${o.w}" height="${o.h}" viewBox="0 0 ${o.w} ${o.h}">${bd}</svg>`))) });
   }
-  const box = slideBox(T, o.x - pad, o.y - pad, o.w + 2 * pad, o.h + 2 * pad);
+  return picturePart(o, T, ctx, id, name, alpha, k, mini, slideBox(T, o.x - pad, o.y - pad, o.w + 2 * pad, o.h + 2 * pad));
+}
+async function picturePart(o, T, ctx, id, name, alpha, k, mini, box) {
   const label = pictureOnly(o) || PICTURE_KIND[o.type] || (o.type === 'group' ? 'masked groups' : `${o.type} objects`);
   ctx.pictures[label] = (ctx.pictures[label] || 0) + 1;
   let svg = pageSvgString(mini, { transparent: true });

@@ -70,6 +70,7 @@ function openRepeatDialog(mode, existing) {
       else { centreObj = a.w * a.h >= b.w * b.h ? a : b; src = centreObj === a ? b : a; }
     }
     if (mode === 'path' && !pathObj) { toast('Select the object and a drawn path (pen or pencil) to repeat it along'); return; }
+    if (!src || src.type === 'connector' || !Number.isFinite(src.w)) { toast('Lines can’t be repeated: select a shape, icon, image or group'); return; } // copies came out at NaN
     const c = centreObj ? center(centreObj) : { x: src.x + src.w / 2 + 110, y: src.y + src.h / 2 };
     const radius = centreObj ? Math.hypot(src.x + src.w / 2 - c.x, src.y + src.h / 2 - c.y) || Math.max(centreObj.w, centreObj.h) / 2 : 110;
     const start = centreObj ? (Math.atan2(src.y + src.h / 2 - c.y, src.x + src.w / 2 - c.x) * 180) / Math.PI : 180;

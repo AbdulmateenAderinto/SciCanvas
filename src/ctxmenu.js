@@ -16,6 +16,7 @@
     paste: [svgI('<rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="3.5" rx="1"/><path d="M9 11h6M9 15h4"/>'), 'Paste'],
     duplicate: [svgI('<rect x="3" y="3" width="12" height="12" rx="2"/><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M15 12.5v5M12.5 15h5"/>'), 'Duplicate'],
     copyImage: [svgI('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>'), 'As image'],
+    copySvg: [svgI('<path d="M6 3h8l4 4v14H6z"/><path d="M9 12.5c.6-.9 2.6-.8 2.6.3 0 1.2-2.6.8-2.6 2 0 1.1 2 1.2 2.7.3M13 11.5l1.2 4.5 1.3-4.5"/>'), 'As SVG'],
     selectAll: [svgI('<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 2.5"/><path d="M9 9l7 3-3 1-1 3z"/>'), 'Select all'],
     bringFront: [svgI('<path d="M5 4h14M12 20V8M7.5 12.5L12 8l4.5 4.5"/>'), 'To front'],
     bringForward: [svgI('<path d="M12 19V6M7.5 10.5L12 6l4.5 4.5"/>'), 'Forward'],
@@ -244,5 +245,6 @@
   window.addEventListener('blur', closeAll);
   window.addEventListener('resize', closeAll);
   document.addEventListener('wheel', (e) => { if (panels.length && !e.target.closest('.cm-panel')) closeAll(); }, { capture: true, passive: true });
-  globalThis.VisualMenu = { openCanvasMenu, openToolFlyout, closeAll, ICON };
+  function openLines(x, y) { closeAll(); const p = panel(0); p.append(node('div', 'cm-head', 'Line style'), grid('lines', lineTiles())); panels.push(p); place(p, x, y); }
+  globalThis.VisualMenu = { openCanvasMenu, openToolFlyout, openLines, closeAll, ICON, brushThumb };
 })();

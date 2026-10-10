@@ -33,6 +33,13 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
   win.on('closed', () => { win = null; });
+  // Never navigate the app window away (a file or link dropped outside the canvas would replace the app and the
+  // open figure); web links go to the browser instead.
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url === win.webContents.getURL()) return;
+    e.preventDefault();
+    if (/^https?:/.test(url)) shell.openExternal(url);
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -90,14 +97,19 @@ function buildMenu() {
         { label: 'Redo', accelerator: 'CmdOrCtrl+Shift+Z', click: send('redo') },
         { type: 'separator' },
         { role: 'cut' }, { role: 'copy' }, { role: 'paste' },
+        { label: 'Paste in Place', accelerator: 'Shift+CmdOrCtrl+V', click: send('pasteInPlace') },
         { label: 'Duplicate', accelerator: 'CmdOrCtrl+D', click: send('duplicate') },
         { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: send('selectAll') },
         { label: 'Copy as Image', accelerator: 'CmdOrCtrl+Shift+C', click: send('copyImage') },
+        { label: 'Copy as SVG (Figma, Illustrator)', click: send('copySvg') },
         { label: 'Copy Style', accelerator: 'Alt+CmdOrCtrl+C', click: send('copyStyle') },
         { label: 'Paste Style', accelerator: 'Alt+CmdOrCtrl+V', click: send('pasteStyle') },
         { type: 'separator' },
         { label: 'Find and Replace…', accelerator: 'CmdOrCtrl+F', click: send('find') },
         { label: 'Check Spelling…', click: send('spellCheck') },
+        { label: 'Gene & Protein Names…', click: send('geneStyle') },
+        { label: 'Format Chemical Formulas (H₂O, Ca²⁺)', click: send('formatChemistry') },
+        { label: 'Tidy Units & Symbols (µm, °C, ±, →)', click: send('tidyUnits') },
         { label: 'Select Matching', submenu: [{ label: 'Same Icon', click: send('selectSameIcon') }, { label: 'Same Type', click: send('selectSameType') }, { label: 'Same Colour', click: send('selectSameColour') },
           { label: 'Same Fill (incl. gradient)', click: send('selectSameFill') }, { label: 'Same Outline', click: send('selectSameStroke') }, { label: 'Same Effects', click: send('selectSameEffects') },
           { label: 'Same Font', click: send('selectSameFont') }, { label: 'Same Graphic Style', click: send('selectSameStyle') }] },
@@ -120,6 +132,14 @@ function buildMenu() {
         { label: 'Zoom Callout Wedge (Select Two Objects)', click: send('zoomWedge') },
         { label: 'Ungroup Icon into Editable Parts', click: send('ungroupIcon') },
         { label: 'Table', click: send('insertTable') },
+        { label: 'Equation (LaTeX)…', click: send('equation') },
+        { label: 'Builders', submenu: [
+          { label: 'Workflow…', click: send('workflowBuilder') }, { label: 'Timeline…', click: send('timelineBuilder') }, { label: 'Cohort / Study Groups…', click: send('cohortBuilder') },
+          { label: 'Gating Strategy…', click: send('gatingBuilder') }, { label: 'Western Blot…', click: send('blotBuilder') },
+        ] },
+        { label: 'Line Legend', click: send('lineLegend') },
+        { label: 'Colour Legend', click: send('colourLegend') },
+        { label: 'Significance Bracket (Select Two Objects)', click: send('sigBracket') },
         { label: 'Frame', submenu: [{ label: 'Rectangle Frame', click: send('frameRect') }, { label: 'Circle Frame', click: send('frameCircle') }] },
         { label: 'Antibody Builder…', click: send('antibody') },
         { label: 'Protein Shape…', click: send('proteinShape') },
@@ -221,7 +241,18 @@ function buildMenu() {
           { label: 'Top', click: send('alignT') }, { label: 'Middle', click: send('alignM') }, { label: 'Bottom', click: send('alignB') },
         ] },
         { label: 'Distribute', submenu: [{ label: 'Horizontally', click: send('distH') }, { label: 'Vertically', click: send('distV') }] },
+        { label: 'Tidy into Grid', click: send('tidyGrid') },
+        { label: 'Arrange in a Circle', click: send('arrangeCircle') },
+        { label: 'Swap Positions (Select Two)', click: send('swapPositions') },
         { label: 'Match Size', submenu: [{ label: 'Width', click: send('matchW') }, { label: 'Height', click: send('matchH') }, { label: 'Width and Height', click: send('matchSize') }] },
+        { label: 'Lines', submenu: [
+          { label: 'Straighten (Move the End Object)', click: send('lineStraighten') }, { label: 'Route Around Objects', click: send('lineAutoRoute') }, { label: 'Remove Bend Points / Routing', click: send('lineClearBends') },
+          { label: 'Hop over Crossing Lines', click: send('lineJumps') }, { type: 'separator' },
+          { label: 'Two-way Arrows (Parallel)', click: send('lineTwoWay') }, { label: 'Add Branch from Line', click: send('lineAddBranch') },
+          { label: 'Branch: One → Many (Select 3+ Objects)', click: send('lineBranch') }, { label: 'Merge: Many → One (Select 3+ Objects)', click: send('lineMerge') },
+          { label: 'Add Feedback Loop', click: send('lineSelfLoop') },
+          { type: 'separator' }, { label: 'Connect Selected in Order', click: send('lineConnectOrder') }, { label: 'Select Connected (Whole Pathway)', click: send('selectConnected') },
+        ] },
         { label: 'Transform…', accelerator: 'Alt+CmdOrCtrl+T', click: send('transform') },
         { label: 'Crop to Shape', click: send('cropToShape') },
         { label: 'Apply Brush to Path…', click: send('brushToPath') },
@@ -306,6 +337,7 @@ function buildMenu() {
         { label: 'Toggle Grid', accelerator: "CmdOrCtrl+'", click: send('toggleGrid') },
         { label: 'Toggle Rulers', accelerator: 'CmdOrCtrl+R', click: send('toggleRulers') },
         { label: 'Toggle Smart Alignment', click: send('toggleSnap') },
+        { label: 'Toggle Quick-connect Arrows', click: send('toggleQuickConnect') },
         { label: 'Snap to Grid', click: send('toggleSnapGrid') },
         { label: 'Outline View', accelerator: 'CmdOrCtrl+Y', click: send('outlineView') },
         { label: 'Isometric Grid', click: send('toggleIsoGrid') },
@@ -326,6 +358,9 @@ function buildMenu() {
         { label: 'Present Slides', accelerator: 'CmdOrCtrl+Enter', click: send('present') },
         { type: 'separator' },
         { label: 'Help', accelerator: 'F1', click: send('help') },
+        { label: 'What’s New', click: send('whatsNew') },
+        { label: 'Take the Tour', click: send('tour') },
+        { label: 'Check for Updates…', click: send('checkUpdates') },
         { role: 'toggleDevTools' },
         { role: 'togglefullscreen' },
       ],
@@ -673,6 +708,23 @@ ipcMain.handle('delete-user-icon', (_e, file) => {
 });
 
 // ---------- Clipboard ----------
+// SVG markup as text: Figma, Illustrator and Inkscape paste it as editable vectors.
+ipcMain.handle('read-clipboard-text', () => clipboard.readText());
+// Help › Check for Updates: compares this version with the latest GitHub release (only when asked).
+ipcMain.handle('check-updates', async () => {
+  const r = await fetch('https://api.github.com/repos/AbdulmateenAderinto/SciCanvas/releases/latest', { headers: { 'User-Agent': 'SciCanvas', Accept: 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
+  const j = await r.json();
+  return { current: app.getVersion(), latest: String(j.tag_name || '').replace(/^v/, ''), url: j.html_url, name: j.name || j.tag_name };
+});
+// Autosave for figures too big for browser storage (written atomically).
+const autosavePath = () => path.join(app.getPath('userData'), 'autosave.json');
+ipcMain.on('autosave-file', (_e, text) => {
+  if (typeof text !== 'string' || text.length > 2e9) return;
+  try { fs.writeFileSync(autosavePath() + '.tmp', text); fs.renameSync(autosavePath() + '.tmp', autosavePath()); } catch { /* disk full: nothing to do */ }
+});
+ipcMain.handle('read-autosave-file', () => { try { return fs.readFileSync(autosavePath(), 'utf8'); } catch { return null; } });
+ipcMain.handle('copy-svg', (_e, svg) => { if (typeof svg === 'string' && svg.startsWith('<svg') && svg.length < 50e6) clipboard.writeText(svg); });
 ipcMain.handle('copy-image', (_e, dataUrl) => {
   clipboard.writeImage(nativeImage.createFromDataURL(dataUrl));
   return true;

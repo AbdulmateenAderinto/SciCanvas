@@ -19,10 +19,14 @@
   const STYLES = [['400', 'normal'], ['700', 'normal'], ['400', 'italic'], ['700', 'italic']];
   const fontData = new Map(); // "file" → base64, for embedding into exports
   const fontFile = (k, sub, w, st) => `${k}-${sub}-${w}-${st}.woff2`;
+  // Lato, Montserrat and Merriweather have no Greek letters (Greek falls back to the system font), so there are no
+  // Greek files to load for them.
+  const NO_GREEK = new Set(['lato', 'montserrat', 'merriweather']);
+  const subsets = (k) => (NO_GREEK.has(k) ? ['latin'] : ['latin', 'greek']);
   async function loadFonts() {
     if (typeof FontFace === 'undefined' || typeof fetch === 'undefined') return;
     const jobs = [];
-    for (const [k, name] of BUNDLED) for (const sub of ['latin', 'greek']) for (const [w, st] of STYLES) {
+    for (const [k, name] of BUNDLED) for (const sub of subsets(k)) for (const [w, st] of STYLES) {
       const file = fontFile(k, sub, w, st);
       jobs.push(fetch(`fonts/${file}`).then((r) => (r.ok ? r.arrayBuffer() : null)).then(async (buf) => {
         if (!buf) return;
@@ -48,7 +52,7 @@
   const usedFamilies = (list, out = new Set()) => { for (const o of list || []) { for (const k of [o.family, o.labelFamily, o.pathTextFamily]) if (k) out.add(k); usedFamilies(o.children, out); } return out; };
   function fontFaceCss(families) {
     let css = '';
-    for (const [k, name] of BUNDLED) if (families.has(k)) for (const sub of ['latin', 'greek']) for (const [w, st] of STYLES) {
+    for (const [k, name] of BUNDLED) if (families.has(k)) for (const sub of subsets(k)) for (const [w, st] of STYLES) {
       const b64 = fontData.get(fontFile(k, sub, w, st));
       if (b64) css += `@font-face{font-family:"${name}";src:url(data:font/woff2;base64,${b64}) format("woff2");font-weight:${w};font-style:${st};unicode-range:${RANGE[sub]};}`;
     }

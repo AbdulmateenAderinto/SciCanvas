@@ -133,7 +133,6 @@ function pathSvg(o) {
   const d = nodesToD(ns, o.closed);
   const sw = o.strokeWidth ?? 2;
   const stroke = o.stroke && o.stroke !== 'none' ? o.stroke : 'none';
-  const dash = dashAttr(o, sw);
   const geom = `<path d="${d}"/>`;
   const paint = o.closed ? fillPaint(o, geom) : { fill: 'none', defs: '', overlay: '' };
   let defs = paint.defs, body = '';
@@ -148,7 +147,7 @@ function pathSvg(o) {
     dd = nodesToD(trimmed, false);
   }
   if (o.tube && !o.closed && stroke !== 'none') body += `<path d="${d}" fill="none" stroke="${o.tubeOutline || Color.dark(stroke, 0.36)}" stroke-width="${sw + 2 * (o.tubeOutlineWidth ?? 2.2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  body += `<path d="${dd}"${ns.some((n) => n.move) ? ' fill-rule="evenodd"' : ''} fill="${paint.fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="${o.cap || 'round'}" stroke-linejoin="round"${dash}${o.strokeOpacity != null ? ` stroke-opacity="${o.strokeOpacity}"` : ''}${o.blur ? ` filter="url(#bl-${o.id})"` : ''}/>`;
+  body += `<path d="${dd}"${ns.some((n) => n.move) ? ' fill-rule="evenodd"' : ''} fill="${paint.fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"${dashAndCap(o, sw, o.cap || 'round')}${o.strokeOpacity != null ? ` stroke-opacity="${o.strokeOpacity}"` : ''}${o.blur ? ` filter="url(#bl-${o.id})"` : ''}/>`;
   body += paint.overlay;
   if (o.pathText) { // label that follows the drawn curve
     defs += `<path id="ptx-${o.id}" d="${d}"/>`;

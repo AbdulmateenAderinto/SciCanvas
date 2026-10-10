@@ -33,6 +33,23 @@ library → canvas → relationships → data → review → export.
 - **Line legend**: right-click the page › Insert line legend adds one sample of each kind of line on the page, with names you can edit.
 - **Equations**: right-click the page › Insert equation (LaTeX)… renders LaTeX and chemistry (`\ce{…}`) offline with MathJax; double-click an equation to edit it.
 - **Gene & protein names**: right-click the page › Gene & protein names… lists every gene/protein symbol in the page's text, guesses gene or protein from the nearby words, and sets italics and human or mouse capitalisation once you've checked them.
+- **Builders** (Insert › Builders): Workflow, Timeline, Cohort / study groups, Gating strategy and Western blot, each from a few lines of text, with icons picked automatically. Pathway from text adds `<=>`, `-o`, `: verb` labels and `[ATP -> ADP]` cofactors.
+- **Images**: double-click a picture to crop it (same crop as above); right-click › Trim white edges.
+- **Layout**: Arrange in a circle (cycles), Swap positions, exact gaps (align popover), align to the last-clicked object.
+- **Accessibility**: page alt text (with Draft from figure), saved into exported SVGs; contrast and colour-blind checks with fixes.
+- **Safety**: autosave flushes on quit and handles very large figures; undo no longer duplicates embedded images; files dropped outside the canvas can no longer replace the app; drop a .scifig onto the window to open it.
+- **Help**: What's New, a guided tour, keyboard shortcut list, Check for Updates. Present mode: L laser pointer, B blank screen.
+- **Pathway editing**: drop an icon on a line to insert it into the path; right-click › Remove from pathway, Select connected, Connect in order; drag line styles from the Shapes tab onto the page or a line; floating-toolbar Style / Swap / Straighten for lines; end gaps, label boxes, animated flow.
+- **Quick add**: press / over the canvas and type to add an icon or shape at the pointer. Right-click › Paste here, ⇧⌘V paste in place, smart ⌘D (repeats the step you moved the last copy by).
+- **Text helpers**: Format chemical formulas (H2O → H₂O, Ca2+ → Ca²⁺), Tidy units & symbols (µm, °C, ±, →), H₂O button in the text bar.
+- **Figure additions**: significance brackets between two bars, colour legend, Tidy into grid, Move / Copy to page, Format painter, Colour button on the floating toolbar.
+- **Figure check fixes**: small text, hairlines, off-page objects, labels that don't fit, red/green pairs (Okabe–Ito swap), mixed fonts, near-misalignments, overlapping text, loose line ends — with Fix and Fix all.
+- **Pictures everywhere**: Properties dropdowns for arrowheads, path, dash, line style, shading, pattern, warp, shadow, fade, taper, caps, alignment, lists, crop, shape kind and font show previews; Layers show thumbnails and name lines by what they join; library hover previews; Help lists every keyboard shortcut; What's New window.
+- **Quick connect**: select an object and drag one of the small arrows on its sides onto another object, or click an arrow (or press Option+Shift+Arrow) to add a connected copy on that side.
+- **Line labels**: slide labels along a line, turn them to follow its angle, and add direction arrows along long lines.
+- **New templates**: in vivo study timeline, glycolysis with cofactors and regulation, haematopoiesis lineage tree, and an SBGN signalling map.
+- **Figure check for lines**: line ends that touch an object without being attached, crossings without hops, and styled lines without a legend, each with a one-click Fix.
+- **Fixes**: dotted and dash-dot lines no longer break SVG/PNG export; flat lines are easier to click; special lines export to PowerPoint in the right place; lines stay put (or re-attach) when a boolean operation replaces the shape they were attached to.
 - **Library dropdowns**: pick a library, then a category; PhyloPic's ~4,500 clades are sorted into about 20 groups (mammals, birds, insects, plants, fungi…) with the clades of a group in a third dropdown. Searching keeps the chosen library or group.
 - **PhyloPic in the Refined style**, illustrated icons first in search, and ten Refined model organisms (see the icon table).
 

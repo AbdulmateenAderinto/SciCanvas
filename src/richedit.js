@@ -248,5 +248,7 @@
   }
   function clear() { run('removeFormat'); }
   function refresh() { if (active) { place(); sync(); } }
-  globalThis.RichEdit = { active: () => active, hasSelection, wrap, format, colour: (c) => run('foreColor', c), clear, insert: (t) => run('insertText', t), refresh, toHtml, toMarkup, remember, restore };
+  // The markup box was changed from outside (e.g. the H₂O button): show the new text here.
+  function reload() { if (!active) return; rich.innerHTML = toHtml(ta.value); place(); rich.focus(); }
+  globalThis.RichEdit = { active: () => active, hasSelection, wrap, format, colour: (c) => run('foreColor', c), clear, insert: (t) => run('insertText', t), refresh, reload, toHtml, toMarkup, remember, restore };
 })();

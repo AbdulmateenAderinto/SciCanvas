@@ -459,12 +459,12 @@ const RECOLOUR_PALETTES = {
 };
 function openRecolourDialog() {
   const selIds = new Set(state.sel), scopeSel = selIds.size > 0;
-  const snap0 = snapshot(), base = JSON.parse(snap0).doc;
+  const snap0 = snapshot(), base = parseSnapshot(snap0).doc;
   let applied = false;
   const allPages = el('input', { type: 'checkbox' });
   const targets = (doc) => (allPages.checked ? doc.pages.map((p) => p.objects) : [scopeSel ? doc.pages[state.pageIndex].objects.filter((o) => selIds.has(o.id)) : doc.pages[state.pageIndex].objects]);
   let colours = [], map = {};
-  const reset = () => { const d = JSON.parse(snap0).doc; state.doc.pages = d.pages; state.doc.components = d.components; };
+  const reset = () => { const d = parseSnapshot(snap0).doc; state.doc.pages = d.pages; state.doc.components = d.components; };
   const preview = () => {
     reset();
     targets(state.doc).forEach((l) => mapColours(l, (c) => map[c]));

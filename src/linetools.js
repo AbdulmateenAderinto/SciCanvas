@@ -107,15 +107,15 @@
   }
 
   // ---------- which connectors need the extended drawing ----------
-  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow'];
-  globalThis.LINE_RESET = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'ticks', 'tickLabels'];
+  const STYLE_KEYS = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'measureUnit', 'measureScale', 'measureDigits', 'ticks', 'tickLabels', 'sideIn', 'sideOut', 'sideFlip', 'labelAbove', 'labelBelow', 'labelPos', 'labelAlong', 'midArrows', 'endGap', 'animate'];
+  globalThis.LINE_RESET = ['lineStyle', 'flow', 'flowWidth', 'flowOpacity', 'gradTo', 'measure', 'ticks', 'tickLabels', 'animate'];
   const set = (v) => v != null && v !== '' && v !== false && v !== 0 && v !== 'solid' && !(Array.isArray(v) && !v.length);
   const objOf = (end, objects) => (end && end.id ? objects.find((x) => x.id === end.id) : null);
   const selfLoop = (o) => !!(o.from && o.to && o.from.id && o.from.id === o.to.id);
   // Geometry differs from render.js's: bend points, auto route, a loop, an offset, an edge point or a line end.
   function shaped(o, objects) {
     if (o.type !== 'connector' || o.style === 'zoom') return false;
-    if ((o.points && o.points.length) || o.route === 'auto' || selfLoop(o) || o.offset) return true;
+    if ((o.points && o.points.length) || o.route === 'auto' || selfLoop(o) || o.offset || o.endGap > 0) return true;
     for (const end of [o.from, o.to]) {
       if (!end || !end.id) continue;
       if (end.at || end.t != null) return true;
@@ -174,7 +174,7 @@
     const inside = (r, q) => q.x > r.x && q.x < r.x2 && q.y > r.y && q.y < r.y2;
     const obs = [];
     for (const T of objects) {
-      if (T === A || T === B || T.hidden || T.type === 'connector' || T.type === 'comment') continue;
+      if (T === A || T === B || (T.hidden && !T.pictureContext) || T.type === 'connector' || T.type === 'comment') continue;
       const bb = bounds(T, objects), r = { x: bb.x - M + 1, y: bb.y - M + 1, x2: bb.x + bb.w + M - 1, y2: bb.y + bb.h + M - 1 };
       if (r.x2 < box.x || r.x > box.x2 || r.y2 < box.y || r.y > box.y2) continue;
       if (inside(r, a) || inside(r, b) || inside(r, sa) || inside(r, sb)) continue;
@@ -275,17 +275,70 @@
       else P = [a, b];
     }
     if (o.offset) P = offsetLine(P, o.offset);
+    if (o.endGap > 0 && P.length >= 2) { // stop short of the objects the line joins
+      const L = polyLen(P), g0 = o.from && o.from.id ? Math.min(o.endGap, L / 3) : 0, g1 = o.to && o.to.id ? Math.min(o.endGap, L / 3) : 0;
+      if (g0 || g1) P = slice(P, g0, L - g1);
+    }
     return { pts: P };
   }
   globalThis.connectorPolyline = (o, objects) => geom(o, objects || objs()).pts;
+  globalThis.connectorLabelPoint = (o, objects) => { const P = geom(o, objects || objs()).pts, q = along(P, polyLen(P) * (o.labelPos ?? 0.5)); return { x: q.x, y: q.y }; };
   globalThis.connectorGeom = geom;
 
+  // Where each line's ends were last drawn, and the box of what they were attached to. Some operations replace or
+  // remove objects without letting go of the lines attached to them first (boolean union, crop to shape, cutters…);
+  // such a line then re-attaches to the shape now covering that spot, or stays where it was, instead of breaking.
+  const lastEnds = new Map();
+  const finite = (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y);
+  const gone = (end, objects) => !!(end && end.id && !objOf(end, objects));
   const prevEnds = connectorEnds;
   connectorEnds = function (o, objects) {
-    if (!shaped(o, objects || [])) return prevEnds(o, objects);
-    const P = geom(o, objects || []).pts;
-    return [P[0], P[P.length - 1]];
+    const list = objects || [];
+    if (list.length && (gone(o.from, list) || gone(o.to, list))) {
+      const last = lastEnds.get(o.id);
+      const fix = (end, i) => (gone(end, list) ? (last ? { x: last.pts[i].x, y: last.pts[i].y } : null) : end);
+      const f = fix(o.from, 0), t = fix(o.to, 1);
+      if (!f || !t) { const p = f && !f.id ? f : t && !t.id ? t : { x: 0, y: 0 }; return [p, p]; }
+      return connectorEnds({ ...o, from: f, to: t }, list);
+    }
+    let ends;
+    if (!shaped(o, list)) ends = prevEnds(o, objects);
+    else { const P = geom(o, list).pts; ends = [P[0], P[P.length - 1]]; }
+    if (list.length && o.id && finite(ends[0]) && finite(ends[1])) {
+      const box = (end) => { const T = objOf(end, list); return T && T.type !== 'connector' ? bounds(T, list) : null; };
+      lastEnds.set(o.id, { pts: ends, boxes: [box(o.from), box(o.to)] });
+    }
+    return ends;
   };
+  // Before each redraw, let go of (or re-attach) ends whose object is gone.
+  function healLines() {
+    const pg = state.doc && state.doc.pages && state.doc.pages[state.pageIndex];
+    if (!pg || !pg.objects) return;
+    const list = pg.objects, ids = new Set(list.map((x) => x.id));
+    for (const o of list) {
+      if (o.type !== 'connector') continue;
+      ['from', 'to'].forEach((k, i) => {
+        const end = o[k];
+        if (!end || !end.id || ids.has(end.id)) return;
+        const last = lastEnds.get(o.id);
+        if (!last) return;
+        const old = last.boxes[i], p = last.pts[i];
+        let into = null;
+        if (old) { // the shape now covering the old object's centre, if it's about the same size (not a background)
+          const c = { x: old.x + old.w / 2, y: old.y + old.h / 2 };
+          for (const x of list) {
+            if (x === o || x.type === 'connector' || x.hidden || x.id === (o[k === 'from' ? 'to' : 'from'] || {}).id) continue;
+            const b = bounds(x, list);
+            if (c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h && b.w * b.h <= old.w * old.h * 4) into = x;
+          }
+        }
+        o[k] = into ? { id: into.id } : { x: p.x, y: p.y };
+      });
+    }
+  }
+  const prevRender = render;
+  render = function (...args) { try { healLines(); } catch (e) { console.error(e); } return prevRender.apply(this, args); };
+  globalThis.healLines = healLines;
   const prevBounds = bounds;
   bounds = function (o, objects) {
     if (o.type !== 'connector' || !fancy(o, objects || [])) return prevBounds(o, objects);
@@ -316,7 +369,7 @@
   }
   // Path with a small hop wherever this line crosses a line drawn beneath it.
   function jumpPath(o, P, objects, r) {
-    const idx = objects.indexOf(o), others = objects.slice(0, idx < 0 ? objects.length : idx).filter((x) => x.type === 'connector' && !x.hidden && x.style !== 'zoom');
+    const idx = objects.indexOf(o), others = objects.slice(0, idx < 0 ? objects.length : idx).filter((x) => x.type === 'connector' && (!x.hidden || x.pictureContext) && x.style !== 'zoom');
     const lines = others.map((x) => { try { return geom(x, objects, 3).pts; } catch (e) { return []; } });
     let d = `M${r2(P[0].x)} ${r2(P[0].y)}`, any = false;
     for (let i = 1; i < P.length; i++) {
@@ -337,9 +390,9 @@
 
   // ---------- drawing ----------
   const upNormal = (q) => { let nx = q.ty, ny = -q.tx; if (ny > 0.0001 || (Math.abs(ny) <= 0.0001 && nx > 0)) { nx = -nx; ny = -ny; } return { x: nx, y: ny }; };
-  function textAt(text, p, fs, color, italic, bg) {
+  function textAt(text, p, fs, color, italic, bg) { // bg: a colour for the box behind the text, or nothing
     const m = measureText(text, fs, 'sans', false, italic);
-    return (bg ? `<rect x="${r2(p.x - m.w / 2 - 3)}" y="${r2(p.y - m.h / 2)}" width="${r2(m.w + 6)}" height="${r2(m.h)}" rx="3" fill="#fff" opacity=".9"/>` : '')
+    return (bg && bg !== 'none' ? `<rect x="${r2(p.x - m.w / 2 - 3)}" y="${r2(p.y - m.h / 2)}" width="${r2(m.w + 6)}" height="${r2(m.h)}" rx="3" fill="${bg === true ? '#fff' : bg}" opacity=".9"/>` : '')
       + `<g transform="translate(${r2(p.x - m.w / 2)} ${r2(p.y - m.h / 2)})">${textSvg(text, { fontSize: fs, color, italic, w: m.w, h: m.h, align: 'center' })}</g>`;
   }
   function measureLabel(o, L) {
@@ -365,6 +418,10 @@
 
   const prevSvg = connectorSvg;
   connectorSvg = function (o, objects, forExport) {
+    if (objects && objects.length && (gone(o.from, objects) || gone(o.to, objects))) {
+      const [p, q] = connectorEnds(o, objects);
+      if (!finite(p) || !finite(q) || dist(p, q) < 0.5) return '';
+    }
     if (!fancy(o, objects)) return prevSvg(o, objects, forExport);
     const color = o.color || '#333', sw = o.width || 2, hsz = o.headSize || 1, P0 = geom(o, objects).pts, L = polyLen(P0);
     if (L < 0.5) return '';
@@ -384,8 +441,15 @@
     if (o.flow) s += flowSvg(o, P0, color);
     else {
       const P = slice(P0, headLen(o.tail), L - headLen(o.head));
-      const dash = dashAttr(o, sw), cap = /stroke-linecap/.test(dash) ? '' : ' stroke-linecap="round"';
-      const line = (d, w) => `<path d="${d}" stroke="${stroke}" stroke-width="${w}" fill="none" stroke-linejoin="round"${cap}${dash}/>`;
+      let dash = dashAttr(o, sw), cap = /stroke-linecap/.test(dash) ? '' : ' stroke-linecap="round"';
+      // Animated flow: the dashes travel along the line (canvas, Present mode and exported SVG).
+      let anim = '';
+      if (o.animate) {
+        if (!dash) dash = ` stroke-dasharray="${r2(sw * 3)} ${r2(sw * 2.4)}"`;
+        const nums = (dash.match(/stroke-dasharray="([^"]+)"/) || [null, '10 8'])[1].split(/[\s,]+/).map(Number), period = r2(nums.reduce((a, b) => a + b, 0) * 2);
+        anim = `<animate attributeName="stroke-dashoffset" from="${period}" to="0" dur="${r2(Math.max(0.4, period / 30))}s" repeatCount="indefinite"/>`;
+      }
+      const line = (d, w) => `<path d="${d}" stroke="${stroke}" stroke-width="${w}" fill="none" stroke-linejoin="round"${cap}${dash}>${anim}</path>`;
       const ls = o.lineStyle;
       if (ls === 'double') { const g = sw * 0.9 + 0.6; s += line(ptsD(offsetLine(P, g)), sw * 0.6) + line(ptsD(offsetLine(P, -g)), sw * 0.6); }
       else if (ls === 'wavy' || ls === 'zigzag') s += line(ptsD(wavePts(P, sw, ls, o.waveAmp || 2.5 + sw, o.waveLength || 10 + sw * 3)), sw);
@@ -393,6 +457,11 @@
       s += arrowHead(o.head, b, aim(true), o.gradTo || color, sw, hsz) + arrowHead(o.tail, a, aim(false), color, sw, hsz);
     }
     const midQ = along(P0, L / 2), up = upNormal(midQ), fs = o.labelSize || 13;
+    // Direction arrows along the line (for long arrows and cycles).
+    for (let i = 0, n = Math.min(20, o.midArrows || 0); i < n && !o.flow; i++) {
+      const sMid = (L * (i + 0.5)) / n, hl = headScale(sw, hsz) * 0.7, tip = along(P0, sMid + hl), back = along(P0, sMid - hl);
+      s += arrowHead('arrow', { x: tip.x, y: tip.y }, { x: back.x, y: back.y }, o.gradTo ? o.gradTo : color, sw, hsz);
+    }
     const off = (o.flow ? (o.flowWidth || 22) / 2 : sw / 2) + 4 + fs * 0.6;
     // Timeline ticks with labels underneath.
     const tl = String(o.tickLabels || '').split(',').map((x) => x.trim()).filter(Boolean), nT = o.ticks || tl.length;
@@ -419,9 +488,21 @@
     }
     const sideUp = (o.sideIn || o.sideOut) && !o.sideFlip, sideDown = (o.sideIn || o.sideOut) && o.sideFlip;
     const above = o.measure && !o.labelAbove ? measureLabel(o, L) : o.labelAbove;
-    if (above) { const k = off + (sideUp ? 46 : 0); s += textAt(above, { x: midQ.x + up.x * k, y: midQ.y + up.y * k }, fs, color, o.labelItalic, false); }
-    if (o.labelBelow) { const k = off + (sideDown ? 46 : 0) + (nT >= 2 ? 0 : 0); s += textAt(o.labelBelow, { x: midQ.x - up.x * k, y: midQ.y - up.y * k }, fs, color, o.labelItalic, false); }
-    if (o.label) s += textAt(o.label, { x: midQ.x, y: midQ.y }, fs, color, o.labelItalic, true);
+    // Labels sit at labelPos along the line (default the middle); "along the line" turns them to its angle, upright.
+    const lq = o.labelPos != null ? along(P0, L * o.labelPos) : midQ, lup = upNormal(lq), gapL = o.label ? fs * 0.55 : 0, kA = off + gapL + (sideUp ? 46 : 0), kB = off + gapL + (sideDown ? 46 : 0); // clear of a main label
+    let lab = '';
+    if (o.labelAlong) {
+      let ang = (Math.atan2(lq.ty, lq.tx) * 180) / Math.PI;
+      if (ang > 90) ang -= 180; else if (ang < -90) ang += 180;
+      if (above) lab += textAt(above, { x: 0, y: -kA }, fs, color, o.labelItalic, false);
+      if (o.labelBelow) lab += textAt(o.labelBelow, { x: 0, y: kB }, fs, color, o.labelItalic, false);
+      if (o.label) lab += textAt(o.label, { x: 0, y: 0 }, fs, color, o.labelItalic, o.labelBg || true);
+      if (lab) s += `<g transform="translate(${r2(lq.x)} ${r2(lq.y)}) rotate(${r2(ang)})">${lab}</g>`;
+    } else {
+      if (above) s += textAt(above, { x: lq.x + lup.x * kA, y: lq.y + lup.y * kA }, fs, color, o.labelItalic, false);
+      if (o.labelBelow) s += textAt(o.labelBelow, { x: lq.x - lup.x * kB, y: lq.y - lup.y * kB }, fs, color, o.labelItalic, false);
+      if (o.label) s += textAt(o.label, { x: lq.x, y: lq.y }, fs, color, o.labelItalic, o.labelBg || true);
+    }
     return s;
   };
 
@@ -430,7 +511,8 @@
   const prevKey = innerKey;
   innerKey = function (o, list) {
     let k = prevKey(o, list);
-    if (o.type === 'connector' && list && (o.jumps || o.route === 'auto' || shaped(o, list))) {
+    const onLine = (end) => { const T = end && end.id && list && objOf(end, list); return !!(T && T.type === 'connector'); };
+    if (o.type === 'connector' && list && (o.jumps || o.route === 'auto' || onLine(o.from) || onLine(o.to))) {
       k += '|' + list.map((x) => (x.type === 'connector' ? `${x.id}:${JSON.stringify([x.from, x.to, x.points, x.style, x.curve, x.offset, x.route])}` : `${r2(x.x)},${r2(x.y)},${r2(x.w)},${r2(x.h)},${x.rot || 0}`)).join(';');
     }
     return k;
@@ -451,12 +533,12 @@
     return dx <= dy ? [Math.round(u) ? 1 : 0, Math.round(cv * 1000) / 1000] : [Math.round(cu * 1000) / 1000, Math.round(v) ? 1 : 0];
   };
   // The line under p (for branching from / merging into it), skipping o and lines that hang off o.
-  globalThis.connectorAtPoint = function (p, excludeId) {
-    const tol = 8 / state.zoom, list = objs();
+  globalThis.connectorAtPoint = function (p, excludeId, list = objs(), zoom = state.zoom) {
+    const tol = 8 / zoom;
     let best = null;
     for (const c of list) {
       if (c.type !== 'connector' || c.id === excludeId || c.hidden || c.style === 'zoom') continue;
-      if ((c.from && c.from.id === excludeId) || (c.to && c.to.id === excludeId)) continue;
+      if (excludeId && ((c.from && c.from.id === excludeId) || (c.to && c.to.id === excludeId))) continue;
       const P = geom(c, list).pts, n = nearestOn(P, p);
       if (n.d < tol && (!best || n.d < best.d)) best = { o: c, t: Math.round(n.t * 1000) / 1000, d: n.d };
     }
@@ -488,9 +570,17 @@
     }
     const i = +d.h.slice(3);
     let q = { x: p.x, y: p.y };
-    if (e && e.shiftKey) { // shift: line up with the neighbouring point
-      const V = [connectorEnds(o, objs())[0], ...o.points, connectorEnds(o, objs())[1]], nb = V[i];
-      if (nb) { if (Math.abs(q.x - nb.x) < Math.abs(q.y - nb.y)) q.x = nb.x; else q.y = nb.y; }
+    const [ea, eb] = connectorEnds({ ...o, points: o.points.filter((_, j) => j !== i).length ? o.points : undefined }, objs());
+    const V = [ea, ...o.points, eb], prevP = V[i], nextP = V[i + 2];
+    if (e && e.shiftKey) { // shift: line up with the previous point
+      if (prevP) { if (Math.abs(q.x - prevP.x) < Math.abs(q.y - prevP.y)) q.x = prevP.x; else q.y = prevP.y; }
+    } else if (!(e && (e.metaKey || e.ctrlKey))) { // snap level / upright with either neighbour when close (⌘ turns it off)
+      const tol = 6 / state.zoom;
+      for (const nb of [prevP, nextP]) {
+        if (!nb) continue;
+        if (Math.abs(q.x - nb.x) < tol) q.x = nb.x;
+        if (Math.abs(q.y - nb.y) < tol) q.y = nb.y;
+      }
     }
     o.points[i] = { x: r2(q.x), y: r2(q.y) };
   };
@@ -512,8 +602,56 @@
         (o.points || []).forEach((q, i) => { s += `<rect data-handle="wp:${i}" x="${q.x - hs / 2}" y="${q.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" style="cursor:move"><title>Bend point: drag to move, double-click to remove</title></rect>`; });
       }
     }
+    if (state.view.quickConnect !== false && sel.length === 1 && sel[0].type !== 'connector' && sel[0].type !== 'comment' && !sel[0].locked && state.tool === 'select' && !(typeof nodeEdit !== 'undefined' && nodeEdit) && sel[0].w > 0) s += quickConnectSvg(sel[0]);
     prevOverlay(s + extra);
   };
+  // Quick-connect arrows: on a single selected object, drag an arrow to another object to join them, or click it to
+  // add a connected copy on that side (build a flowchart click by click).
+  const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
+  function quickConnectSvg(o) {
+    const z = state.zoom, off = 18 / z, r = 7 / z, sw = 1.5 / z;
+    const at = { e: [o.w + off, o.h / 2, 0], w: [-off, o.h / 2, 180], s: [o.w / 2, o.h + off, 90], n: [o.w / 2 + 26 / z, -off * 0.85, 270] }; // n sits beside the rotate handle, below the floating toolbar
+    let s = `<g transform="translate(${o.x} ${o.y}) rotate(${o.rot || 0} ${o.w / 2} ${o.h / 2})">`;
+    for (const [k, [x, y, a]] of Object.entries(at)) {
+      s += `<g data-handle="qc:${k}" transform="translate(${x} ${y}) rotate(${a})" style="cursor:crosshair" opacity=".8"><title>Drag to connect · click to add a connected copy</title>`
+        + `<circle r="${r}" fill="#ffffff" stroke="#3b6fd6" stroke-width="${sw}"/><path d="M${-r * 0.45} ${-r * 0.5} L${r * 0.5} 0 L${-r * 0.45} ${r * 0.5}" fill="none" stroke="#3b6fd6" stroke-width="${sw * 1.2}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+    }
+    return s + '</g>';
+  }
+  globalThis.quickConnectStart = function (src, side, p) {
+    const c = Make.connector({ id: src.id, port: side }, { x: p.x, y: p.y }, presetStyle());
+    objs().push(c);
+    return { mode: 'connect', o: c, start: p, qc: { src, side } };
+  };
+  globalThis.quickConnectEnd = function (d, len) {
+    if (len >= 8 || d.o.to.id) return false;
+    addConnectedCopy(d.qc.src, d.qc.side, d.o);
+    return true;
+  };
+  // A copy of src on that side, joined by line c (or a new line in the current style).
+  function addConnectedCopy(src, side, c) {
+    const gap = 70;
+    const [copy] = cloneObjects([src], objs(), 0);
+    const dx = side === 'e' ? src.w + gap : side === 'w' ? -(src.w + gap) : 0, dy = side === 's' ? src.h + gap : side === 'n' ? -(src.h + gap) : 0;
+    copy.x = src.x + dx; copy.y = src.y + dy;
+    if (copy.type === 'text' || copy.label != null) { if (copy.type === 'text') copy.text = ''; else copy.label = ''; } // a fresh box to type in
+    if (copy.type === 'text' && !copy.text) { copy.text = 'Text'; if (typeof postEdit === 'function') postEdit(copy); }
+    objs().push(copy);
+    if (!c) { c = Make.connector({ id: src.id, port: side }, { x: 0, y: 0 }, presetStyle()); objs().push(c); }
+    c.to = { id: copy.id, port: OPP[side] };
+    state.sel = [copy.id];
+    render({ props: true });
+  }
+  // Option+Shift+Arrow: add a connected copy on that side (as in draw.io).
+  window.addEventListener('keydown', (e) => {
+    if (!e.altKey || !e.shiftKey || e.metaKey || e.ctrlKey || !e.key.startsWith('Arrow') || (typeof isTyping === 'function' && isTyping())) return;
+    const sel = selected();
+    if (sel.length !== 1 || sel[0].type === 'connector' || sel[0].locked) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    checkpoint();
+    addConnectedCopy(sel[0], { ArrowRight: 'e', ArrowLeft: 'w', ArrowUp: 'n', ArrowDown: 's' }[e.key]);
+  }, true);
+
   svg.addEventListener('dblclick', (e) => {
     const h = e.target.closest && e.target.closest('[data-handle^="wp:"]');
     if (!h) return;
@@ -637,17 +775,162 @@
     state.sel = made.map((m) => m.id);
     groupSelection();
     const g = selected()[0];
-    if (g) g.name = 'Line legend';
+    if (g) { g.name = 'Line legend'; if (typeof placeInFreeSpot === 'function') placeInFreeSpot(g); }
     render({ props: true });
     toast(`Legend with ${rows.length} line type${rows.length > 1 ? 's' : ''}: double-click a name to edit it`);
   }
 
   Object.assign(ARRANGE_COMMANDS, {
     lineBranch: () => branch('branch'), lineMerge: () => branch('merge'), lineTwoWay: twoWay, lineSelfLoop: selfLoopCmd,
-    lineAddBranch: addBranchFromLine, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
-    lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }),
+    toggleQuickConnect: () => { state.view.quickConnect = state.view.quickConnect === false; if (typeof saveView === 'function') saveView(); renderOverlay(); toast(`Quick-connect arrows ${state.view.quickConnect === false ? 'off' : 'on'}`); },
+    lineSwap: () => { const L = selected().filter((o) => o.type === 'connector'); if (!L.length) return; checkpoint(); for (const c of L) { [c.from, c.to] = [c.to, c.from]; if (c.points) c.points.reverse(); } render({ props: true }); },
+    lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, pasteInPlace, removeFromPath, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
+    lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }), lineStraighten: straighten,
     equation: () => openEquationEditor(), geneStyle: () => openGeneHelper(),
   });
+  // Straighten: move the object at the end of each selected line so the line runs exactly level or upright.
+  function straighten() {
+    const L = selected().filter((o) => o.type === 'connector');
+    if (!L.length) { toast('Select a line between two objects'); return; }
+    checkpoint();
+    let moved = 0;
+    for (const c of L) {
+      const A = objOf(c.from, objs()), B = objOf(c.to, objs());
+      if (!A || !B || A === B || A.type === 'connector' || B.type === 'connector' || B.locked) continue;
+      const ca = c.from.at ? edgePoint(A, c.from.at) : c.from.port ? portPoint(A, c.from.port) : center(A);
+      const cb = c.to.at ? edgePoint(B, c.to.at) : c.to.port ? portPoint(B, c.to.port) : center(B);
+      if (Math.abs(cb.x - ca.x) >= Math.abs(cb.y - ca.y)) B.y += ca.y - cb.y; else B.x += ca.x - cb.x;
+      moved++;
+    }
+    render({ props: true });
+    if (!moved) toast('Straighten works on lines attached to two objects');
+  }
+  // Everything joined to the selection through lines (a whole pathway), lines included.
+  function selectConnected() {
+    const list = objs(), seen = new Set(state.sel);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const c of list) {
+        if (c.type !== 'connector') continue;
+        const ends = [c.from && c.from.id, c.to && c.to.id].filter(Boolean);
+        if (seen.has(c.id) || ends.some((id) => seen.has(id))) {
+          for (const id of [c.id, ...ends]) if (!seen.has(id)) { seen.add(id); grew = true; }
+        }
+      }
+    }
+    state.sel = list.filter((o) => seen.has(o.id) && !o.locked && !o.hidden).map((o) => o.id);
+    render({ props: true });
+    toast(`${state.sel.length} objects and lines selected`);
+  }
+  // Join the selected objects with lines in reading order (rows top to bottom, left to right within a row).
+  function connectInOrder() {
+    const list = nonLines();
+    if (list.length < 2) { toast('Select two or more objects to connect'); return; }
+    const rowH = Math.max(...list.map((o) => o.h)) * 0.6;
+    // On a circle (a cycle): go round clockwise from the top, close the loop, and bow each arrow outward.
+    const cx = list.reduce((t, o) => t + center(o).x, 0) / list.length, cy = list.reduce((t, o) => t + center(o).y, 0) / list.length;
+    const radii = list.map((o) => Math.hypot(center(o).x - cx, center(o).y - cy)), mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+    const ring = list.length >= 3 && mean > 0 && Math.sqrt(radii.reduce((t, r) => t + (r - mean) ** 2, 0) / radii.length) / mean < 0.15;
+    const ang = (o) => (Math.atan2(center(o).y - cy, center(o).x - cx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI);
+    const order = ring ? [...list].sort((a, b) => ang(a) - ang(b)) : [...list].sort((a, b) => (Math.abs(center(a).y - center(b).y) > rowH ? center(a).y - center(b).y : center(a).x - center(b).x));
+    checkpoint();
+    const made = [];
+    const pairs = order.slice(1).map((o, i) => [order[i], o]);
+    if (ring) pairs.push([order[order.length - 1], order[0]]);
+    for (const [a, b] of pairs) {
+      const st = presetStyle();
+      if (ring && !st.style) { // bow outward
+        const pa = center(a), pb = center(b), dx = pb.x - pa.x, dy = pb.y - pa.y, L = Math.hypot(dx, dy) || 1, mx = (pa.x + pb.x) / 2 - cx, my = (pa.y + pb.y) / 2 - cy;
+        Object.assign(st, { style: 'curved', curve: Math.sign((-dy / L) * mx + (dx / L) * my) * L * 0.18 });
+      }
+      made.push(Make.connector({ id: a.id }, { id: b.id }, st));
+    }
+    objs().push(...made);
+    state.sel = made.map((c) => c.id);
+    render({ props: true });
+  }
+  // Drop an icon or shape onto a line between two objects: it goes into the path (A → new → B), both lines keeping
+  // the original style.
+  function splitLine(c, mid) {
+    const second = { ...deep(c), id: uid(), from: { id: mid.id }, to: deep(c.to) };
+    for (const k of ['label', 'labelAbove', 'labelBelow', 'sideIn', 'sideOut', 'points', 'tickLabels', 'ticks', 'measure']) delete second[k];
+    c.to = { id: mid.id };
+    delete c.points;
+    const i = objs().indexOf(c);
+    objs().splice(i + 1, 0, second);
+  }
+  stage.addEventListener('drop', (e) => {
+    const types = [...(e.dataTransfer ? e.dataTransfer.types : [])];
+    if (!types.some((t) => /x-scicanvas-(icon|shape|upload)/.test(t))) return;
+    const hit = connectorAtPoint(toWorld(e));
+    if (!hit || !hit.o.from.id || !hit.o.to.id) return;
+    const line = hit.o, before = new Set(objs().map((o) => o.id));
+    setTimeout(() => { // after the drop has added the object
+      const added = objs().filter((o) => !before.has(o.id) && o.type !== 'connector');
+      if (added.length !== 1 || !objs().includes(line)) return;
+      splitLine(line, added[0]);
+      render({ props: true });
+      toast('Inserted into the line');
+    }, 60);
+  }, true);
+  // Remove a step from a pathway: A → X → C becomes A → C (X and its outgoing line are deleted).
+  function removeFromPath() {
+    const steps = nonLines();
+    if (!steps.length) return;
+    checkpoint();
+    let n = 0;
+    for (const x of steps) {
+      const ins = objs().filter((c) => c.type === 'connector' && c.to.id === x.id && c.from.id !== x.id);
+      const outs = objs().filter((c) => c.type === 'connector' && c.from.id === x.id && c.to.id !== x.id);
+      if (ins.length !== 1 || outs.length !== 1) continue;
+      ins[0].to = deep(outs[0].to);
+      page().objects = objs().filter((o) => o !== x && o !== outs[0]);
+      n++;
+    }
+    state.sel = [];
+    render({ props: true });
+    toast(n ? `Removed ${n} step${n > 1 ? 's' : ''} and reconnected the path` : 'Works on objects with one line in and one line out');
+  }
+  // Tab / Shift+Tab: select the next / previous object (handy for small or overlapping ones).
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey || (typeof isTyping === 'function' && isTyping())) return;
+    if (!document.querySelector('#modal').classList.contains('hidden')) return;
+    const list = objs().filter((o) => !o.hidden && !o.locked);
+    if (!list.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const i = state.sel.length ? list.findIndex((o) => o.id === state.sel[state.sel.length - 1]) : -1;
+    const next = list[(i + (e.shiftKey ? -1 : 1) + list.length) % list.length];
+    state.sel = [next.id];
+    render({ props: true });
+  }, true);
+  // Smart duplicate: after duplicating and moving the copy, the next ⌘D repeats that step (rows, grids, series).
+  let lastDup = null; // { ids, from: { x, y } of the first copy when made, step: offset used }
+  const firstPos = (ids) => { const o = objs().find((x) => x.id === ids[0]); return o ? (o.type === 'connector' ? connectorEnds(o, objs())[0] : { x: o.x, y: o.y }) : null; };
+  if (typeof duplicateSelection === 'function') {
+    duplicateSelection = function () {
+      const sel = selected();
+      if (!sel.length) return;
+      let step = { x: 20, y: 20 };
+      if (lastDup && lastDup.ids.length === state.sel.length && lastDup.ids.every((id, i) => id === state.sel[i])) {
+        const now = firstPos(state.sel); // the copy was moved since: repeat its offset from the original
+        if (now) step = { x: now.x - lastDup.orig.x, y: now.y - lastDup.orig.y };
+      }
+      const orig = firstPos(state.sel);
+      const copies = cloneObjects(sel, objs(), 0);
+      for (const c of copies) {
+        if (c.type === 'connector') { for (const k of ['from', 'to']) if (!c[k].id) c[k] = { x: c[k].x + step.x, y: c[k].y + step.y }; if (c.points) c.points = c.points.map((q) => ({ x: q.x + step.x, y: q.y + step.y })); } else { c.x += step.x; c.y += step.y; }
+      }
+      addObjects(copies);
+      lastDup = { ids: [...state.sel], orig };
+    };
+  }
+  // Paste in place (⇧⌘V): what was copied, at its original position (e.g. onto another page).
+  async function pasteInPlace() {
+    const txt = window.native.readClipboardText ? await window.native.readClipboardText() : '';
+    if (!txt || !txt.startsWith('scicanvas:')) { toast('Copy objects in SciCanvas first'); return; }
+    try { addObjects(cloneObjects(JSON.parse(txt.slice(10)), [], 0)); } catch { toast('Could not paste'); }
+  }
   function setLines(p) {
     const L = selected().filter((o) => o.type === 'connector');
     if (!L.length) return;
@@ -661,13 +944,16 @@
     const t = prevMenu(), sel = selected(), lines = sel.filter((o) => o.type === 'connector'), others = sel.filter((o) => o.type !== 'connector');
     const items = [];
     if (lines.length) items.push({ label: 'Line', submenu: [
-      { label: 'Route around objects', cmd: 'lineAutoRoute' }, { label: 'Remove bend points / routing', cmd: 'lineClearBends' }, { label: 'Hop over crossing lines', cmd: 'lineJumps' },
+      { label: 'Straighten (move the end object)', cmd: 'lineStraighten' }, { label: 'Route around objects', cmd: 'lineAutoRoute' }, { label: 'Remove bend points / routing', cmd: 'lineClearBends' }, { label: 'Hop over crossing lines', cmd: 'lineJumps' },
       { label: 'Add parallel return arrow', cmd: 'lineTwoWay' }, ...(lines.length === 1 ? [{ label: 'Add a branch from this line', cmd: 'lineAddBranch' }] : []),
     ] });
+    if (others.length >= 2) items.push({ label: 'Connect in order (arrows)', cmd: 'lineConnectOrder' });
     if (others.length === 2) items.push({ label: 'Two-way arrows between these', cmd: 'lineTwoWay' });
+    if (sel.length) items.push({ label: 'Select connected (whole pathway)', cmd: 'selectConnected' });
+    if (others.length && !lines.length && others.some((x) => objs().some((c) => c.type === 'connector' && c.to.id === x.id) && objs().some((c) => c.type === 'connector' && c.from.id === x.id))) items.push({ label: 'Remove from pathway (reconnect)', cmd: 'removeFromPath' });
     if (others.length >= 3) items.push({ label: 'Branch: one → many', cmd: 'lineBranch' }, { label: 'Merge: many → one', cmd: 'lineMerge' });
     if (others.length === 1 && !lines.length) items.push({ label: 'Add feedback loop', cmd: 'lineSelfLoop' });
-    if (!sel.length) items.push({ label: 'Insert equation (LaTeX)…', cmd: 'equation' }, { label: 'Insert line legend', cmd: 'lineLegend' }, { label: 'Gene & protein names…', cmd: 'geneStyle' });
+    if (!sel.length) items.push({ label: 'Insert equation (LaTeX)…', cmd: 'equation' }, { label: 'Insert line legend', cmd: 'lineLegend' }, { label: 'Insert colour legend', cmd: 'colourLegend' }, { label: 'Gene & protein names…', cmd: 'geneStyle' });
     if (!items.length) return t;
     const at = sel.length ? t.findIndex((it) => it.visual) : -1;
     if (at < 0) return [...t, { type: 'separator' }, ...items];
@@ -686,6 +972,7 @@
     ['Double line', { head: 'none', tail: 'none', style: 'straight', lineStyle: 'double' }],
     ['Wavy arrow', { head: 'arrow', tail: 'none', style: 'straight', lineStyle: 'wavy' }],
     ['Zigzag arrow (energy, light)', { head: 'arrow', tail: 'none', style: 'straight', lineStyle: 'zigzag' }],
+    ['Animated flow', { head: 'arrow', tail: 'none', style: 'curved', curve: 30, width: 2.5, color: '#3b6fd6', animate: true }],
     ['Auto-routed elbow', { head: 'arrow', tail: 'none', style: 'elbow', route: 'auto', radius: 8 }],
     ['Crossing with hops', { head: 'arrow', tail: 'none', style: 'straight', jumps: true }],
     ['SBGN consumption', { head: 'none', tail: 'none', style: 'straight', width: 1.5 }],
@@ -734,31 +1021,245 @@
     const o = L[0], re = (k, v) => { checkpoint(); for (const x of L) { if (v === undefined || v === '' || v === false) delete x[k]; else x[k] = v; } render({ props: true }); };
     const sel = (k, opts) => el('select', { onchange: (e) => re(k, e.target.value || undefined) }, ...opts.map(([v, l]) => el('option', { value: v, textContent: l, selected: String(o[k] ?? '') === v })));
     const tick = (k, label) => el('label', { style: 'display:flex;gap:4px;align-items:center;width:auto;color:inherit' }, el('input', { type: 'checkbox', checked: !!o[k], onchange: (e) => re(k, e.target.checked || undefined) }), label);
-    const txt = (k, ph) => el('input', { type: 'text', value: o[k] || '', placeholder: ph || '', oninput: (e) => { for (const x of L) { if (e.target.value) x[k] = e.target.value; else delete x[k]; } renderScene(); }, onchange: () => checkpoint() });
+    const txt = (k, ph) => el('input', { type: 'text', value: o[k] || '', placeholder: ph || '', oninput: (e) => { checkpoint('prop:' + k + L.map((x) => x.id).join()); for (const x of L) { if (e.target.value) x[k] = e.target.value; else delete x[k]; } renderScene(); markDirty(); } });
     const loop = selfLoop(o);
+    // Collapsible groups: open when in use, otherwise as last left (remembered).
+    const openState = (() => { try { return JSON.parse(localStorage.getItem('scicanvas:lineGroups') || '{}'); } catch { return {}; } })();
+    const group = (title, used, ...kids) => {
+      const d = el('details', { class: 'lx-group' }, el('summary', { textContent: title }), ...kids.filter(Boolean));
+      d.open = used || !!openState[title];
+      d.addEventListener('toggle', () => { openState[title] = d.open; try { localStorage.setItem('scicanvas:lineGroups', JSON.stringify(openState)); } catch { /* ignore */ } });
+      return d;
+    };
     const s = sect('Line extras',
-      row('Line', sel('lineStyle', [['', 'Single'], ['double', 'Double ═'], ['wavy', 'Wavy ∿'], ['zigzag', 'Zigzag ⩘']])),
-      row('Route', sel('route', [['', 'As drawn'], ['auto', 'Around objects']])),
-      (o.points && o.points.length) ? row('', btn(`Remove ${o.points.length} bend point${o.points.length > 1 ? 's' : ''}`, () => re('points', undefined))) : null,
-      row('', tick('jumps', 'Hop over lines it crosses')),
-      row('Offset', el('input', { type: 'range', min: -20, max: 20, step: 1, value: o.offset || 0, oninput: (e) => setProps(L, 'offset', +e.target.value || 0) })),
-      loop ? row('Loop side', sel('loopSide', [['n', 'Top'], ['e', 'Right'], ['s', 'Bottom'], ['w', 'Left']])) : null,
-      loop ? row('Loop size', el('input', { type: 'range', min: 14, max: 140, step: 2, value: o.loopSize || 40, oninput: (e) => setProps(L, 'loopSize', +e.target.value) })) : null,
-      row('Above', txt('labelAbove', o.measure ? 'auto: length' : 'e.g. kinase')), row('Below', txt('labelBelow', 'e.g. 37 °C')),
-      row('Side in', txt('sideIn', 'e.g. ATP')), row('Side out', txt('sideOut', 'e.g. ADP')),
-      (o.sideIn || o.sideOut) ? row('', tick('sideFlip', 'Side arrow below the line')) : null,
-      row('Gradient to', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.gradTo || '') ? o.gradTo : '#d6584a', oninput: (e) => setProps(L, 'gradTo', e.target.value) }), o.gradTo ? btn('None', () => re('gradTo', undefined)) : null),
-      row('', tick('flow', 'Flow arrow (wide, tapered)')),
-      o.flow ? row('Flow width', el('input', { type: 'range', min: 6, max: 80, step: 1, value: o.flowWidth || 22, oninput: (e) => setProps(L, 'flowWidth', +e.target.value) })) : null,
-      row('', tick('measure', 'Show length (scale bar)')),
-      o.measure ? row('Units', txt('measureUnit', 'px'), el('input', { type: 'number', step: 'any', value: o.measureScale || 1, title: 'Units per pixel', style: 'width:70px', onchange: (e) => re('measureScale', parseFloat(e.target.value) || undefined) })) : null,
-      row('Ticks', el('input', { type: 'number', min: 0, max: 40, step: 1, value: o.ticks || 0, style: 'width:60px', onchange: (e) => re('ticks', +e.target.value || undefined) })),
-      row('Tick labels', txt('tickLabels', 'Day 0, Day 3, Day 7')),
-      el('div', { class: 'btnrow' }, btn('Two-way', twoWay), btn('Add branch', addBranchFromLine), btn('Legend', insertLegend)),
+      group('Path', true,
+        row('Line', sel('lineStyle', [['', 'Single'], ['double', 'Double ═'], ['wavy', 'Wavy ∿'], ['zigzag', 'Zigzag ⩘']])),
+        row('Route', sel('route', [['', 'As drawn'], ['auto', 'Around objects']])),
+        (o.points && o.points.length) ? row('', btn(`Remove ${o.points.length} bend point${o.points.length > 1 ? 's' : ''}`, () => re('points', undefined))) : null,
+        row('', tick('jumps', 'Hop over lines it crosses')),
+        row('Gap at ends', el('input', { type: 'range', min: 0, max: 30, step: 1, value: o.endGap || 0, title: 'Stop the line short of the objects it joins', oninput: (e) => setProps(L, 'endGap', +e.target.value || undefined) })),
+        row('Offset', el('input', { type: 'range', min: -20, max: 20, step: 1, value: o.offset || 0, oninput: (e) => setProps(L, 'offset', +e.target.value || 0) })),
+        loop ? row('Loop side', sel('loopSide', [['n', 'Top'], ['e', 'Right'], ['s', 'Bottom'], ['w', 'Left']])) : null,
+        loop ? row('Loop size', el('input', { type: 'range', min: 14, max: 140, step: 2, value: o.loopSize || 40, oninput: (e) => setProps(L, 'loopSize', +e.target.value) })) : null,
+      ),
+      group('Labels', !!(o.labelAbove || o.labelBelow || o.labelPos != null || o.labelAlong || o.labelBg),
+        row('Above', txt('labelAbove', o.measure ? 'auto: length' : 'e.g. kinase')), row('Below', txt('labelBelow', 'e.g. 37 °C')),
+        row('Labels at', el('input', { type: 'range', min: 0.05, max: 0.95, step: 0.01, value: o.labelPos ?? 0.5, oninput: (e) => setProps(L, 'labelPos', Math.abs(+e.target.value - 0.5) < 0.015 ? undefined : +e.target.value) })),
+        row('', tick('labelAlong', 'Labels follow the line’s angle')),
+        row('Label box', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.labelBg || '') ? o.labelBg : '#ffffff', title: 'Colour of the box behind the label', oninput: (e) => setProps(L, 'labelBg', e.target.value) }),
+          btn(o.labelBg === 'none' ? 'Show box' : 'No box', () => re('labelBg', o.labelBg === 'none' ? undefined : 'none'))),
+      ),
+      group('Reaction (cofactors)', !!(o.sideIn || o.sideOut),
+        row('Side in', txt('sideIn', 'e.g. ATP')), row('Side out', txt('sideOut', 'e.g. ADP')),
+        (o.sideIn || o.sideOut) ? row('', tick('sideFlip', 'Side arrow below the line')) : null,
+      ),
+      group('Style and measure', !!(o.gradTo || o.flow || o.measure || o.midArrows || o.animate),
+        row('Gradient to', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.gradTo || '') ? o.gradTo : '#d6584a', oninput: (e) => setProps(L, 'gradTo', e.target.value) }), o.gradTo ? btn('None', () => re('gradTo', undefined)) : null),
+        row('', tick('flow', 'Flow arrow (wide, tapered)')),
+      row('', tick('animate', 'Animated flow (dashes move along the line)')),
+        o.flow ? row('Flow width', el('input', { type: 'range', min: 6, max: 80, step: 1, value: o.flowWidth || 22, oninput: (e) => setProps(L, 'flowWidth', +e.target.value) })) : null,
+        row('', tick('measure', 'Show length (scale bar)')),
+        o.measure ? row('Units', txt('measureUnit', 'px'), el('input', { type: 'number', step: 'any', value: o.measureScale || 1, title: 'Units per pixel', style: 'width:70px', onchange: (e) => re('measureScale', parseFloat(e.target.value) || undefined) })) : null,
+        row('Mid arrows', el('input', { type: 'number', min: 0, max: 20, step: 1, value: o.midArrows || 0, style: 'width:60px', title: 'Arrowheads along the line, showing its direction', onchange: (e) => re('midArrows', +e.target.value || undefined) })),
+      ),
+      group('Timeline', !!(o.ticks || o.tickLabels),
+        row('Ticks', el('input', { type: 'number', min: 0, max: 40, step: 1, value: o.ticks || 0, style: 'width:60px', onchange: (e) => re('ticks', +e.target.value || undefined) })),
+        row('Tick labels', txt('tickLabels', 'Day 0, Day 3, Day 7')),
+      ),
+      el('div', { class: 'btnrow' }, btn('Two-way', twoWay), btn('Add branch', addBranchFromLine), btn('Legend', insertLegend),
+        btn('Use for new lines', () => { const st = styleOf(o); delete st.offset; globalThis.linePreset = st; toast('New lines (connector tool, quick-connect arrows) will use this style'); })),
       el('div', { class: 'note', textContent: 'Drop a line end onto another line to branch from it or merge into it; drop it on an object’s outline to pin it to that exact spot. Drag the small orange circles to add bend points.' }));
     const P = $('#props'), anchor = [...P.querySelectorAll('h3')].filter((h) => h.textContent === 'Connector').pop(); // the style section, after the name
     if (anchor && anchor.parentElement) anchor.parentElement.after(s); else P.append(s);
   };
+
+  // ---------- Help topics ----------
+  if (typeof HELP !== 'undefined') {
+    const at = HELP.findIndex(([t]) => t === 'Connect objects') + 1 || HELP.length;
+    HELP.splice(at, 0,
+      ['Quick connect', 'Select one object: small arrows appear on its sides. Drag one onto another object to connect them, or click it to add a connected copy on that side. Option+Shift+Arrow does the same from the keyboard.'],
+      ['Bend, route and hop lines', 'Select a line and drag the small orange circles to add bend points (double-click one to remove it). Arrange › Lines › Route Around Objects finds a path past everything in the way; Hop over Crossing Lines adds little bridges where lines cross.'],
+      ['Branch and merge lines', 'Drop a line’s end onto another line to branch from it or merge into it. Or select three or more objects, right-click, and choose Branch (one → many) or Merge (many → one). Drag an end onto an object’s outline to pin it to that exact spot.'],
+      ['Reaction arrows, labels and cofactors', 'In Properties › Line extras: Side in / Side out draw a curved cofactor arrow (ATP → ADP); Above / Below add labels on either side; “Labels at” slides them along the line and “follow the line’s angle” turns them with it. Mid arrows show direction on long lines.'],
+      ['Scale bars, dimensions and timelines', 'Line style menu (right-click): Dimension line and Scale bar show their length in your units (set Units in Line extras); Timeline adds ticks with labels such as Day 0, Day 7. Flow arrows, gradient, double, wavy and zigzag lines are there too.'],
+      ['SBGN', 'Shapes › SBGN has the process-description glyphs; Line style has the SBGN arcs (production, consumption, catalysis, stimulation, necessary stimulation, modulation, inhibition). Insert › Line Legend explains the lines on a page.'],
+      ['Equations', 'Insert › Equation (LaTeX)… renders LaTeX and chemistry (\\ce{…}) without internet. Double-click an equation to edit it.'],
+      ['Gene and protein names', 'Edit › Gene & Protein Names… lists gene / protein symbols in your text, guesses which is which from nearby words, and sets italics (genes) and human or mouse capitalisation once you have checked them.'],
+      ['Insert into a pathway', 'Drag an icon or shape from the library onto a line between two objects: it goes into the path (A → new → B) and both lines keep their style. Drag a line style from the Shapes tab onto a line to restyle it, or onto the page to draw one.'],
+      ['Crop images on the canvas', 'Double-click a picture (or use Crop on the floating toolbar or right-click; icons too) and drag the corners or sides. Enter applies, Esc cancels; Remove crop brings the whole picture back. Right-click › Trim white edges crops to the content automatically.'],
+      ['Cycles', 'Select the steps of a cycle, right-click › Arrange in a circle (reading order, clockwise from the top), then Connect in order: the arrows go round, close the loop and bow outward.'],
+      ['Connect and select pathways', 'Select several objects, right-click › Connect in order to join them with arrows in reading order. Select connected (right-click or Arrange › Lines) selects everything linked to the selection through lines, so a whole pathway moves together. Tab / Shift+Tab steps through objects one at a time.'],
+      ['Quick add and paste here', 'Press / over the canvas and type to add an icon right where the pointer is (arrow keys to choose, Enter to add). Right-click empty canvas › Paste here pastes at that spot; ⇧⌘V pastes in place.'],
+      ['Formulas, units and symbols', 'Select text, right-click › Format chemical formulas (H2O → H₂O, Ca2+ → Ca²⁺, SO42- → SO₄²⁻), or the H₂O button in the text bar while typing. Tidy units, symbols & species turns 10 um into 10 µm, 5ug/ml into 5 µg/mL, 37 C into 37 °C, +/- into ±, -> into →, p<.05 into italic p < 0.05, and italicises species names (E. coli, Mus musculus).'],
+      ['Format painter', 'Select an object and click the paint-roller button on the floating toolbar (or right-click › Format painter), then click other objects to give them the same style. Esc or a click on empty canvas stops.'],
+      ['Colour legend', 'Insert › Colour Legend (or right-click empty canvas) adds a key with one swatch per colour used by shapes and icons, named after the first thing in that colour. Double-click a name to edit it.'],
+      ['Workflow builder', 'Insert › Builders › Workflow…: steps separated by “>” (Isolate PBMCs > Stain > Flow cytometry). Each step gets a number and a fitting icon, joined by arrows; long workflows wrap in a snake so the arrows stay short.'],
+      ['Timeline builder', 'Insert › Builders › Timeline…: one line per time point (“Day 0: tumour implant”, “Week 2: boost”). You get a timeline arrow with ticks and labels, and each event above its tick with a matching icon (swap any with Replace icon).'],
+      ['Cohort builder', 'Insert › Builders › Cohort / Study Groups…: one line per group (“Vehicle: 8”). Each group becomes a row of that many mice (or rats, people, flasks, tubes) in its own colour, labelled with n.'],
+      ['Gating strategy builder', 'Insert › Builders › Gating Strategy…: type gates from parent to child separated by “>”, and split with “/” (Lymphocytes > Live > CD3+ > CD4+ / CD8+). You get dot-plot icons joined by arrows; replace them with your own plots.'],
+      ['Western blot builder', 'Insert › Builders › Western Blot…: “Lanes: Ctrl, EGF 5′…” then one line per protein with band intensities 0–1 and the size in brackets (“p-ERK (42 kDa): 0.1, 0.8, 1”). You get strips with graded bands, angled lane labels, names and sizes.'],
+      ['Significance brackets', 'Select two bars, images or groups, right-click › Significance bracket (or Insert › Significance Bracket). A bracket with * goes above them; double-click the * to change it to **, ns or a p value.'],
+      ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
+  }
+
+  // ---------- Keyboard shortcuts, listed at the end of Help ----------
+  if (typeof openHelpDialog === 'function') {
+    const prevHelp = openHelpDialog;
+    openHelpDialog = async function () {
+      prevHelp();
+      const body = document.querySelector('#modalBody');
+      if (!body) return;
+      const rows = [];
+      try { for (const c of (await window.native.menuCommands()) || []) if (c.accel) rows.push([c.path.slice(-1)[0].replace(/…$/, ''), c.accel]); } catch { /* menus unavailable */ }
+      const TOOLS_KEYS = [['Select', 'V'], ['Pan (or hold Space)', 'H'], ['Text', 'T'], ['Rectangle', 'R'], ['Ellipse', 'E'], ['Shapes', 'S'], ['Connector', 'C'], ['Brush', 'B'], ['Pencil', 'D'], ['Pen', 'P'], ['Line', 'L'], ['Arrow', 'A'], ['Airbrush', 'W'], ['Numbered badge', 'N'], ['Comment', 'M'], ['Lasso', 'Q']];
+      const CANVAS = [['Nudge 1 px / 10 px', '←↑→↓ / ⇧←↑→↓'], ['Add a connected copy', '⌥⇧←↑→↓'], ['Next / previous object', 'Tab / ⇧Tab'], ['Delete', '⌫'], ['Deselect, back to pointer', 'Esc'], ['Duplicate while dragging', '⌥-drag'], ['Turn snapping off while dragging', 'hold ⌘'], ['Constrain angle / proportions', 'hold ⇧'], ['Paste in place', '⇧⌘V'], ['Add an icon at the pointer', '/'], ['Present: laser pointer / blank screen', 'L / B']];
+      const table = (title, list) => el('details', { class: 'help', open: title === 'Tools' }, el('summary', { textContent: title, style: 'cursor:pointer;font-weight:600' }),
+        el('div', { style: 'display:grid;grid-template-columns:1fr auto;gap:2px 16px;margin-top:6px;font-size:13px' }, ...list.flatMap(([a, k]) => [el('span', { textContent: a }), el('kbd', { textContent: k, style: 'font-family:inherit;color:#4a525c' })])));
+      body.firstChild.append(el('h3', { textContent: 'Keyboard shortcuts', style: 'margin:16px 0 6px;font-size:14px' }), table('Tools', TOOLS_KEYS), table('On the canvas', CANVAS), rows.length ? table('Menu commands', rows) : null);
+    };
+  }
+
+  // ---------- Alt text drafted from the figure: what's on it and what the arrows say ----------
+  const VERB = { bar: 'inhibits', circle: 'catalyses', dot: 'binds', diamond: 'associates with', odiamond: 'modulates', otriangle: 'stimulates', necstim: 'is required for' };
+  globalThis.draftAltText = function (pg = page()) {
+    const plain = (t) => String(t || '').replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').replace(/\s+/g, ' ').trim();
+    const list = pg.objects.filter((o) => !o.hidden);
+    const title = list.filter((o) => o.type === 'text').sort((a, b) => (b.fontSize || 16) - (a.fontSize || 16))[0];
+    const named = (o) => plain(o.label || (o.type === 'text' ? o.text : '') || o.name || (o.type === 'icon' ? layerName(o) : ''));
+    const things = [...new Set(list.filter((o) => o.type !== 'connector' && o !== title && o.type !== 'text').map(named).filter(Boolean))].slice(0, 12);
+    const rel = list.filter((o) => o.type === 'connector').map((c) => {
+      const a = objOf(c.from, list), b = objOf(c.to, list);
+      if (!a || !b || a.type === 'connector') return '';
+      const step = (k) => { const x = objOf(k.from, list), y = objOf(k.to, list); return x && y && x.type !== 'connector' && y.type !== 'connector' ? `the ${named(x)} → ${named(y)} step` : ''; };
+      const na = named(a), nb = b.type === 'connector' ? step(b) : named(b); // regulation of a reaction
+      if (!na || !nb) return '';
+      const v = c.head === 'harpoon' && c.tail === 'harpoon' ? '⇌' : VERB[c.head] || (c.head === 'none' ? 'is linked to' : b.type === 'connector' ? 'activates' : '→');
+      if (v === '⇌') return `${na} ⇌ ${nb}${plain(c.label || c.labelBelow || c.labelAbove) ? ` (${plain(c.label || c.labelBelow || c.labelAbove)})` : ''}`;
+      const lab = plain(c.label || c.labelBelow || c.labelAbove);
+      return v === '→' ? `${na} → ${nb}${lab ? ` (${lab})` : ''}` : `${na} ${v} ${nb}${lab ? ` (${lab})` : ''}`;
+    }).filter(Boolean).slice(0, 12);
+    let out = title ? `${plain(title.text)}. ` : '';
+    if (things.length) out += `Figure showing ${things.slice(0, -1).join(', ')}${things.length > 1 ? ' and ' : ''}${things[things.length - 1]}. `;
+    if (rel.length) out += `${rel.join('; ')}.`;
+    return out.trim() || 'Figure.';
+  };
+
+  // ---------- Figure check (Check tab): common line mistakes ----------
+  if (typeof checkFigure === 'function') {
+    const prevCheck = checkFigure;
+    checkFigure = async function (p = page()) {
+      const r = await prevCheck(p);
+      const list = p.objects, lines = list.filter((o) => o.type === 'connector' && !o.hidden && o.style !== 'zoom');
+      const add = (sev, msg, o, fix, fixLabel) => r.issues.push({ sev, kind: 'Lines', msg, id: o && o.id, fix, fixLabel });
+      const nameOf = (o) => (o.name || o.label || (typeof layerName === 'function' ? layerName(o) : o.type) || '').toString().slice(0, 40);
+      // A free end lying on an object's outline looks attached but won't follow when the object moves.
+      for (const c of lines) {
+        const ends = connectorEnds(c, list);
+        ['from', 'to'].forEach((k, i) => {
+          if (c[k].id) return;
+          const q = ends[i];
+          const near = list.find((o) => o !== c && o.type !== 'connector' && !o.hidden && o.type !== 'text' && (() => { const b = bounds(o, list), m = 6; return q.x > b.x - m && q.x < b.x + b.w + m && q.y > b.y - m && q.y < b.y + b.h + m && b.w * b.h < p.width * p.height * 0.25; })());
+          if (near) add('warn', `${nameOf(c) || 'A line'}: its ${k === 'from' ? 'start' : 'end'} touches ${nameOf(near)} but isn't attached, so it won't follow if ${nameOf(near)} moves.`, c, () => { const at = edgePointAt(near, q); c[k] = at ? { id: near.id, at } : { id: near.id }; }, 'Attach');
+        });
+      }
+      // Crossings without hops.
+      const P = lines.map((c) => geom(c, list).pts);
+      let crossings = 0;
+      for (let a = 0; a < P.length; a++) for (let b = a + 1; b < P.length; b++) {
+        if (lines[a].jumps || lines[b].jumps) continue;
+        const shared = ['from', 'to'].some((k) => ['from', 'to'].some((j) => lines[a][k].id && lines[a][k].id === lines[b][j].id));
+        if (shared) continue;
+        for (let i = 1; i < P[a].length; i++) for (let j = 1; j < P[b].length; j++) if (segX(P[a][i - 1], P[a][i], P[b][j - 1], P[b][j]) != null) crossings++;
+      }
+      if (crossings) add('info', `${crossings} place${crossings > 1 ? 's' : ''} where lines cross. Hops make the paths easier to follow.`, null, () => { for (const c of lines) c.jumps = true; }, 'Add hops');
+      // Dashed / dotted lines usually mean something (indirect, proposed): say so in a legend.
+      const styled = lines.filter((c) => (c.dashStyle && c.dashStyle !== 'solid') || c.lineStyle);
+      // Several fonts by accident: offer the most common one everywhere.
+      const fams = new Map(), walkF = (os) => { for (const o of os) { if (o.type === 'text') fams.set(o.family || 'sans', (fams.get(o.family || 'sans') || 0) + 1); else if (o.label && ['rect', 'ellipse', 'shape'].includes(o.type)) fams.set(o.labelFamily || 'sans', (fams.get(o.labelFamily || 'sans') || 0) + 1); if (o.children) walkF(o.children); } };
+      walkF(list);
+      if (fams.size > 2) {
+        const top = [...fams].sort((a, b) => b[1] - a[1])[0][0], nm = (k) => ((typeof FONT_NAMES !== 'undefined' && FONT_NAMES.find(([x]) => x === k)) || [k, k])[1].replace(' ✦', '').replace(' (default)', '');
+        r.issues.push({ sev: 'info', kind: 'Fonts', msg: `${fams.size} different fonts (${[...fams.keys()].map(nm).join(', ')}). One or two fonts look more consistent.`, fixLabel: `Use ${nm(top)}`,
+          fix: () => { const walk = (os) => { for (const o of os) { if (o.type === 'text') o.family = top; else if (o.label && ['rect', 'ellipse', 'shape'].includes(o.type)) o.labelFamily = top; if (typeof postEdit === 'function' && (o.type === 'text' || o.label)) postEdit(o); if (o.children) walk(o.children); } }; walk(list); } });
+      }
+      // Labels wider or taller than the shape they sit in.
+      for (const o of list) {
+        if (o.hidden || !o.label || !['rect', 'ellipse', 'shape'].includes(o.type)) continue;
+        const fs = o.labelSize || 16, lines = String(o.label).split('\n');
+        const plain = (t) => t.replace(/\{[^|{}]*\||\}|[\^_]\{/g, '');
+        const wMax = Math.max(...lines.map((l) => measureText(plain(l), fs, o.labelFamily || 'sans', o.labelBold, o.labelItalic).w)), hTot = lines.length * fs * 1.25;
+        const room = (o.type === 'ellipse' ? 0.72 : 0.92), fit = Math.min((o.w * room - 4) / wMax, (o.h * room) / hTot);
+        if (fit < 0.97) r.issues.push({ sev: 'warn', kind: 'Text', msg: `${nameOf(o)}: the label doesn't fit inside the shape`, id: o.id, fixLabel: 'Fit label', fix: () => {
+          // try two balanced lines first (long names), then shrink only as much as still needed
+          let label = o.label, best = fit;
+          if (lines.length === 1 && /\s/.test(label)) {
+            const words = label.split(/\s+/);
+            let cand = null;
+            for (let i = 1; i < words.length; i++) {
+              const two = [words.slice(0, i).join(' '), words.slice(i).join(' ')], w2 = Math.max(...two.map((l) => measureText(plain(l), fs, o.labelFamily || 'sans', o.labelBold, o.labelItalic).w));
+              const f2 = Math.min((o.w * room - 4) / w2, (o.h * room) / (2 * fs * 1.25));
+              if (!cand || f2 > cand.f) cand = { f: f2, text: two.join('\n') };
+            }
+            if (cand && cand.f > best) { best = cand.f; label = cand.text; }
+          }
+          o.label = label;
+          if (best < 1) o.labelSize = Math.max(6, Math.floor(fs * best * 10) / 10);
+        } });
+      }
+      // Labels that don't stand out from their shape (WCAG contrast below 3:1).
+      const lum = (hex) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return null; const v = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+      const contrast = (a, b) => { const x = lum(a), y = lum(b); return x == null || y == null ? 99 : (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      const faint = list.filter((o) => !o.hidden && o.label && ['rect', 'ellipse', 'shape'].includes(o.type) && o.fill && o.fill !== 'none' && contrast(o.labelColor || '#222222', o.fill) < 3);
+      if (faint.length) r.issues.push({ sev: 'warn', kind: 'Colour', msg: `${faint.length} label${faint.length > 1 ? 's are' : ' is'} hard to read on ${faint.length > 1 ? 'their' : 'its'} fill (e.g. ${nameOf(faint[0])}).`, id: faint[0].id, fixLabel: 'Black or white text',
+        fix: () => { for (const o of faint) o.labelColor = contrast('#ffffff', o.fill) >= contrast('#222222', o.fill) ? '#ffffff' : '#222222'; } });
+      // Lines of the same kind at different widths look accidental: offer the most common width per kind.
+      const byKind = new Map();
+      for (const c of lines) { if (c.flow) continue; const k = `${c.head || 'arrow'}|${c.dashStyle || 'solid'}`; if (!byKind.has(k)) byKind.set(k, []); byKind.get(k).push(c); }
+      const mixed = [...byKind.values()].filter((g) => new Set(g.map((c) => c.width || 2)).size > 1);
+      if (mixed.length) r.issues.push({ sev: 'info', kind: 'Lines', msg: `Lines of the same kind use different widths (${mixed.map((g) => [...new Set(g.map((c) => c.width || 2))].join(' / ')).join('; ')} px).`, id: mixed[0][0].id, fixLabel: 'Make them match',
+        fix: () => { for (const g of mixed) { const n = new Map(); for (const c of g) n.set(c.width || 2, (n.get(c.width || 2) || 0) + 1); const w = [...n].sort((a, b) => b[1] - a[1])[0][0]; for (const c of g) c.width = w; } } });
+      // Icons and photos stretched out of proportion.
+      const squashed = [];
+      const walkS = (os) => { for (const o of os) {
+        if (o.hidden) continue;
+        let ar = null;
+        if (o.type === 'icon' && typeof iconAspect === 'function' && !o.warp) ar = iconAspect(o.iconId);
+        if (o.type === 'image' && o.nw && o.nh && !o.clip) { const c = o.crop || {}; ar = (o.nw * (1 - (c.l || 0) - (c.r || 0))) / (o.nh * (1 - (c.t || 0) - (c.b || 0))); }
+        if (ar && o.w > 4 && o.h > 4 && Math.abs(Math.log((o.w / o.h) / ar)) > 0.08) squashed.push([o, ar]);
+        if (o.children) walkS(o.children);
+      } };
+      walkS(list);
+      if (squashed.length) r.issues.push({ sev: 'warn', kind: 'Layout', msg: `${squashed.length} icon${squashed.length > 1 ? 's or photos are' : ' or photo is'} stretched out of proportion (e.g. ${nameOf(squashed[0][0])}).`, id: squashed[0][0].id, fixLabel: 'Restore proportions',
+        fix: () => { for (const [o, ar] of squashed) { const cy = o.y + o.h / 2; o.h = o.w / ar; o.y = cy - o.h / 2; } } });
+      // Text running into other text.
+      const texts = list.filter((o) => o.type === 'text' && !o.hidden && String(o.text || '').trim());
+      const tb = texts.map((o) => bounds(o, list));
+      const clashed = new Set();
+      for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
+        const A = tb[i], B = tb[j], ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x), oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+        if (ox > 2 && oy > 2 && ox * oy > Math.min(A.w * A.h, B.w * B.h) * 0.15 && !clashed.has(texts[j].id)) {
+          clashed.add(texts[j].id);
+          const ta = texts[i], tb2 = texts[j];
+          r.issues.push({ sev: 'warn', kind: 'Text', msg: `“${String(tb2.text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}” overlaps “${String(ta.text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}”`, id: tb2.id,
+            fixLabel: 'Separate', fix: () => { const a = bounds(ta, list), b = bounds(tb2, list); if (b.y >= a.y) tb2.y += a.y + a.h + 4 - b.y; else tb2.y -= b.y + b.h + 4 - a.y; } });
+        }
+      }
+      // Almost aligned: edges or centres 0.5–3 px apart look like a mistake; line them up exactly.
+      const shapes = list.filter((o) => !o.hidden && o.type !== 'connector' && o.type !== 'comment' && !o.rot && !o.locked);
+      const near = [];
+      const keys = [['x', (o) => o.x], ['centre x', (o) => o.x + o.w / 2], ['right edge', (o) => o.x + o.w], ['y', (o) => o.y], ['centre y', (o) => o.y + o.h / 2], ['bottom edge', (o) => o.y + o.h]];
+      for (let i = 0; i < shapes.length; i++) for (let j = i + 1; j < shapes.length; j++) for (const [nmK, f] of keys) {
+        const d = f(shapes[j]) - f(shapes[i]);
+        if (Math.abs(d) >= 0.5 && Math.abs(d) <= 3) { near.push([shapes[i], shapes[j], nmK, d]); break; }
+      }
+      if (near.length) r.issues.push({ sev: 'info', kind: 'Layout', msg: `${near.length} pair${near.length > 1 ? 's' : ''} of objects ${near.length > 1 ? 'are' : 'is'} almost aligned (0.5–3 px off), e.g. ${nameOf(near[0][0])} and ${nameOf(near[0][1])}.`, id: near[0][1].id, fixLabel: 'Line them up',
+        fix: () => { const moved = new Set(); for (const [, b, k, d] of near) { if (moved.has(b.id)) continue; moved.add(b.id); if (/x|right/.test(k)) b.x -= d; else b.y -= d; } } });
+      if (r.j && r.j.id !== 'generic' && !p.alt) r.issues.push({ sev: 'info', kind: 'Accessibility', msg: 'No alt text for this figure. Add a one- or two-sentence description in Properties › Page › Alt text (many journals ask for it); it is saved in exported SVGs.' });
+      const hasLegend = list.some((o) => o.type === 'group' && /legend/i.test(o.name || ''));
+      if (styled.length && !hasLegend) add('info', `${styled.length} dashed, dotted or styled line${styled.length > 1 ? 's' : ''} but no line legend to say what each style means.`, null, () => insertLegend(), 'Add legend');
+      return r;
+    };
+  }
 
   // ---------- PowerPoint: lines PowerPoint can't draw go in as pictures ----------
   if (typeof pictureOnly === 'function') {

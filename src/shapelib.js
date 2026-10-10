@@ -159,7 +159,7 @@
       const w = q.value.trim().toLowerCase(), hit = (s) => !w || s.toLowerCase().includes(w);
       let html = '';
       const lines = LINES.filter(([n]) => hit(n) || hit('line arrow connector'));
-      if (lines.length) html += `<h4>Lines &amp; arrows <span class="note">click, then drag between objects</span></h4><div class="shapegrid lines">${lines.map(([n, p]) => `<button class="shape-cell" data-line="${esc(n)}" title="${esc(n)}">${lineThumb(p)}<span>${esc(n)}</span></button>`).join('')}</div>`;
+      if (lines.length) html += `<h4>Lines &amp; arrows <span class="note">click, then drag between objects — or drag one onto the page or a line</span></h4><div class="shapegrid lines">${lines.map(([n, p]) => `<button class="shape-cell" draggable="true" data-line="${esc(n)}" title="${esc(n)} — click, or drag onto the page or onto a line">${lineThumb(p)}<span>${esc(n)}</span></button>`).join('')}</div>`;
       for (const [cat, items] of LIB) {
         const its = items.filter((it) => hit(it.label) || hit(cat));
         if (its.length) html += `<h4>${esc(cat)}</h4><div class="shapegrid">${its.map((it) => `<button class="shape-cell" draggable="true" data-shape="${esc(cat)}|${esc(it.label)}" title="${esc(it.label)} — click or drag onto the page">${shapeThumb(it)}<span>${esc(it.label)}</span></button>`).join('')}</div>`;
@@ -173,7 +173,24 @@
       if (!c) return;
       if (c.dataset.line) useLinePreset(c.dataset.line); else { const it = find(c.dataset.shape); if (it) insertShape(it); }
     });
-    body.addEventListener('dragstart', (e) => { const c = e.target.closest('[data-shape]'); if (c) e.dataTransfer.setData('application/x-scicanvas-shape', c.dataset.shape); });
+    body.addEventListener('dragstart', (e) => {
+      const c = e.target.closest('[data-shape],[data-line]');
+      if (c && c.dataset.shape) e.dataTransfer.setData('application/x-scicanvas-shape', c.dataset.shape);
+      else if (c) e.dataTransfer.setData('application/x-scicanvas-line', c.dataset.line);
+    });
+    // A line style dropped on a line restyles it; dropped on the page it becomes a new line there.
+    stage.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('application/x-scicanvas-line')) e.preventDefault(); });
+    stage.addEventListener('drop', (e) => {
+      const name = e.dataTransfer.getData('application/x-scicanvas-line');
+      const p = (LINES.find(([n]) => n === name) || [])[1];
+      if (!p) return;
+      e.preventDefault(); e.stopPropagation();
+      const at = toWorld(e), hit = typeof connectorAtPoint === 'function' ? connectorAtPoint(at) : null;
+      checkpoint();
+      if (hit) { for (const k of globalThis.LINE_RESET || []) delete hit.o[k]; Object.assign(hit.o, { dashStyle: 'solid', radius: 0, ...p }); state.sel = [hit.o.id]; render({ props: true }); toast(`${name} applied`); return; }
+      const c = Make.connector({ x: at.x - 80, y: at.y }, { x: at.x + 80, y: at.y }, { ...p });
+      addObjects([c]);
+    }, true);
     stage.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('application/x-scicanvas-shape')) e.preventDefault(); });
     stage.addEventListener('drop', (e) => {
       const key = e.dataTransfer.getData('application/x-scicanvas-shape');
@@ -229,8 +246,9 @@
   const prevMenu = contextMenuTemplate;
   contextMenuTemplate = function () {
     const base = prevMenu(), none = !state.sel.length;
-    const extra = [toolsMenu(), shapesMenu(), linesMenu(selected().some((o) => o.type === 'connector') ? 'Change line style' : 'Line style')];
-    return none ? [...extra, { type: 'separator' }, ...base] : [...base, { type: 'separator' }, ...extra];
+    // Empty canvas: tools, shapes and line styles first. With a selection, only what applies to it (line style for lines).
+    if (none) return [toolsMenu(), shapesMenu(), linesMenu('Line style'), { type: 'separator' }, ...base];
+    return selected().some((o) => o.type === 'connector') ? [...base, { type: 'separator' }, linesMenu('Change line style')] : base;
   };
 
   // Toolbar flyouts (right-click a tool for its variants) are drawn as picture grids by ctxmenu.js.

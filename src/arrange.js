@@ -270,6 +270,18 @@ const ARRANGE_COMMANDS = {
   matchW: () => matchSize('w'), matchH: () => matchSize('h'), matchSize: () => matchSize('both'),
   lock: () => setLocked(true), unlockAll: () => setLocked(false), hide: () => setHidden(true), showAll: () => setHidden(false),
   deleteSel: () => deleteSelection(),
+  // The library, searched for the selected icon's name: other styles and versions of the same thing.
+  findSimilar: () => {
+    const o = selected()[0];
+    if (!o || o.type !== 'icon') return;
+    const a = (typeof ICON_MAP !== 'undefined' && ICON_MAP[o.iconId]) || (typeof getAsset === 'function' && getAsset(o.iconId)) || {};
+    const name = String(a.name || o.name || '').replace(/\((soft|refined|classic)[^)]*\)/gi, '').replace(/[^\w\s-]/g, ' ').trim().split(/\s+/).slice(0, 2).join(' ');
+    if (!name) return;
+    const tab = document.querySelector('[data-ltab="library"]');
+    if (tab) tab.click();
+    $('#search').value = name; activeCat = 'All'; libLimit = LIB_FIRST; renderLibrary();
+    toast(`Library: icons like “${name}”`);
+  },
   toggleFavSel: () => { const o = selected()[0]; if (o && o.type === 'icon') { toggleFav(o.iconId); renderProps(); renderLibrary(); } },
   replaceSel: () => { const o = selected()[0]; if (o && o.type === 'icon') { replaceTarget = o.id; replaceAll = false; renderLibraryBanner(); $('#search').focus(); } },
   editPoints: () => { const o = selected()[0]; if (o && o.type === 'path') enterNodeEdit(o); },
@@ -290,23 +302,36 @@ const CTX_SVG = {
   del: '<path d="M3 5h12M7 5V3h4v2M5 5l1 11h6l1-11" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   points: '<path d="M3 14C6 3 12 15 15 4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="1.5" y="12.5" width="3" height="3" fill="currentColor"/><rect x="13.5" y="2.5" width="3" height="3" fill="currentColor"/>',
 };
+Object.assign(CTX_SVG, {
+  lineStyle: '<path d="M2 6h10" stroke="currentColor" stroke-width="1.8"/><path d="M11 3l4 3-4 3z" fill="currentColor"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2 2"/><path d="M15 9.5v5" stroke="currentColor" stroke-width="1.8"/>',
+  colour: '<circle cx="9" cy="9" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 2.5A6.5 6.5 0 0 1 15.5 9H9z" fill="#e8743b"/><path d="M15.5 9A6.5 6.5 0 0 1 9 15.5V9z" fill="#3fa58b"/><path d="M9 15.5A6.5 6.5 0 0 1 2.5 9H9z" fill="#4a7fd6"/>',
+  painter: '<path d="M3 3h10v4H3z" fill="currentColor"/><path d="M13 5h2v4H8v2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="6.5" y="11" width="3" height="5.5" rx="1" fill="currentColor"/>',
+  similar: '<circle cx="7.5" cy="7.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11 11l5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
+  swap: '<path d="M3 6h11M11 3l3 3-3 3M15 12H4M7 9l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  straight: '<rect x="1.5" y="7" width="4" height="4" fill="currentColor"/><rect x="12.5" y="7" width="4" height="4" fill="currentColor"/><path d="M5.5 9h7" stroke="currentColor" stroke-width="1.8"/><path d="M9 2v3M9 13v3" stroke="currentColor" stroke-width="1.2"/>',
+});
 CTX_SVG.crop = '<path d="M5 1.5V13h11.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1.5 5H13v11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>';
 // Each button says what it does under its icon (short name; the tooltip keeps the full name and shortcut).
-const CTX_LABEL = { bringFront: 'Front', bringForward: 'Forward', sendBackward: 'Backward', sendBack: 'Back', '@align': 'Align', flipH: 'Flip', group: 'Group', ungroup: 'Ungroup', editPoints: 'Points', cropStart: 'Crop', duplicate: 'Duplicate', lock: 'Lock', deleteSel: 'Delete', ungroupIcon: 'Edit parts', replaceSel: 'Replace', selectSameIcon: 'Select same', zoomWedge: 'Callout' };
+const CTX_LABEL = { bringFront: 'Front', bringForward: 'Forward', sendBackward: 'Backward', sendBack: 'Back', '@align': 'Align', flipH: 'Flip', group: 'Group', ungroup: 'Ungroup', editPoints: 'Points', cropStart: 'Crop', duplicate: 'Duplicate', lock: 'Lock', deleteSel: 'Delete', ungroupIcon: 'Edit parts', replaceSel: 'Replace', selectSameIcon: 'Select same', zoomWedge: 'Callout', '@lines': 'Style', lineSwap: 'Swap', lineStraighten: 'Straighten', '@colour': 'Colour', formatPainter: 'Painter', findSimilar: 'Similar' };
 const ctxBtn = (key, cmd, title) => `<button data-ctx="${cmd}" title="${title}"><svg viewBox="0 0 18 18" width="16" height="16">${CTX_SVG[key]}</svg><span class="ctxlbl">${CTX_LABEL[cmd] || title.split(/ \(| —|…/)[0]}</span></button>`;
 function updateContextBar() {
   const bar = $('#ctxbar');
   const sel = selected();
   if (!sel.length || state.tool !== 'select' || nodeEdit || drag || editing || (typeof cropMode !== 'undefined' && cropMode)) { bar.classList.add('hidden'); return; }
   const multi = sel.length > 1, hasGroup = sel.some((o) => o.type === 'group'), isPath = sel.length === 1 && sel[0].type === 'path';
+  const allLines = sel.every((o) => o.type === 'connector') && typeof ARRANGE_COMMANDS.lineSwap === 'function';
   bar.innerHTML = [
+    allLines ? ctxBtn('lineStyle', '@lines', 'Line style') + ctxBtn('swap', 'lineSwap', 'Swap direction') + ctxBtn('straight', 'lineStraighten', 'Straighten (moves the end object)') + '<span class="ctxsep"></span>' : '',
     ctxBtn('front', 'bringFront', 'Bring to front (⇧⌘])'), ctxBtn('forward', 'bringForward', 'Bring forward (⌘])'),
     ctxBtn('backward', 'sendBackward', 'Send backward (⌘[)'), ctxBtn('back', 'sendBack', 'Send to back (⇧⌘[)'),
     '<span class="ctxsep"></span>',
+    ctxBtn('colour', '@colour', 'Colour'),
+    !multi && typeof ARRANGE_COMMANDS.formatPainter === 'function' ? ctxBtn('painter', 'formatPainter', 'Format painter: click other objects to give them this style') : '',
     ctxBtn('align', '@align', multi ? 'Align / distribute selection' : 'Align to page'),
     ctxBtn('flip', 'flipH', 'Flip horizontally (⇧H)'),
     multi ? ctxBtn('group', 'group', 'Group (⌘G)') : hasGroup ? ctxBtn('group', 'ungroup', 'Ungroup (⇧⌘G)') : '',
     isPath ? ctxBtn('points', 'editPoints', 'Edit points') : '',
+    sel.length === 1 && sel[0].type === 'icon' ? ctxBtn('similar', 'findSimilar', 'Find similar icons in the library') : '',
     sel.length === 1 && ['icon', 'image'].includes(sel[0].type) && !sel[0].locked ? ctxBtn('crop', 'cropStart', 'Crop (double-click a cropped object to adjust)') : '',
     '<span class="ctxsep"></span>',
     ctxBtn('dup', 'duplicate', 'Duplicate (⌘D)'), ctxBtn('lock', 'lock', 'Lock (⌘L)'), ctxBtn('del', 'deleteSel', 'Delete (⌫)'),
@@ -330,8 +355,20 @@ function setupContextBar() {
     if (!b) return;
     const cmd = b.dataset.ctx;
     if (cmd === '@align') return showAlignPopover(b);
+    if (cmd === '@colour') return showColourPopover(b);
+    if (cmd === '@lines' && globalThis.VisualMenu && VisualMenu.openLines) { const r = b.getBoundingClientRect(); return VisualMenu.openLines(r.left, r.bottom + 6); }
     runCommand(cmd);
   });
+}
+// Space the selection exactly `gap` apart along one axis, in order, starting from the first object.
+function spaceExactly(axis, gap) {
+  const sel = selected().filter((o) => o.type !== 'connector');
+  if (sel.length < 2) return;
+  checkpoint();
+  const items = sel.map((o) => ({ o, b: bounds(o, objs()) })).sort((a, b) => a.b[axis] - b.b[axis]);
+  let cur = items[0].b[axis] + items[0].b[axis === 'x' ? 'w' : 'h'] + gap;
+  for (const it of items.slice(1)) { it.o[axis] += cur - it.b[axis]; cur += it.b[axis === 'x' ? 'w' : 'h'] + gap; }
+  render({ props: true });
 }
 function showAlignPopover(anchor) {
   const pop = $('#alignpop');
@@ -339,7 +376,25 @@ function showAlignPopover(anchor) {
   const items = [['alignL', '⇤ Left'], ['alignC', '↔ Centre'], ['alignR', 'Right ⇥'], ['alignT', '⤒ Top'], ['alignM', '↕ Middle'], ['alignB', 'Bottom ⤓']];
   if (state.sel.length > 2) items.push(['distH', '⇿ Distribute horizontally'], ['distV', '⇳ Distribute vertically']);
   if (multi) items.push(['matchW', '▭ Match width'], ['matchH', '▯ Match height']);
-  pop.innerHTML = `<div class="note" style="padding:2px 6px 4px">${multi ? 'Align selection' : 'Align to page'}</div>` + items.map(([c, l]) => `<button data-ctx="${c}">${l}</button>`).join('');
+  pop.innerHTML = `<div class="note" style="padding:2px 6px 4px">${multi ? 'Align selection' : 'Align to page'}</div>` + items.map(([c, l]) => `<button data-ctx="${c}">${l}</button>`).join('')
+    + (multi ? `<label style="display:flex;gap:6px;align-items:center;padding:6px;font-size:12px;width:auto"><input type="checkbox" data-alignkey ${state.view.alignToKey ? 'checked' : ''}> Align to the last-clicked object</label>` : '');
+  if (multi) {
+    const gapRow = el('div', { style: 'display:flex;gap:4px;align-items:center;padding:4px 6px;font-size:12px' }, 'Gap',
+      el('input', { type: 'number', min: 0, step: 1, value: lsGet('scicanvas:spaceGap', 20), style: 'width:56px', 'data-gap': '1' }), 'px',
+      el('button', { 'data-space': 'x', title: 'Space exactly this far apart, left to right', textContent: '⇿' }), el('button', { 'data-space': 'y', title: 'Space exactly this far apart, top to bottom', textContent: '⇳' }));
+    gapRow.addEventListener('keydown', (e) => e.stopPropagation());
+    pop.append(gapRow);
+    gapRow.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-space]');
+      if (!b) return;
+      e.stopPropagation();
+      const gap = +gapRow.querySelector('[data-gap]').value || 0;
+      lsSet('scicanvas:spaceGap', gap);
+      spaceExactly(b.dataset.space, gap);
+    });
+  }
+  const ak = pop.querySelector('[data-alignkey]');
+  if (ak) ak.onchange = () => { state.view.alignToKey = ak.checked; if (typeof saveView === 'function') saveView(); };
   const r = anchor.getBoundingClientRect(), sr = stage.getBoundingClientRect();
   pop.style.left = r.left - sr.left + 'px';
   pop.style.top = r.bottom - sr.top + 6 + 'px';
@@ -347,6 +402,43 @@ function showAlignPopover(anchor) {
   const close = (e) => { if (!pop.contains(e.target)) { pop.classList.add('hidden'); window.removeEventListener('pointerdown', close, true); } };
   setTimeout(() => window.addEventListener('pointerdown', close, true), 0);
   pop.onclick = (e) => { const b = e.target.closest('[data-ctx]'); if (b) { runCommand(b.dataset.ctx); pop.classList.add('hidden'); } };
+}
+
+// The colour that reads as "the colour" of each kind of object.
+function mainColourKey(o) {
+  if (o.type === 'icon') return typeof ICON_MAP !== 'undefined' && ICON_MAP[o.iconId] ? 'color' : 'tint';
+  if (['rect', 'ellipse', 'shape'].includes(o.type)) return 'fill';
+  if (o.type === 'path') return o.closed ? 'fill' : 'stroke';
+  return 'color'; // text, connector, brush, …
+}
+function showColourPopover(anchor) {
+  const pop = $('#alignpop');
+  const recent = [...(typeof getBrand === 'function' ? getBrand().palette || [] : []), ...(typeof docPalette === 'function' ? docPalette() : [])]; // brand kit and this figure's palette
+  const cols = [...new Set([...SWATCHES, '#000000', ...recent])];
+  const used = lsGet('scicanvas:recentColours', []);
+  const sw = (list) => list.map((c) => `<button class="swatch" data-col="${c}" title="${c}" style="background:${c}"></button>`).join('');
+  pop.innerHTML = '<div class="note" style="padding:2px 6px 4px">Colour</div><div class="swatches" style="width:178px;padding:2px 4px">' + sw(cols) + '</div>'
+    + (used.length ? `<div class="note" style="padding:4px 6px 2px">Recent</div><div class="swatches" style="width:178px;padding:2px 4px">${sw(used)}</div>` : '')
+    + `<label style="display:flex;gap:6px;align-items:center;padding:4px 6px;font-size:12px">More… <input type="color" data-colin>${window.EyeDropper ? '<button data-drop title="Pick a colour from anywhere on screen" style="padding:1px 6px">💧</button>' : ''}</label>`;
+  const r = anchor.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  pop.style.left = r.left - sr.left + 'px';
+  pop.style.top = r.bottom - sr.top + 6 + 'px';
+  pop.classList.remove('hidden');
+  const apply = (c) => {
+    lsSet('scicanvas:recentColours', [c, ...lsGet('scicanvas:recentColours', []).filter((x) => x !== c)].slice(0, 8));
+    checkpoint();
+    for (const o of selected()) { const k = mainColourKey(o); o[k] = c; if (k === 'tint') delete o.colorMap; if (typeof postEdit === 'function') postEdit(o); }
+    render({ props: true });
+  };
+  const close = (e) => { if (!pop.contains(e.target)) { pop.classList.add('hidden'); window.removeEventListener('pointerdown', close, true); } };
+  setTimeout(() => window.addEventListener('pointerdown', close, true), 0);
+  pop.onclick = async (e) => {
+    const b = e.target.closest('[data-col]');
+    if (b) { apply(b.dataset.col); pop.classList.add('hidden'); return; }
+    if (e.target.closest('[data-drop]')) { e.preventDefault(); const c = typeof pickScreenColour === 'function' ? await pickScreenColour() : null; if (c) apply(c); pop.classList.add('hidden'); }
+  };
+  const inp = pop.querySelector('[data-colin]');
+  inp.oninput = () => apply(inp.value);
 }
 
 // ---------- Right-click menu (native) ----------
@@ -359,7 +451,7 @@ function contextMenuTemplate() {
   ];
   const isPath = n === 1 && sel[0].type === 'path', hasGroup = sel.some((o) => o.type === 'group');
   return [
-    { label: 'Cut', role: 'cut' }, { label: 'Copy', role: 'copy' }, { label: 'Paste', role: 'paste' }, { label: 'Duplicate', cmd: 'duplicate' }, { label: 'Copy as image', cmd: 'copyImage' },
+    { label: 'Cut', role: 'cut' }, { label: 'Copy', role: 'copy' }, { label: 'Paste', role: 'paste' }, { label: 'Duplicate', cmd: 'duplicate' }, { label: 'Copy as image', cmd: 'copyImage' }, { label: 'Copy as SVG', cmd: 'copySvg' },
     ...(n === 1 && ['icon', 'image'].includes(sel[0].type) ? [{ label: 'Crop', cmd: 'cropStart' }, ...(sel[0].crop ? [{ label: 'Remove crop', cmd: 'cropReset' }] : [])] : []),
     { type: 'separator' },
     { label: 'Bring to front', cmd: 'bringFront' }, { label: 'Bring forward', cmd: 'bringForward' }, { label: 'Send backward', cmd: 'sendBackward' }, { label: 'Send to back', cmd: 'sendBack' },
@@ -375,7 +467,7 @@ function contextMenuTemplate() {
     ...(n === 2 ? [{ label: 'Crop to shape (top shape crops the object below)', cmd: 'cropToShape' }] : []),
     { label: 'Transform…', cmd: 'transform' },
     { label: 'Biology', submenu: [{ label: 'Make protein shape', cmd: 'makeProtein' }, { label: 'Add lighter partner subunit', cmd: 'lighterPartner' }, { label: 'Degrade into fragments', cmd: 'degrade' }] },
-    ...(n === 1 && sel[0].type === 'icon' ? [{ label: getFavs().includes(sel[0].iconId) ? 'Remove from favourites' : 'Add to favourites', cmd: 'toggleFavSel' }, { label: 'Replace icon…', cmd: 'replaceSel' }] : []),
+    ...(n === 1 && sel[0].type === 'icon' ? [{ label: getFavs().includes(sel[0].iconId) ? 'Remove from favourites' : 'Add to favourites', cmd: 'toggleFavSel' }, { label: 'Replace icon…', cmd: 'replaceSel' }, { label: 'Find similar icons', cmd: 'findSimilar' }] : []),
     { label: 'Select matching', submenu: [{ label: 'Same icon', cmd: 'selectSameIcon' }, { label: 'Same type', cmd: 'selectSameType' }, { label: 'Same colour', cmd: 'selectSameColour' }] },
     { label: 'Save as icon…', cmd: 'saveIcon' },
     { label: '✦ AI', submenu: [{ label: 'Edit with AI…', cmd: 'aiEdit' }, { label: 'Restyle…', cmd: 'aiRestyle' }, { label: 'Remove text', cmd: 'aiRemoveText' }, { label: 'Remove background', cmd: 'removeBg' }] },
@@ -401,6 +493,30 @@ const LAYER_ICON = { icon: '◉', rect: '▭', ellipse: '◯', shape: '⬡', tex
 let layersShape = null, layerSerial = 0;
 const layerObjIds = new WeakMap(); // undo swaps in new object copies, which must rebuild the rows
 const layerObjId = (o) => { if (!layerObjIds.has(o)) layerObjIds.set(o, ++layerSerial); return layerObjIds.get(o); };
+// A small picture of each layer, drawn from the object itself (cached until the object changes).
+const layerThumbCache = new Map();
+function layerThumb(o, list) {
+  if (o.type === 'comment') return '';
+  let key;
+  try { key = innerKey(o, list) + `|${o.w}x${o.h}`; } catch { return ''; }
+  const hit = layerThumbCache.get(o.id);
+  if (hit && hit[0] === key) return hit[1];
+  let svgText = '';
+  try {
+    const b = bounds(o, list), m = Math.max(b.w, b.h, 1) * 0.08, s = Math.max(b.w, b.h, 1) + 2 * m;
+    const inner = renderObjectString(o, list, true);
+    svgText = `<svg viewBox="${b.x + b.w / 2 - s / 2} ${b.y + b.h / 2 - s / 2} ${s} ${s}" width="22" height="22">${inner}</svg>`;
+    if (/NaN|undefined/.test(svgText) || svgText.length > 400000) svgText = '';
+  } catch { svgText = ''; }
+  if (layerThumbCache.size > 3000) layerThumbCache.clear();
+  layerThumbCache.set(o.id, [key, svgText]);
+  return svgText;
+}
+let layerFilter = '';
+function applyLayerFilter(Lp) {
+  const q = layerFilter.trim().toLowerCase();
+  for (const r of Lp.querySelectorAll('.layer')) r.style.display = !q || ((r.querySelector('.lname') || r).textContent || '').toLowerCase().includes(q) ? '' : 'none';
+}
 function renderLayers() {
   const Lp = $('#layers');
   if (Lp.classList.contains('hidden')) { layersShape = null; return; } // drawn when the Layers tab opens
@@ -419,6 +535,10 @@ function renderLayers() {
   Lp.append(el('div', { class: 'btnrow', style: 'margin-bottom:6px' },
     btn('Show all', () => setHidden(false)), btn('Unlock all', () => setLocked(false)),
     el('span', { class: 'note', style: 'margin-left:auto;align-self:center', textContent: 'Drag to reorder' })));
+  // Filter by name (long pages): matching layers stay, the rest hide; groups show if a part matches.
+  const filt = el('input', { type: 'search', placeholder: 'Find a layer…', value: layerFilter, style: 'width:100%;margin-bottom:6px', oninput: (e) => { layerFilter = e.target.value; applyLayerFilter(Lp); } });
+  filt.addEventListener('keydown', (e) => e.stopPropagation());
+  Lp.append(filt);
   const order = list.map((o) => o.id);
   const row = (o, depth, parent) => {
     const isSel = state.sel.includes(o.id);
@@ -433,7 +553,10 @@ function renderLayers() {
       inp.addEventListener('blur', done);
       inp.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') inp.blur(); if (ev.key === 'Escape') { inp.value = o.name || ''; inp.blur(); } });
     });
-    r.append(caret, el('span', { class: 'kind', textContent: LAYER_ICON[o.type] || '•', title: o.type }), name);
+    const kind = el('span', { class: 'kind', textContent: LAYER_ICON[o.type] || '•', title: o.type });
+    const pic = layerThumb(o, parent ? parent.children : objs());
+    if (pic) { kind.textContent = ''; kind.classList.add('lthumb'); kind.innerHTML = pic; }
+    r.append(caret, kind, name);
     if (!parent) {
       r.append(
         el('button', { class: 'lbtn' + (o.hidden ? ' on' : ''), title: o.hidden ? 'Show' : 'Hide', textContent: o.hidden ? '◌ Show' : '👁 Hide', onclick: (e) => { e.stopPropagation(); checkpoint(); o.hidden = !o.hidden; if (o.hidden) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }),
@@ -479,6 +602,7 @@ function renderLayers() {
   list.forEach((o) => row(o, 0, null));
   const selRow = Lp.querySelector('.layer.sel');
   if (selRow) selRow.scrollIntoView({ block: 'nearest' });
+  if (layerFilter) applyLayerFilter(Lp);
 }
 
 // Draw the layers list when its tab is opened (it isn't kept up to date while hidden).

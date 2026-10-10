@@ -59,7 +59,16 @@ function toast(msg, ms = 2200) {
 
 // ---------- History ----------
 let lastCp = { key: null, t: 0 };
-function snapshot() { return JSON.stringify({ doc: { ...state.doc, assets: undefined, uploads: undefined }, pageIndex: state.pageIndex }); }
+// Undo snapshots keep big embedded images (photos, micrographs) once, in a shared pool, instead of a full copy in
+// every step: 200 steps of a figure with a 10 MB photo used to hold 2 GB.
+const blobPool = new Map();
+const blobKey = (v) => { const n = v.length, at = (f) => v.slice(Math.floor(n * f), Math.floor(n * f) + 48); return `${n}:${v.slice(22, 90)}:${at(0.25)}:${at(0.5)}:${at(0.75)}:${v.slice(-48)}`; };
+function snapshot() {
+  return JSON.stringify({ doc: { ...state.doc, assets: undefined, uploads: undefined }, pageIndex: state.pageIndex }, (k, v) => {
+    if (typeof v === 'string' && v.length > 20000 && v.startsWith('data:')) { const key = blobKey(v); if (!blobPool.has(key)) blobPool.set(key, v); return '\u0000blob:' + key; }
+    return v;
+  });
+}
 function checkpoint(key) {
   const now = Date.now();
   if (key && key === lastCp.key && now - lastCp.t < 900) { lastCp.t = now; return; }
@@ -69,8 +78,9 @@ function checkpoint(key) {
   state.redo = [];
   markDirty();
 }
+const parseSnapshot = (snap) => JSON.parse(snap, (k, v) => (typeof v === 'string' && v.startsWith('\u0000blob:') ? blobPool.get(v.slice(6)) ?? '' : v));
 function restore(snap) {
-  const s = JSON.parse(snap);
+  const s = parseSnapshot(snap);
   s.doc.assets = state.doc.assets; s.doc.uploads = state.doc.uploads;
   state.doc = s.doc;
   state.pageIndex = Math.min(s.pageIndex, state.doc.pages.length - 1);
@@ -86,10 +96,22 @@ function markDirty() {
   updateTitle();
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
-    const save = () => { try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ doc: state.doc, filePath: state.filePath })); } catch (e) { /* quota — ignore */ } };
-    window.requestIdleCallback ? requestIdleCallback(save, { timeout: 4000 }) : save();
+    window.requestIdleCallback ? requestIdleCallback(writeAutosave, { timeout: 4000 }) : writeAutosave();
   }, 1500);
 }
+// Don't lose the last few seconds: write the autosave at once when the window closes or is hidden, and re-arm it
+// when a drag ends (the timer may have fired mid-drag, before the final position).
+// Browser storage holds tens of MB; a figure full of large images can be bigger, so it then goes to a file.
+function writeAutosave() {
+  const text = JSON.stringify({ doc: state.doc, filePath: state.filePath });
+  try { localStorage.setItem('scicanvas:autosave', text); } catch (e) {
+    if (window.native && window.native.autosaveFile) { window.native.autosaveFile(text); try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ inFile: true })); } catch { /* ignore */ } }
+  }
+}
+function flushAutosave() { clearTimeout(autosaveTimer); writeAutosave(); }
+window.addEventListener('beforeunload', () => { if (state.dirty) flushAutosave(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state.dirty) flushAutosave(); });
+window.addEventListener('pointerup', () => { if (state.dirty) markDirty(); }, true);
 function updateTitle() {
   const name = state.filePath ? state.filePath.split(/[\\/]/).pop() : 'Untitled';
   $('#docname').textContent = name + (state.dirty ? ' •' : '');
@@ -355,7 +377,12 @@ function layerName(o) {
     case 'text': return stripMarkup(o.text).split('\n')[0].slice(0, 28) || 'Text';
     case 'rect': case 'ellipse': return o.label ? stripMarkup(o.label).split('\n')[0].slice(0, 28) : o.type === 'rect' ? 'Rectangle' : 'Ellipse';
     case 'shape': return o.label ? stripMarkup(o.label).split('\n')[0].slice(0, 28) : (SHAPES.find((x) => x[0] === o.kind) || [null, 'Shape'])[1];
-    case 'connector': return o.label || 'Connector';
+    case 'connector': { // name a line by what it joins: “Glucose → G6P”
+      if (o.label) return o.label;
+      const end = (e, deep = true) => { const t = e && e.id && objs().find((x) => x.id === e.id); return t ? (t.type === 'connector' ? (deep && end(t.from, false) && end(t.to, false) ? `(${end(t.from, false)}→${end(t.to, false)})` : 'line') : (t.name || t.label || (t.type === 'text' ? String(t.text || '').replace(/\{[^|{}]*\||\}|[\^_]\{|\}/g, '') : '') || layerName(t)).toString().slice(0, 18)) : ''; };
+      const a = end(o.from), b = end(o.to);
+      return a && b ? `${a} → ${b}` : a ? `${a} →` : b ? `→ ${b}` : 'Line';
+    }
     case 'path': return o.closed ? 'Drawn shape' : o.headEnd === 'arrow' || o.headStart === 'arrow' ? 'Arrow' : 'Drawn line';
     case 'brush': return `${o.kind[0].toUpperCase()}${o.kind.slice(1)} brush`;
     case 'chart': return o.cfg.title || `${o.cfg.kind} graph`;
@@ -492,7 +519,9 @@ function align(mode) {
   const sel = selected().filter((o) => o.type !== 'connector');
   if (!sel.length) return;
   checkpoint();
-  const ref = sel.length === 1 ? { x: 0, y: 0, w: page().width, h: page().height } : unionBounds(sel);
+  // Key object: with the option on, the last-clicked object stays put and the others line up with it.
+  const key = state.view.alignToKey && sel.length > 1 && !['dh', 'dv'].includes(mode) ? sel.find((o) => o.id === state.sel[state.sel.length - 1]) : null;
+  const ref = key ? bounds(key) : sel.length === 1 ? { x: 0, y: 0, w: page().width, h: page().height } : unionBounds(sel);
   if (mode === 'dh' || mode === 'dv') {
     if (sel.length < 3) return;
     const H = mode === 'dh';
@@ -601,6 +630,7 @@ svg.addEventListener('pointerdown', (e) => {
     else if (h === 'curve') drag = { mode: 'curve', o };
     else if (h === 'bend') drag = { mode: 'bend', o };
     else if (h.startsWith('wp')) drag = { mode: 'waypoint', o, h }; // bend points (linetools.js)
+    else if (h.startsWith('qc:')) drag = quickConnectStart(o, h.slice(3), p); // quick-connect arrows (linetools.js)
     else drag = { mode: 'resize', o, h, start: { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0 }, font: o.fontSize };
     return;
   }
@@ -903,11 +933,12 @@ window.addEventListener('pointerup', (e) => {
       }
       if (d.mode === 'connect') {
         const len = d.start ? Math.hypot(p.x - d.start.x, p.y - d.start.y) : 99;
+        if (d.qc && quickConnectEnd(d, len)) break; // a click on a quick-connect arrow adds a connected copy
         if (!o.to.id && len < 8) o.to = { x: (o.from.x ?? p.x) + 120, y: o.from.y ?? p.y }; // click = default-length arrow
         if (o.from.id && o.from.id === o.to.id && !d.left) { page().objects = objs().filter((x) => x !== o); break; }
         if (o.from.id && !o.to.id && len < 8) { const c = center(byId(o.from.id)); o.to = { x: c.x + byId(o.from.id).w / 2 + 120, y: c.y }; }
         state.sel = [o.id];
-        toolStaysHint();
+        if (!d.qc) toolStaysHint();
       }
       break;
     }
@@ -959,7 +990,8 @@ function editText(o, key, isNew) {
   let left, top, width;
   if (o.type === 'connector') {
     const [a, b] = connectorEnds(o, objs());
-    left = ((a.x + b.x) / 2) * z + state.panX - 80; top = ((a.y + b.y) / 2) * z + state.panY - fs; width = 160;
+    const m = typeof connectorLabelPoint === 'function' ? connectorLabelPoint(o, objs()) : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; // where the label sits
+    left = m.x * z + state.panX - 80; top = m.y * z + state.panY - fs; width = 160;
   } else {
     left = o.x * z + state.panX; top = o.y * z + state.panY; width = Math.max(80, o.w * z);
     if (o.type !== 'text') { top += (o.h * z) / 2 - fs; }
@@ -1087,6 +1119,22 @@ async function importDataUrl(name, url, at) {
 
 // ---------- Drag & drop ----------
 stage.addEventListener('dragover', (e) => { e.preventDefault(); });
+// A file dropped anywhere else (library, panels) must not open in place of the app: images land on the page.
+document.addEventListener('dragover', (e) => { if (!e.defaultPrevented) e.preventDefault(); });
+document.addEventListener('drop', async (e) => {
+  if (e.defaultPrevented) return;
+  e.preventDefault();
+  for (const f of (e.dataTransfer && e.dataTransfer.files) || []) {
+    if (/\.scifig$/i.test(f.name)) { await openDroppedFigure(f); return; }
+    if (/image\/(png|jpe?g|svg\+xml|gif|webp|tiff?)/.test(f.type)) await importFile(f);
+  }
+});
+// A .scifig file dropped onto the window opens (after the usual unsaved-changes question).
+async function openDroppedFigure(f) {
+  if (!confirmDiscard()) return;
+  const where = (window.native.pathForFile && window.native.pathForFile(f)) || null; // so ⌘S saves back to it
+  try { loadDoc(JSON.parse(await f.text()), where); if (where) addRecent(where); } catch { toast('That file could not be read'); }
+}
 stage.addEventListener('drop', async (e) => {
   e.preventDefault();
   const p = toWorld(e);
@@ -1094,7 +1142,7 @@ stage.addEventListener('drop', async (e) => {
   const upload = e.dataTransfer.getData('application/x-scicanvas-upload');
   if (icon) return addIcon(icon, p);
   if (upload) return importDataUrl('Upload', upload, p);
-  for (const f of e.dataTransfer.files) if (/image\/(png|jpe?g|svg\+xml)/.test(f.type)) await importFile(f, p);
+  for (const f of e.dataTransfer.files) { if (/\.scifig$/i.test(f.name)) { await openDroppedFigure(f); return; } if (/image\/(png|jpe?g|svg\+xml)/.test(f.type)) await importFile(f, p); }
 });
 
 function renderUploads() {
@@ -1481,13 +1529,15 @@ function renderPageProps(P) {
       row('W', el('input', { type: 'number', value: p.width, onchange: (e) => { setPage('width', Math.max(50, +e.target.value)); } })),
       row('H', el('input', { type: 'number', value: p.height, onchange: (e) => { setPage('height', Math.max(50, +e.target.value)); } }))),
     el('div', { class: 'note', textContent: `${(p.width / 96).toFixed(2)} × ${(p.height / 96).toFixed(2)} in at 1× (96 px/in). Export scales this up for print resolution.` }),
+    row('Alt text', el('textarea', { rows: 3, placeholder: 'Describe the figure for screen readers (journals often ask for this)', value: p.alt || '', oninput: (e) => { checkpoint('page:alt'); p.alt = e.target.value || undefined; markDirty(); } })),
+    typeof draftAltText === 'function' ? el('div', { class: 'btnrow' }, btn('Draft from figure', () => { checkpoint(); p.alt = draftAltText(p); render({ props: true }); toast('Drafted from the figure — edit it to say what it shows'); })) : null,
     row('Background', el('input', { type: 'color', value: toHex(p.background), oninput: (e) => setPage('background', e.target.value) }))));
   P.append(sect('Page actions', el('div', { class: 'btnrow' },
     btn('Duplicate page', () => { checkpoint(); const cp = deep(p); cp.id = uid(); cp.name += ' copy'; cp.objects = cloneObjects(p.objects, p.objects, 0); state.doc.pages.splice(state.pageIndex + 1, 0, cp); gotoPage(state.pageIndex + 1); }),
     btn('◀ Move', () => movePage(-1)), btn('Move ▶', () => movePage(1)),
     state.doc.pages.length > 1 ? btn('Delete page', () => { if (!confirm(`Delete “${p.name}”?`)) return; checkpoint(); state.doc.pages.splice(state.pageIndex, 1); gotoPage(Math.max(0, state.pageIndex - 1)); }, 'danger') : null)));
   P.append(sect('Tips', el('div', { class: 'note', innerHTML:
-    'Drag icons from the library · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Moving, resizing and rotating snap to other objects’ edges, sizes and angles (and lines to 0° / 45° / 90°); hold ⌘ (Ctrl on Windows) to turn snapping off.' })));
+    'Drag icons from the library, or press <b>/</b> over the page to add one at the pointer · Select an object and drag a side arrow to connect it · Right-click for picture menus · <b>C</b> connector between objects · <b>B</b> brushes · Shift-click / drag to multi-select · Alt-drag to duplicate · Hold <b>Space</b> or use the trackpad to pan, pinch / ⌘-scroll to zoom · Paste screenshots directly · Moving, resizing and rotating snap to other objects’ edges, sizes and angles (and lines to 0° / 45° / 90°); hold ⌘ (Ctrl on Windows) to turn snapping off.' })));
 }
 function movePage(d) {
   const i = state.pageIndex, j = i + d;
@@ -1539,7 +1589,34 @@ async function trimTransparent(src, pad = 6) {
 
 // ---------- Files ----------
 function confirmDiscard() { return !state.dirty || confirm('You have unsaved changes. Discard them?'); }
+// Figures from older versions, or damaged files, still open: missing pages, page sizes, object lists, children and
+// ids are filled in and empty entries dropped. Existing ids are kept (duplicated pages can share them).
+function repairDoc(doc) {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('Not a SciCanvas figure');
+  const fix = (list) => (Array.isArray(list) ? list : []).filter((o) => o && typeof o === 'object' && typeof o.type === 'string').map((o) => {
+    if (!o.id) o.id = uid();
+    if (o.type === 'group') o.children = fix(o.children);
+    if (o.type === 'connector') {
+      if (!o.from || typeof o.from !== 'object') o.from = { x: 0, y: 0 };
+      if (!o.to || typeof o.to !== 'object') o.to = { x: 100, y: 0 };
+    } else {
+      for (const k of ['x', 'y']) if (!Number.isFinite(o[k])) o[k] = 0;
+      for (const k of ['w', 'h']) if (!Number.isFinite(o[k])) o[k] = 100;
+      if (o.type === 'group') { if (!(o.w0 > 0)) o.w0 = o.w; if (!(o.h0 > 0)) o.h0 = o.h; }
+    }
+    return o;
+  });
+  doc.pages = (Array.isArray(doc.pages) ? doc.pages : []).filter((p) => p && typeof p === 'object');
+  if (!doc.pages.length) doc.pages = [newPage()];
+  for (const p of doc.pages) {
+    if (!(p.width > 0)) p.width = 1000;
+    if (!(p.height > 0)) p.height = 700;
+    p.objects = fix(p.objects);
+  }
+  return doc;
+}
 function loadDoc(doc, filePath) {
+  repairDoc(doc);
   delete doc.thumb;
   state.doc = doc;
   if (filePath && window.native.watchFile) window.native.watchFile(filePath);
@@ -1647,7 +1724,7 @@ function showSlide() {
   const k2 = Math.min(window.innerWidth / p.width, (window.innerHeight - notesH) / p.height) * 0.96;
   $('#presentStage').innerHTML = pageSvgString(p).replace('<svg ', `<svg style="width:${p.width * k2}px;height:${p.height * k2}px" `)
     + (notesH ? `<div class="pnotes">${esc(p.notes)}</div>` : '');
-  $('#presentHint').textContent = `${presentIndex + 1} / ${state.doc.pages.length} · ← → to navigate · N for speaker notes · P to ${narrating ? 'stop' : 'play'} narration · Esc to exit`;
+  $('#presentHint').textContent = `${presentIndex + 1} / ${state.doc.pages.length} · ← → to navigate · N for speaker notes · L laser pointer · B blank screen · P to ${narrating ? 'stop' : 'play'} narration · Esc to exit`;
   if (narrating) speakSlide();
 }
 // Narrated slides: reads each page's narration (or speaker notes) aloud; auto-advances when it finishes.

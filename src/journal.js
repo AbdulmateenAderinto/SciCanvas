@@ -63,9 +63,24 @@ function objColours(o) {
   return cs.filter(hexOk).map((c) => c.toLowerCase());
 }
 
+// Swap colours everywhere in the figure (fills, outlines, text, labels, tints, chart series): { '#old': '#new' }.
+function replaceColourEverywhere(map) {
+  const m = Object.fromEntries(Object.entries(map).map(([k, v]) => [k.toLowerCase(), v]));
+  const swap = (c) => (typeof c === 'string' && m[c.toLowerCase()]) || c;
+  const keys = typeof COLOR_KEYS !== 'undefined' ? COLOR_KEYS : ['fill', 'stroke', 'color', 'labelColor', 'tint'];
+  const walk = (o) => {
+    for (const k of [...keys, 'gradTo']) if (o[k]) o[k] = swap(o[k]);
+    if (o.cfg && Array.isArray(o.cfg.colors)) o.cfg.colors = o.cfg.colors.map(swap);
+    if (o.colorMap) for (const k of Object.keys(o.colorMap)) o.colorMap[k] = swap(o.colorMap[k]);
+    if (typeof o.text === 'string') o.text = o.text.replace(/\{([bius]{0,4})(#[0-9a-fA-F]{3,8})/g, (x, f, c) => `{${f}${swap(c)}`);
+    (o.children || []).forEach(walk);
+  };
+  for (const p of state.doc.pages) p.objects.forEach(walk);
+  if (typeof elCache !== 'undefined') for (const c of elCache.values()) c.key = null;
+}
 async function checkFigure(p = page()) {
   const j = journalOf(), k = printScale(p), issues = [];
-  const add = (sev, kind, msg, o) => issues.push({ sev, kind, msg, id: o && o.id });
+  const add = (sev, kind, msg, o, fix, fixLabel) => issues.push({ sev, kind, msg, id: o && o.id, fix, fixLabel });
   const pt = (px) => px * k * 0.75;
   const items = walkObjects(p.objects);
   for (const { o, gs } of items) {
@@ -79,10 +94,21 @@ async function checkFigure(p = page()) {
     if (o.type === 'table') sizes.push(o.fontSize || 13);
     if (o.type === 'path' && o.pathText) sizes.push(o.pathTextSize || 16);
     const minSz = sizes.length ? Math.min(...sizes) * gs : null;
-    if (minSz != null && pt(minSz) < j.minPt - 0.05) add('error', 'Text', `${name}: text is ${pt(minSz).toFixed(1)} pt at print size (minimum ${j.minPt} pt)`, o);
+    if (minSz != null && pt(minSz) < j.minPt - 0.05) {
+      const need = Math.ceil(((j.minPt / 0.75 / k) / gs) * 10) / 10; // px size that prints at the minimum
+      add('error', 'Text', `${name}: text is ${pt(minSz).toFixed(1)} pt at print size (minimum ${j.minPt} pt)`, o, () => {
+        if (o.type === 'text' || o.type === 'table') o.fontSize = Math.max(o.fontSize || 0, need);
+        if (o.label && ['rect', 'ellipse', 'shape', 'connector'].includes(o.type)) o.labelSize = Math.max(o.labelSize || 0, need);
+        if (o.type === 'path' && o.pathText) o.pathTextSize = Math.max(o.pathTextSize || 0, need);
+        if (typeof postEdit === 'function') postEdit(o);
+      }, `Make ${j.minPt} pt`);
+    }
     // Hairlines.
     const sw = o.type === 'connector' ? o.width : ['rect', 'ellipse', 'shape', 'path'].includes(o.type) && o.stroke && o.stroke !== 'none' ? o.strokeWidth ?? 2 : null;
-    if (sw != null && sw > 0 && !o.blur && pt(sw * gs) < j.minLine) add('warn', 'Lines', `${name}: line is ${pt(sw * gs).toFixed(2)} pt (minimum ${j.minLine} pt — may disappear in print)`, o);
+    if (sw != null && sw > 0 && !o.blur && pt(sw * gs) < j.minLine) add('warn', 'Lines', `${name}: line is ${pt(sw * gs).toFixed(2)} pt (minimum ${j.minLine} pt — may disappear in print)`, o, () => {
+      const need = Math.ceil((j.minLine / 0.75 / k / gs) * 100) / 100;
+      if (o.type === 'connector') o.width = need; else o.strokeWidth = need;
+    }, 'Thicken');
     // Image resolution.
     if (o.type === 'image') {
       let nw = o.nw;
@@ -101,7 +127,9 @@ async function checkFigure(p = page()) {
   for (const o of p.objects) {
     if (o.hidden) continue;
     const b = bounds(o, p.objects);
-    if (b.x < -1 || b.y < -1 || b.x + b.w > p.width + 1 || b.y + b.h > p.height + 1) add('warn', 'Layout', `${(o.name || layerName(o)).slice(0, 40)} extends outside the page and will be cropped`, o);
+    if (b.x < -1 || b.y < -1 || b.x + b.w > p.width + 1 || b.y + b.h > p.height + 1) add('warn', 'Layout', `${(o.name || layerName(o)).slice(0, 40)} extends outside the page and will be cropped`, o, o.type === 'connector' || b.w > p.width || b.h > p.height ? null : () => {
+      o.x += Math.max(0, -b.x) - Math.max(0, b.x + b.w - p.width); o.y += Math.max(0, -b.y) - Math.max(0, b.y + b.h - p.height);
+    }, 'Move onto page');
   }
   // Page height at print.
   if (j.maxH && (p.height * k) / MM > j.maxH + 0.5) add('warn', 'Size', `Figure is ${((p.height * k) / MM).toFixed(0)} mm tall at this width — ${j.name.split(' (')[0]} allows up to ${j.maxH} mm`);
@@ -114,7 +142,7 @@ async function checkFigure(p = page()) {
     if (!((red(ha) && green(hb)) || (green(ha) && red(hb)))) continue;
     if (deltaE(labOf(linRGB(cols[a])), labOf(linRGB(cols[b]))) > 40 && deltaE(labOf(deutLin(cols[a])), labOf(deutLin(cols[b]))) < 30) {
       const key = cols[a] + cols[b];
-      if (!seen.has(key)) { seen.add(key); add('warn', 'Colour', `Red/green pair ${cols[a]} / ${cols[b]} is hard to tell apart for ~8% of men (deuteranopia). Use magenta/green or blue/orange, or add shapes / labels.`, colourUse.get(cols[a])); }
+      if (!seen.has(key)) { seen.add(key); add('warn', 'Colour', `Red/green pair ${cols[a]} / ${cols[b]} is hard to tell apart for ~8% of men (deuteranopia). Use magenta/green or blue/orange, or add shapes / labels.`, colourUse.get(cols[a])); { const red = (h) => h < 25 || h > 335, [rc, gc] = red(hsl(cols[a]).h) ? [cols[a], cols[b]] : [cols[b], cols[a]]; Object.assign(issues[issues.length - 1], { fix: () => replaceColourEverywhere({ [rc]: '#d55e00', [gc]: '#0072b2' }), fixLabel: 'Use safe colours' }); } }
     }
   }
   // Panel letters.
@@ -126,7 +154,8 @@ async function checkFigure(p = page()) {
     const order = [...letters].sort((a, b) => (Math.abs(a.o.y - b.o.y) > 40 ? a.o.y - b.o.y : a.o.x - b.o.x));
     const up = order[0].ch === order[0].ch.toUpperCase(), base = (up ? 'A' : 'a').charCodeAt(0);
     const codes = order.map((x) => x.ch.charCodeAt(0));
-    order.forEach((x, i) => { if (codes[i] !== base + i) add('warn', 'Panels', `Panel letter “${x.ch}” is out of sequence (expected ${String.fromCharCode(base + i)} in reading order)`, x.o); });
+    const reletter = () => order.forEach((x, i) => { x.o.text = x.o.text.replace(x.ch, String.fromCharCode(base + i)); if (typeof postEdit === 'function') postEdit(x.o); });
+    order.forEach((x, i) => { if (codes[i] !== base + i) add('warn', 'Panels', `Panel letter “${x.ch}” is out of sequence (expected ${String.fromCharCode(base + i)} in reading order)`, x.o, reletter, 'Reletter all'); });
     if (new Set(order.map((x) => x.ch === x.ch.toUpperCase())).size > 1) add('warn', 'Panels', 'Panel letters mix upper and lower case');
     if (new Set(order.map((x) => x.o.fontSize)).size > 1) add('info', 'Panels', 'Panel letters use different font sizes');
   }
@@ -155,14 +184,17 @@ async function renderCheckPanel() {
   res.issues.forEach((x) => counts[x.sev]++);
   const icon = { error: '⛔', warn: '⚠️', info: 'ℹ️' };
   const list = el('div', { class: 'checklist' }, ...(res.issues.length ? res.issues.map((x) => el('div', { class: `chk chk-${x.sev}`, style: 'display:flex;gap:6px;padding:5px 2px;border-bottom:1px solid var(--line);font-size:12px;cursor:' + (x.id ? 'pointer' : 'default'), onclick: () => x.id && jumpTo(x.id) },
-    el('span', { textContent: icon[x.sev] }), el('span', {}, el('b', { textContent: x.kind + ': ' }), x.msg))) : [el('div', { class: 'note', style: 'padding:8px 0;color:#2b7f4a', textContent: '✓ No problems found for this journal.' })]));
+    el('span', { textContent: icon[x.sev] }), el('span', { style: 'flex:1' }, el('b', { textContent: x.kind + ': ' }), x.msg),
+    x.fix ? el('button', { textContent: x.fixLabel || 'Fix', style: 'padding:1px 8px;font-size:11px;align-self:flex-start', onclick: (e) => { e.stopPropagation(); checkpoint(); x.fix(); render({ props: true }); renderCheckPanel(); } }) : null)) : [el('div', { class: 'note', style: 'padding:8px 0;color:#2b7f4a', textContent: '✓ No problems found for this journal.' })]));
   P.innerHTML = '';
   P.append(sect('Journal', row('Journal', jSel), j.widths.length > 1 || j.widths[0][1] ? row('Width', wSel) : null,
     el('div', { class: 'note', textContent: `Printed at ${jd.widthMM ? `${jd.widthMM} mm` : `${((p.width / 96) * 25.4).toFixed(0)} mm (current page)`} wide → ${((p.height * k) / MM).toFixed(0)} mm tall; everything scales ×${k.toFixed(2)}. Formats: ${j.formats}.${j.approx ? ' Sizes approximate — confirm in the current author guide.' : ''}` }),
     row('', el('label', { style: 'width:auto;color:inherit' }, comm, ' Commercial use (flag non-commercial icons)')),
     row('', el('label', { style: 'width:auto;color:inherit' }, guide, ' Show column guide')),
     el('div', { class: 'btnrow' }, btn('Re-check', renderCheckPanel), btn('Export for journal…', () => exportForJournal(), 'primary'))));
-  P.append(sect(`Problems — ${counts.error} errors, ${counts.warn} warnings`, el('div', { class: 'note', textContent: 'Click an item to select it on the page.' }), list));
+  const fixable = res.issues.filter((x) => x.fix);
+  const fixAll = fixable.length > 1 ? el('div', { class: 'btnrow' }, btn(`Fix all (${fixable.length})`, () => { checkpoint(); const done = new Set(); for (const x of fixable) { if (done.has(x.fix)) continue; done.add(x.fix); try { x.fix(); } catch (e) { console.error(e); } } render({ props: true }); renderCheckPanel(); }, 'primary')) : null;
+  P.append(sect(`Problems — ${counts.error} errors, ${counts.warn} warnings`, el('div', { class: 'note', textContent: 'Click an item to select it on the page.' }), fixAll, list));
 }
 function jumpTo(id) {
   const o = byId(id) || objs().find((x) => x.children && JSON.stringify(x.children).includes(`"${id}"`));
