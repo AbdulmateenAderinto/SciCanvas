@@ -20,6 +20,12 @@ library → canvas → relationships → data → review → export.
 - **Line legend**: right-click the page › Insert line legend adds one sample of each kind of line on the page, with names you can edit.
 - **Equations**: right-click the page › Insert equation (LaTeX)… renders LaTeX and chemistry (`\ce{…}`) offline with MathJax; double-click an equation to edit it.
 - **Gene & protein names**: right-click the page › Gene & protein names… lists every gene/protein symbol in the page's text, guesses gene or protein from the nearby words, and sets italics and human or mouse capitalisation once you've checked them.
+- **Pathway editing**: drop an icon on a line to insert it into the path; right-click › Remove from pathway, Select connected, Connect in order; drag line styles from the Shapes tab onto the page or a line; floating-toolbar Style / Swap / Straighten for lines; end gaps, label boxes, animated flow.
+- **Quick add**: press / over the canvas and type to add an icon or shape at the pointer. Right-click › Paste here, ⇧⌘V paste in place, smart ⌘D (repeats the step you moved the last copy by).
+- **Text helpers**: Format chemical formulas (H2O → H₂O, Ca2+ → Ca²⁺), Tidy units & symbols (µm, °C, ±, →), H₂O button in the text bar.
+- **Figure additions**: significance brackets between two bars, colour legend, Tidy into grid, Move / Copy to page, Format painter, Colour button on the floating toolbar.
+- **Figure check fixes**: small text, hairlines, off-page objects, labels that don't fit, red/green pairs (Okabe–Ito swap), mixed fonts, near-misalignments, overlapping text, loose line ends — with Fix and Fix all.
+- **Pictures everywhere**: Properties dropdowns for arrowheads, path, dash, line style, shading, pattern, warp, shadow, fade, taper, caps, alignment, lists, crop, shape kind and font show previews; Layers show thumbnails and name lines by what they join; library hover previews; Help lists every keyboard shortcut; What's New window.
 - **Quick connect**: select an object and drag one of the small arrows on its sides onto another object, or click an arrow (or press Option+Shift+Arrow) to add a connected copy on that side.
 - **Line labels**: slide labels along a line, turn them to follow its angle, and add direction arrows along long lines.
 - **New templates**: in vivo study timeline, glycolysis with cofactors and regulation, haematopoiesis lineage tree, and an SBGN signalling map.
