@@ -222,6 +222,71 @@
     return s;
   }, '#1f3f8f');
 
+  // Benchtop nanopore sequencer (PromethION-style), the platform high-throughput providers run: a dark unit with
+  // an angled front holding two rows of twelve flow-cell bays.
+  S('Nanopore sequencer, benchtop (PromethION-style)', CAT.seq, 'PromethION P24 P48 P2 nanopore sequencer benchtop high-throughput Oxford Nanopore ONT long-read sequencing service provider flow cells', [140, 92], () => {
+    let s = path(poly([[10, 30], [28, 12], [134, 12], [116, 30]]), '#8a9096', { oc: '#5b6168', w: 1.2 });          // top
+    s += path(poly([[116, 30], [134, 12], [134, 70], [116, 88]]), '#3d4248', { oc: '#24282c', w: 1.2 });           // side
+    s += path(poly([[10, 30], [116, 30], [116, 88], [10, 88]]), '#4a5057', { oc: '#24282c', w: 1.4 });             // front
+    s += path(poly([[16, 36], [110, 36], [110, 70], [16, 70]]), '#2f3338', { oc: '#1d2024', w: 1 });               // bay panel
+    for (let row = 0; row < 2; row++) for (let k = 0; k < 12; k++) {
+      const x = 20 + k * 7.4, y = 39 + row * 16;
+      s += rr(x, y, 5, 12.5, 1, '#c3c9cf', { oc: '#7d848b', w: 0.6 }) + rr(x + 1.2, y + 2.5, 2.6, 4, 0.5, '#cfd65a', { oc: '#9aa23a', w: 0.4 });
+    }
+    s += rr(16, 76, 40, 5, 2, '#2bb3c0', { oc: '#1d8090', w: 0.7 }) + rr(92, 76, 18, 5, 2, '#5b6168', { w: 0.7 });
+    return s;
+  }, '#4a5057');
+  // PromethION-style flow cell: long, narrow cartridge with the sensor chip and sample port.
+  S('Nanopore flow cell (PromethION-style)', CAT.seq, 'PromethION flow cell FLO-PRO114M R10.4.1 nanopore cartridge sensor chip consumable', [140, 40], () => {
+    let s = rr(4, 8, 132, 24, 5, '#3d4248', { oc: '#24282c', w: 1.3 });
+    s += rr(40, 13, 34, 14, 1.5, '#cfd65a', { oc: '#9aa23a', w: 0.9 });
+    for (let x = 43; x < 72; x += 3) s += line(`M${x} 15 V25`, '#b3ba45', 0.5);
+    s += ell(20, 20, 4, 4, '#8a9096', 0, { oc: '#5b6168', w: 0.9 }) + ell(30, 20, 2.4, 2.4, '#8a9096', 0, { oc: '#5b6168', w: 0.8 });
+    s += line('M86 14 V26 M92 14 V26 M98 14 V26 M104 14 V26', '#8a9096', 2.4) + rr(114, 12, 16, 16, 2, '#c3c9cf', { oc: '#7d848b', w: 0.8 });
+    return s;
+  }, '#3d4248');
+
+  // Laboratory mouse in side view, after BioRender's realistic mouse: rounded body with soft shading, large pink
+  // ears, pink paws with toes, a long tapering tail, eye with a highlight and whiskers. Three coat colours.
+  const SPEC = 'Soft · Model organisms & animals';
+  const mixC = (a, b, k) => Color.mix(a, b, k);
+  const realMouse = (coat, edge, shadeC, hiC) => () => {
+    const SKIN = '#d79a90', SKINO = '#a8665d', SKIND = '#c3857b';
+    // tail: one smooth outline that tapers from the root to the tip
+    const tc = crPoints([[160, 66], [178, 68], [192, 76], [195, 88], [186, 97], [164, 102], [134, 104], [104, 104], [84, 102]], 1);
+    const tw = (i) => 3.4 - (2.6 * i) / tc.length;
+    const sideA = tc.map((p, i) => offsetPts(tc, tw(i))[i]), sideB = tc.map((p, i) => offsetPts(tc, -tw(i))[i]);
+    let s = `<path d="${band(sideA, sideB)}" fill="${SKIN}" stroke="${SKINO}" stroke-width="0.9" stroke-linejoin="round"/>`;
+    // limbs: thin pink legs with long flat feet and toes; far-side legs darker and set back
+    const leg = (dx, c, o) => path(`M${60 + dx} 74 C${61 + dx} 83 ${59 + dx} 90 ${56 + dx} 95.5 L${45 + dx} 98.5 C${40 + dx} 99.5 ${39 + dx} 102 ${43 + dx} 102.4 L${57 + dx} 101.6 C${61 + dx} 101 ${63 + dx} 97 ${64 + dx} 91 C${65 + dx} 85 ${65 + dx} 79 ${65 + dx} 74 Z`, c, { oc: o, w: 0.9 })
+      + line(`M${45 + dx} 99.4 L${40.5 + dx} 100.6 M${47 + dx} 100.8 L${42.5 + dx} 102.3 M${49 + dx} 101.6 L${46 + dx} 103.4`, o, 0.55);
+    const hind = (dx, c, o) => path(`M${136 + dx} 80 C${138 + dx} 88 ${136 + dx} 93 ${131 + dx} 96.5 L${112 + dx} 98.6 C${107 + dx} 99.4 ${107 + dx} 102.3 ${111 + dx} 102.6 L${132 + dx} 101.8 C${138 + dx} 101 ${142 + dx} 96 ${143 + dx} 90 C${144 + dx} 86 ${143 + dx} 82 ${142 + dx} 80 Z`, c, { oc: o, w: 0.9 })
+      + line(`M${112 + dx} 99.5 L${107.5 + dx} 100.7 M${114 + dx} 100.9 L${109.5 + dx} 102.4 M${116 + dx} 101.7 L${113 + dx} 103.5`, o, 0.55);
+    s += leg(14, SKIND, SKINO) + hind(14, SKIND, SKINO);
+    s += leg(0, SKIN, SKINO) + hind(0, SKIN, SKINO);
+    // body: pointed snout, rounded crown, back rising to a hump over the haunch, round rump
+    const body = [[9, 51], [13, 46], [22, 39], [34, 32], [48, 27], [62, 25], [80, 22], [104, 19], [128, 21], [148, 28], [163, 40], [170, 54], [167, 68], [156, 78], [138, 84], [112, 86], [88, 85], [72, 81], [60, 74], [48, 66], [34, 60], [22, 57], [13, 55]];
+    s += path(cr(body, true), coat, { oc: edge, w: 1.4 });
+    // soft shading: darker belly and rump, a light sheen along the back, haunch and shoulder contours
+    s += path('M70 80 C96 72 128 72 158 76 C146 84 112 87 88 85 C80 84 74 82 70 80 Z', shadeC, { oc: shadeC, w: 0.1, op: 0.8 });
+    s += path('M148 30 C162 42 170 56 166 68 C158 58 152 46 140 36 Z', shadeC, { oc: shadeC, w: 0.1, op: 0.65 });
+    s += path('M50 30 C74 23 104 18 132 23 C108 23 80 27 58 35 Z', hiC, { oc: hiC, w: 0.1, op: 0.5 });
+    s += line('M124 46 C140 52 148 64 146 78', edge, 0.9, { op: 0.5 }) + line('M62 50 C70 58 70 68 64 74', edge, 0.8, { op: 0.4 });
+    // ears: the far ear peeks behind, the near ear is large, rounded and pink
+    s += ell(50, 25, 6.5, 8, mixC(coat, '#000000', 0.12), -18, { oc: edge, w: 1 });
+    s += path('M54 32 C50 21 56 12 65 12 C74 12 78 21 75 30 C72 38 60 40 54 32 Z', SKIN, { oc: SKINO, w: 1.2 });
+    s += path('M58 30 C56 23 60 17 65 17 C70 17 72 23 70 28 C68 33 61 34 58 30 Z', SKIND, { oc: SKIND, w: 0.1 });
+    // eye with highlight, nose, mouth line, whiskers
+    s += ell(31, 41, 3, 2.6, '#1d1b1a', -10, { oc: '#000000', w: 0.6 }) + '<circle cx="30" cy="40" r="0.85" fill="#ffffff"/>';
+    s += ell(10.5, 50.5, 2.6, 2.2, '#d9868c', 0, { oc: '#a8565e', w: 0.8 });
+    s += line('M13 54 C16 56 19 56 22 55', edge, 0.8, { op: 0.8 });
+    [[[18, 50], [0, 40]], [[18, 51], [-1, 48]], [[18, 52], [1, 57]], [[19, 53], [6, 64]], [[19, 50], [4, 33]]].forEach(([a, b]) => { s += line(`M${a[0]} ${a[1]} Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 - 2} ${b[0]} ${b[1]}`, '#8a8580', 0.45); });
+    return `<svg x="0" y="0" width="200" height="108" viewBox="0 0 200 108" overflow="hidden">${s}</svg>`;
+  };
+  S('Mouse, C57BL/6 (black, realistic)', SPEC, 'mouse C57BL/6 B6 black mouse lab mouse realistic Mus musculus in vivo rodent animal model knockout wild type', [200, 108], realMouse('#4c4845', '#2b2826', '#3a3633', '#6a6561'), '#4c4845');
+  S('Mouse, albino (white, realistic)', SPEC, 'mouse albino white BALB/c lab mouse realistic Mus musculus in vivo rodent animal model', [200, 108], realMouse('#f3f0eb', '#b9b1a6', '#ddd6cc', '#ffffff'), '#f3f0eb');
+  S('Mouse, agouti (brown, realistic)', SPEC, 'mouse agouti brown wild-type lab mouse realistic Mus musculus 129 in vivo rodent animal model', [200, 108], realMouse('#8d7259', '#5e4a38', '#76604a', '#a88d73'), '#8d7259');
+
   // PacBio-style long-read instrument: tall white cabinet, dark loading door, accent light strip, touchscreen.
   S('Long-read sequencer (PacBio-style)', CAT.seq, 'PacBio Revio Sequel HiFi SMRT single-molecule real-time long-read sequencer instrument', [90, 112], () => {
     let s = rr(10, 8, 66, 100, 5, '#f4f6f8', { oc: '#9aa6b2', w: 1.6 });
