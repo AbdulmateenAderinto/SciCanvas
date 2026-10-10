@@ -21,7 +21,7 @@
       const q = input.value.trim();
       const SL = globalThis.ShapeLib, ql = q.toLowerCase();
       const shapes = q && SL ? SL.LIB.flatMap(([cat, its]) => its.filter((it) => it.label.toLowerCase().includes(ql) || cat.toLowerCase() === ql).map((it) => ({ shape: it, name: it.label }))).slice(0, 4) : [];
-      items = q ? [...shapes, ...searchIcons(q, { cat: 'All', limit: 12 - shapes.length, field: appSettings.field }).items] : [];
+      items = q ? [...shapes, ...searchIcons(q, { cat: 'All', limit: 12 - shapes.length, field: appSettings.field }).items] : searchIcons('', { cat: 'Recent', limit: 8 }).items; // empty box: recent icons
       active = Math.min(active, Math.max(0, items.length - 1));
       list.innerHTML = items.map((it, i) => {
         const pic = it.shape ? globalThis.ShapeLib.shapeThumb(it.shape) : it.native ? nativeThumb(it.id) : it.pack === 'phylopic' ? `<span class="pp-thumb" style="-webkit-mask-image:url('${it.url}');mask-image:url('${it.url}')"></span>` : `<img src="${it.url}" alt="">`;
@@ -50,6 +50,44 @@
     open(last || { x: (r.width / 2 - state.panX) / state.zoom, y: (r.height / 2 - state.panY) / state.zoom });
   });
   ARRANGE_COMMANDS.quickAdd = () => open(last || viewCenter());
+
+  // Chemical formulas in text: H2O → H₂O, Ca2+ → Ca²⁺, SO42- → SO₄²⁻ (written as _{…} and ^{…} markup).
+  const EL = 'He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|Rb|Sr|Zr|Nb|Mo|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|La|Ce|Gd|Pt|Au|Hg|Tl|Pb|Bi|Rn|Ra|Th|U|H|B|C|N|O|F|P|S|K|V|Y|I|W';
+  function formatChemistry(text) {
+    // a formula: element symbols (with counts, groups in brackets) ending in an optional charge
+    const formula = new RegExp(`(?<![A-Za-z0-9_^{|])((?:(?:${EL})\\d*|\\((?:(?:${EL})\\d*)+\\)\\d*)+)(\\d*[+\\-−])?(?![A-Za-z0-9])`, 'g');
+    return text.replace(formula, (m, body, charge) => {
+      if (!/\d/.test(body) && !charge) return m; // "CO", "NO" without numbers or charge: leave words alone
+      if (!/[A-Z]/.test(body[0])) return m;
+      if (charge && /^[+\-−]$/.test(charge)) { // which trailing digit is the charge: Ca2+ and SO42- vs NH4+ and HCO3-
+        const single = new RegExp(`^(?:${EL})(\\d)$`).exec(body), two = /\d(\d)$/.exec(body);
+        if (single) { charge = single[1] + charge; body = body.slice(0, -1); } else if (two) { charge = two[1] + charge; body = body.slice(0, -1); }
+      }
+      let out = body.replace(/(\D)(\d+)/g, '$1_{$2}');
+      if (charge) out += `^{${charge.replace('-', '−')}}`;
+      return out;
+    });
+  }
+  globalThis.formatChemistry = formatChemistry;
+  ARRANGE_COMMANDS.formatChemistry = () => {
+    const list = selected().filter((o) => o.type === 'text' || o.label);
+    if (!list.length) { toast('Select text (or shapes with labels) to format'); return; }
+    checkpoint();
+    let n = 0;
+    for (const o of list) for (const k of ['text', 'label']) {
+      if (typeof o[k] !== 'string') continue;
+      const v = formatChemistry(o[k]);
+      if (v !== o[k]) { o[k] = v; n++; if (typeof postEdit === 'function') postEdit(o); }
+    }
+    render({ props: true });
+    toast(n ? 'Formulas formatted' : 'No formulas found (e.g. H2O, CO2, Ca2+)');
+  };
+  const prevMenu2 = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu2();
+    if (selected().some((o) => o.type === 'text' || o.label)) t.push({ label: 'Format chemical formulas (H₂O, Ca²⁺)', cmd: 'formatChemistry' });
+    return t;
+  };
 
   // Paste here: what was copied in SciCanvas, centred on the spot that was right-clicked.
   ARRANGE_COMMANDS.pasteHere = async () => {
