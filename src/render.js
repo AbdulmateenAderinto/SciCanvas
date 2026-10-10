@@ -311,7 +311,7 @@ function connectorSvg(o, objects, forExport) {
   if (o.label) {
     const fs = o.labelSize || 13;
     const m = measureText(o.label, fs, 'sans', false, o.labelItalic);
-    s += `<rect x="${mid.x - m.w / 2 - 3}" y="${mid.y - m.h / 2}" width="${m.w + 6}" height="${m.h}" rx="3" fill="#fff" opacity=".9"/>`;
+    if (o.labelBg !== 'none') s += `<rect x="${mid.x - m.w / 2 - 3}" y="${mid.y - m.h / 2}" width="${m.w + 6}" height="${m.h}" rx="3" fill="${o.labelBg || '#fff'}" opacity=".9"/>`;
     s += `<g transform="translate(${mid.x - m.w / 2} ${mid.y - m.h / 2})">${textSvg(o.label, { fontSize: fs, color, italic: o.labelItalic, w: m.w, h: m.h, align: 'center' })}</g>`;
   }
   return s;

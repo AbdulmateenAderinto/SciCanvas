@@ -386,9 +386,9 @@
 
   // ---------- drawing ----------
   const upNormal = (q) => { let nx = q.ty, ny = -q.tx; if (ny > 0.0001 || (Math.abs(ny) <= 0.0001 && nx > 0)) { nx = -nx; ny = -ny; } return { x: nx, y: ny }; };
-  function textAt(text, p, fs, color, italic, bg) {
+  function textAt(text, p, fs, color, italic, bg) { // bg: a colour for the box behind the text, or nothing
     const m = measureText(text, fs, 'sans', false, italic);
-    return (bg ? `<rect x="${r2(p.x - m.w / 2 - 3)}" y="${r2(p.y - m.h / 2)}" width="${r2(m.w + 6)}" height="${r2(m.h)}" rx="3" fill="#fff" opacity=".9"/>` : '')
+    return (bg && bg !== 'none' ? `<rect x="${r2(p.x - m.w / 2 - 3)}" y="${r2(p.y - m.h / 2)}" width="${r2(m.w + 6)}" height="${r2(m.h)}" rx="3" fill="${bg === true ? '#fff' : bg}" opacity=".9"/>` : '')
       + `<g transform="translate(${r2(p.x - m.w / 2)} ${r2(p.y - m.h / 2)})">${textSvg(text, { fontSize: fs, color, italic, w: m.w, h: m.h, align: 'center' })}</g>`;
   }
   function measureLabel(o, L) {
@@ -485,12 +485,12 @@
       if (ang > 90) ang -= 180; else if (ang < -90) ang += 180;
       if (above) lab += textAt(above, { x: 0, y: -kA }, fs, color, o.labelItalic, false);
       if (o.labelBelow) lab += textAt(o.labelBelow, { x: 0, y: kB }, fs, color, o.labelItalic, false);
-      if (o.label) lab += textAt(o.label, { x: 0, y: 0 }, fs, color, o.labelItalic, true);
+      if (o.label) lab += textAt(o.label, { x: 0, y: 0 }, fs, color, o.labelItalic, o.labelBg || true);
       if (lab) s += `<g transform="translate(${r2(lq.x)} ${r2(lq.y)}) rotate(${r2(ang)})">${lab}</g>`;
     } else {
       if (above) s += textAt(above, { x: lq.x + lup.x * kA, y: lq.y + lup.y * kA }, fs, color, o.labelItalic, false);
       if (o.labelBelow) s += textAt(o.labelBelow, { x: lq.x - lup.x * kB, y: lq.y - lup.y * kB }, fs, color, o.labelItalic, false);
-      if (o.label) s += textAt(o.label, { x: lq.x, y: lq.y }, fs, color, o.labelItalic, true);
+      if (o.label) s += textAt(o.label, { x: lq.x, y: lq.y }, fs, color, o.labelItalic, o.labelBg || true);
     }
     return s;
   };
@@ -883,6 +883,8 @@
       row('Above', txt('labelAbove', o.measure ? 'auto: length' : 'e.g. kinase')), row('Below', txt('labelBelow', 'e.g. 37 °C')),
       row('Labels at', el('input', { type: 'range', min: 0.05, max: 0.95, step: 0.01, value: o.labelPos ?? 0.5, oninput: (e) => setProps(L, 'labelPos', Math.abs(+e.target.value - 0.5) < 0.015 ? undefined : +e.target.value) })),
       row('', tick('labelAlong', 'Labels follow the line’s angle')),
+      row('Label box', el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(o.labelBg || '') ? o.labelBg : '#ffffff', title: 'Colour of the box behind the label', oninput: (e) => setProps(L, 'labelBg', e.target.value) }),
+        btn(o.labelBg === 'none' ? 'Show box' : 'No box', () => re('labelBg', o.labelBg === 'none' ? undefined : 'none'))),
       row('Mid arrows', el('input', { type: 'number', min: 0, max: 20, step: 1, value: o.midArrows || 0, style: 'width:60px', title: 'Arrowheads along the line, showing its direction', onchange: (e) => re('midArrows', +e.target.value || undefined) })),
       row('Side in', txt('sideIn', 'e.g. ATP')), row('Side out', txt('sideOut', 'e.g. ADP')),
       (o.sideIn || o.sideOut) ? row('', tick('sideFlip', 'Side arrow below the line')) : null,
