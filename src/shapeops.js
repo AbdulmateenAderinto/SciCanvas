@@ -318,15 +318,16 @@ SHP2 -| PI3K
 PLCγ1 ..> NFAT
 ERK -> AP-1
 NFAT, AP-1 -> IL-2`;
-const EDGE_TOKENS = [['-->', 'arrow'], ['->', 'arrow'], ['→', 'arrow'], ['=>', 'arrow'], ['--|', 'bar'], ['-|', 'bar'], ['⊣', 'bar'], ['..>', 'dashed'], ['--', 'bind'], ['—', 'bind']];
+const EDGE_TOKENS = [['<=>', 'rev'], ['<->', 'both'], ['-o', 'circle'], ['-->', 'arrow'], ['->', 'arrow'], ['→', 'arrow'], ['=>', 'arrow'], ['--|', 'bar'], ['-|', 'bar'], ['⊣', 'bar'], ['..>', 'dashed'], ['--', 'bind'], ['—', 'bind']];
 function parsePathwayText(text) {
   const re = new RegExp(`\\s*(${EDGE_TOKENS.map(([t]) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*`);
   const nodes = [], edges = [];
   const add = (n) => { n = n.trim(); if (n && !nodes.includes(n)) nodes.push(n); return n; };
-  text.split('\n').map((l) => l.replace(/#.*/, '').trim()).filter(Boolean).forEach((line) => {
+  text.split('\n').map((l) => l.replace(/#.*/, '').trim()).filter(Boolean).forEach((full) => {
+    const [line, label = ''] = full.split(/\s+:\s+/); // "A -> B : phosphorylates [ATP → ADP]"
     const parts = line.split(re);
     const groups = parts.filter((_, i) => i % 2 === 0).map((g) => g.split(/\s*,\s*/).map(add).filter(Boolean));
-    parts.filter((_, i) => i % 2 === 1).forEach((tok, k) => { const kind = EDGE_TOKENS.find(([t]) => t === tok)[1]; groups[k].forEach((a) => groups[k + 1].forEach((b) => edges.push([a, b, kind]))); });
+    parts.filter((_, i) => i % 2 === 1).forEach((tok, k) => { const kind = EDGE_TOKENS.find(([t]) => t === tok)[1]; groups[k].forEach((a) => groups[k + 1].forEach((b) => edges.push([a, b, kind, label.trim()]))); });
     if (parts.length === 1) groups[0].forEach(add);
   });
   return { nodes, edges };
@@ -351,8 +352,18 @@ function openPathwayTextDialog() {
         : Make.ellipse(0, i * 10, w, 42, { fill: Color.light(col, 0.55), stroke: Color.dark(col, 0.3), strokeWidth: 1.8, label: n, labelSize: 14, labelBold: true, labelColor: Color.dark(col, 0.55), name: n });
     });
     const idOf = new Map(nodes.map((n, i) => [n, objsN[i]]));
-    const conns = edges.map(([a, b, kind]) => Make.connector(idOf.get(a), idOf.get(b), kind === 'bar' ? { head: 'bar', color: '#c0392b' } : kind === 'dashed' ? { dashStyle: 'dashed' } : kind === 'bind' ? { head: 'none', tail: 'none', color: '#666666', dashStyle: 'dotted' } : {}));
-    if (objsN.length) applyLayout(objsN, layoutPathway(objsN, edges.map(([a, b]) => [idOf.get(a).id, idOf.get(b).id]), { dir: dir.value }));
+    const conns = edges.map(([a, b, kind, label]) => {
+      const st = kind === 'bar' ? { head: 'bar', color: '#c0392b' } : kind === 'dashed' ? { dashStyle: 'dashed' } : kind === 'bind' ? { head: 'none', tail: 'none', color: '#666666', dashStyle: 'dotted' }
+        : kind === 'rev' ? { head: 'harpoon', tail: 'harpoon' } : kind === 'both' ? { head: 'arrow', tail: 'arrow' } : kind === 'circle' ? { head: 'circle' } : {};
+      if (label) { // "verb [ATP → ADP]": the verb labels the line, the bracket becomes a cofactor side arrow
+        const co = /\[\s*([^\]]*?)\s*(?:->|→)\s*([^\]]*?)\s*\]/.exec(label), text = label.replace(/\[[^\]]*\]/, '').trim();
+        if (co) { st.sideIn = co[1]; st.sideOut = co[2]; }
+        if (text) { if (co) st.labelBelow = text; else st.label = text; }
+      }
+      return Make.connector(idOf.get(a), idOf.get(b), st);
+    });
+    const roomy = edges.some((e) => e[3]); // labels and cofactor arrows need longer lines
+    if (objsN.length) applyLayout(objsN, layoutPathway(objsN, edges.map(([a, b]) => [idOf.get(a).id, idOf.get(b).id]), { dir: dir.value, ...(roomy ? { gapMain: 150, gapCross: 90 } : {}) }));
     return [...objsN, ...conns];
   };
   const draw = () => {
@@ -366,7 +377,7 @@ function openPathwayTextDialog() {
   [ta, dir, style].forEach((x) => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', draw));
   openModal('Pathway from text', el('div', { style: 'width:860px;max-width:92vw;display:grid;grid-template-columns:330px 1fr;gap:14px' },
     el('div', {}, ta, field_('Layout', dir), field_('Nodes', style),
-      el('div', { class: 'note' }, 'A -> B activates, A -| B inhibits, A ..> B indirect / proposed, A -- B binds. Chain several on one line, and use commas for several inputs (NFAT, AP-1 -> IL-2). Arrows are drawn as claims: check each one against your data.')),
+      el('div', { class: 'note' }, 'A -> B activates, A -| B inhibits, A ..> B indirect / proposed, A -- B binds, A -o B catalyses, A <=> B reversible. Add “ : label” for a verb, and [ATP → ADP] for cofactors. Chain several on one line, and use commas for several inputs (NFAT, AP-1 -> IL-2). Arrows are drawn as claims: check each one against your data.')),
     el('div', {}, prev, el('div', { class: 'actions' }, btn('Cancel', closeModal), btn('Insert pathway', () => {
       const list = build(), c = viewCenter(), shapes = list.filter((o) => o.type !== 'connector');
       if (!shapes.length) return;

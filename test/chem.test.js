@@ -43,3 +43,8 @@ test('western blot builder reads lanes, sizes and intensities', () => {
   const b = A.globals.parseBlot("Lanes: Ctrl, EGF\np-ERK (42 kDa): 0.1, 1.4\nGAPDH: 1, 1, 1");
   assert.equal(JSON.stringify(b), JSON.stringify({ lanes: ['Ctrl', 'EGF', 'Lane 3'], rows: [{ name: 'p-ERK', kda: '42 kDa', bands: [0.1, 1] }, { name: 'GAPDH', kda: '', bands: [1, 1, 1] }] }));
 });
+
+test('pathway text: new arrow kinds, labels and cofactors', () => {
+  const r = A.globals.parsePathwayText('Glucose -> G6P : hexokinase [ATP -> ADP]\nA <=> B\nE -o S\nX -| Y : blocks');
+  assert.equal(JSON.stringify(r.edges), JSON.stringify([['Glucose', 'G6P', 'arrow', 'hexokinase [ATP -> ADP]'], ['A', 'B', 'rev', ''], ['E', 'S', 'circle', ''], ['X', 'Y', 'bar', 'blocks']]));
+});
