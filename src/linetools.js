@@ -1116,7 +1116,7 @@
       const step = (k) => { const x = objOf(k.from, list), y = objOf(k.to, list); return x && y && x.type !== 'connector' && y.type !== 'connector' ? `the ${named(x)} → ${named(y)} step` : ''; };
       const na = named(a), nb = b.type === 'connector' ? step(b) : named(b); // regulation of a reaction
       if (!na || !nb) return '';
-      const v = c.head === 'harpoon' && c.tail === 'harpoon' ? '⇌' : VERB[c.head] || (c.head === 'none' ? 'is linked to' : b.type === 'connector' ? 'acts on' : '→');
+      const v = c.head === 'harpoon' && c.tail === 'harpoon' ? '⇌' : VERB[c.head] || (c.head === 'none' ? 'is linked to' : b.type === 'connector' ? 'activates' : '→');
       if (v === '⇌') return `${na} ⇌ ${nb}${plain(c.label || c.labelBelow || c.labelAbove) ? ` (${plain(c.label || c.labelBelow || c.labelAbove)})` : ''}`;
       const lab = plain(c.label || c.labelBelow || c.labelAbove);
       return v === '→' ? `${na} → ${nb}${lab ? ` (${lab})` : ''}` : `${na} ${v} ${nb}${lab ? ` (${lab})` : ''}`;
