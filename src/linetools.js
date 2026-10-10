@@ -583,7 +583,7 @@
         (o.points || []).forEach((q, i) => { s += `<rect data-handle="wp:${i}" x="${q.x - hs / 2}" y="${q.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" style="cursor:move"><title>Bend point: drag to move, double-click to remove</title></rect>`; });
       }
     }
-    if (sel.length === 1 && sel[0].type !== 'connector' && !sel[0].locked && state.tool === 'select' && !(typeof nodeEdit !== 'undefined' && nodeEdit) && sel[0].w > 0) s += quickConnectSvg(sel[0]);
+    if (sel.length === 1 && sel[0].type !== 'connector' && sel[0].type !== 'comment' && !sel[0].locked && state.tool === 'select' && !(typeof nodeEdit !== 'undefined' && nodeEdit) && sel[0].w > 0) s += quickConnectSvg(sel[0]);
     prevOverlay(s + extra);
   };
   // Quick-connect arrows: on a single selected object, drag an arrow to another object to join them, or click it to
