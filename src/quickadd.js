@@ -265,6 +265,47 @@
     return t;
   };
 
+  // Trim edges: crop away the white / transparent margin around an image (non-destructive: Remove crop undoes it).
+  async function contentBox(src) {
+    const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+    const W = im.naturalWidth, H = im.naturalHeight, k = Math.min(1, 1200 / Math.max(W, H)), w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0, w, h);
+    const d = g.getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4, a = d[i + 3];
+      if (a > 16 && !(d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return null;
+    const pad = 2;
+    return { l: Math.max(0, x0 - pad) / w, t: Math.max(0, y0 - pad) / h, r: Math.max(0, w - 1 - x1 - pad) / w, b: Math.max(0, h - 1 - y1 - pad) / h, W, H };
+  }
+  globalThis.imageContentBox = contentBox;
+  ARRANGE_COMMANDS.trimImage = async () => {
+    const list = selected().filter((o) => o.type === 'image' && !(o.crop && (o.crop.l || o.crop.t || o.crop.r || o.crop.b)));
+    if (!list.length) { toast('Select an image (without a crop yet)'); return; }
+    checkpoint();
+    let n = 0;
+    for (const o of list) {
+      let cb;
+      try { cb = await contentBox(o.src); } catch { cb = null; }
+      if (!cb || cb.l + cb.r + cb.t + cb.b < 0.01) continue;
+      o.nw = o.nw || cb.W; o.nh = o.nh || cb.H;
+      o.x += cb.l * o.w; o.y += cb.t * o.h; o.w *= 1 - cb.l - cb.r; o.h *= 1 - cb.t - cb.b;
+      o.crop = { l: cb.l, t: cb.t, r: cb.r, b: cb.b };
+      n++;
+    }
+    render({ props: true });
+    toast(n ? `Trimmed ${n} image${n > 1 ? 's' : ''} (Remove crop in Properties to undo)` : 'No blank margin to trim');
+  };
+  const prevMenu8 = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu8();
+    if (selected().some((o) => o.type === 'image')) t.push({ label: 'Trim white / transparent edges', cmd: 'trimImage' });
+    return t;
+  };
+
   // Colour legend: one swatch per colour used for shapes and icons, named after the first thing in that colour.
   ARRANGE_COMMANDS.colourLegend = () => {
     const seen = new Map();
