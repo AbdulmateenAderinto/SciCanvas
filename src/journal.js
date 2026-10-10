@@ -63,6 +63,21 @@ function objColours(o) {
   return cs.filter(hexOk).map((c) => c.toLowerCase());
 }
 
+// Swap colours everywhere in the figure (fills, outlines, text, labels, tints, chart series): { '#old': '#new' }.
+function replaceColourEverywhere(map) {
+  const m = Object.fromEntries(Object.entries(map).map(([k, v]) => [k.toLowerCase(), v]));
+  const swap = (c) => (typeof c === 'string' && m[c.toLowerCase()]) || c;
+  const keys = typeof COLOR_KEYS !== 'undefined' ? COLOR_KEYS : ['fill', 'stroke', 'color', 'labelColor', 'tint'];
+  const walk = (o) => {
+    for (const k of [...keys, 'gradTo']) if (o[k]) o[k] = swap(o[k]);
+    if (o.cfg && Array.isArray(o.cfg.colors)) o.cfg.colors = o.cfg.colors.map(swap);
+    if (o.colorMap) for (const k of Object.keys(o.colorMap)) o.colorMap[k] = swap(o.colorMap[k]);
+    if (typeof o.text === 'string') o.text = o.text.replace(/\{([bius]{0,4})(#[0-9a-fA-F]{3,8})/g, (x, f, c) => `{${f}${swap(c)}`);
+    (o.children || []).forEach(walk);
+  };
+  for (const p of state.doc.pages) p.objects.forEach(walk);
+  if (typeof elCache !== 'undefined') for (const c of elCache.values()) c.key = null;
+}
 async function checkFigure(p = page()) {
   const j = journalOf(), k = printScale(p), issues = [];
   const add = (sev, kind, msg, o) => issues.push({ sev, kind, msg, id: o && o.id });
@@ -114,7 +129,7 @@ async function checkFigure(p = page()) {
     if (!((red(ha) && green(hb)) || (green(ha) && red(hb)))) continue;
     if (deltaE(labOf(linRGB(cols[a])), labOf(linRGB(cols[b]))) > 40 && deltaE(labOf(deutLin(cols[a])), labOf(deutLin(cols[b]))) < 30) {
       const key = cols[a] + cols[b];
-      if (!seen.has(key)) { seen.add(key); add('warn', 'Colour', `Red/green pair ${cols[a]} / ${cols[b]} is hard to tell apart for ~8% of men (deuteranopia). Use magenta/green or blue/orange, or add shapes / labels.`, colourUse.get(cols[a])); }
+      if (!seen.has(key)) { seen.add(key); add('warn', 'Colour', `Red/green pair ${cols[a]} / ${cols[b]} is hard to tell apart for ~8% of men (deuteranopia). Use magenta/green or blue/orange, or add shapes / labels.`, colourUse.get(cols[a])); { const red = (h) => h < 25 || h > 335, [rc, gc] = red(hsl(cols[a]).h) ? [cols[a], cols[b]] : [cols[b], cols[a]]; Object.assign(issues[issues.length - 1], { fix: () => replaceColourEverywhere({ [rc]: '#d55e00', [gc]: '#0072b2' }), fixLabel: 'Use safe colours' }); } }
     }
   }
   // Panel letters.
