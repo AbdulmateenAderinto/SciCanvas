@@ -170,7 +170,7 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 
 **Export**
 - PNG/JPEG at up to 600 DPI (written into the file), transparent PNG, SVG, multi-page vector PDF, and PowerPoint (.pptx).
-- PowerPoint export is editable: shapes, text, tables, drawn paths and groups become native PowerPoint objects, and arrows become connectors glued to the shapes they join, so they follow when you move things on the slide. Icons, brushes, charts and protocol strips go in as vector SVG pictures (right-click › Convert to Shape in PowerPoint to edit them). Choose "Picture of each page" for an exact, non-editable copy.
+- PowerPoint export is editable: shapes, text, tables, drawn paths and groups become native PowerPoint objects, and arrows become connectors glued to the shapes they join, so they follow when you move things on the slide. Fill-editor gradients, simple patterns, fill opacity, inner glow, per-corner radii, warped and perspective shapes, label leader lines and text box settings (wrapping, columns, letter and line spacing, small caps) stay native too. Icons, brushes, charts and protocol strips go in as vector SVG pictures, and textures, blurs, grain, halos, cutaways and warped icons or text go in as pictures (right-click › Convert to Shape in PowerPoint to edit them). Choose "Picture of each page" for an exact, non-editable copy.
 - Option to export only the current selection.
 - Copy as image (⇧⌘C) for pasting into slides.
 
