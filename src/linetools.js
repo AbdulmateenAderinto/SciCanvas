@@ -819,6 +819,30 @@
     state.sel = made.map((c) => c.id);
     render({ props: true });
   }
+  // Drop an icon or shape onto a line between two objects: it goes into the path (A → new → B), both lines keeping
+  // the original style.
+  function splitLine(c, mid) {
+    const second = { ...deep(c), id: uid(), from: { id: mid.id }, to: deep(c.to) };
+    for (const k of ['label', 'labelAbove', 'labelBelow', 'sideIn', 'sideOut', 'points', 'tickLabels', 'ticks', 'measure']) delete second[k];
+    c.to = { id: mid.id };
+    delete c.points;
+    const i = objs().indexOf(c);
+    objs().splice(i + 1, 0, second);
+  }
+  stage.addEventListener('drop', (e) => {
+    const types = [...(e.dataTransfer ? e.dataTransfer.types : [])];
+    if (!types.some((t) => /x-scicanvas-(icon|shape|upload)/.test(t))) return;
+    const hit = connectorAtPoint(toWorld(e));
+    if (!hit || !hit.o.from.id || !hit.o.to.id) return;
+    const line = hit.o, before = new Set(objs().map((o) => o.id));
+    setTimeout(() => { // after the drop has added the object
+      const added = objs().filter((o) => !before.has(o.id) && o.type !== 'connector');
+      if (added.length !== 1 || !objs().includes(line)) return;
+      splitLine(line, added[0]);
+      render({ props: true });
+      toast('Inserted into the line');
+    }, 60);
+  }, true);
   // Tab / Shift+Tab: select the next / previous object (handy for small or overlapping ones).
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey || (typeof isTyping === 'function' && isTyping())) return;
@@ -1009,6 +1033,7 @@
       ['SBGN', 'Shapes › SBGN has the process-description glyphs; Line style has the SBGN arcs (production, consumption, catalysis, stimulation, necessary stimulation, modulation, inhibition). Insert › Line Legend explains the lines on a page.'],
       ['Equations', 'Insert › Equation (LaTeX)… renders LaTeX and chemistry (\\ce{…}) without internet. Double-click an equation to edit it.'],
       ['Gene and protein names', 'Edit › Gene & Protein Names… lists gene / protein symbols in your text, guesses which is which from nearby words, and sets italics (genes) and human or mouse capitalisation once you have checked them.'],
+      ['Insert into a pathway', 'Drag an icon or shape from the library onto a line between two objects: it goes into the path (A → new → B) and both lines keep their style. Drag a line style from the Shapes tab onto a line to restyle it, or onto the page to draw one.'],
       ['Connect and select pathways', 'Select several objects, right-click › Connect in order to join them with arrows in reading order. Select connected (right-click or Arrange › Lines) selects everything linked to the selection through lines, so a whole pathway moves together. Tab / Shift+Tab steps through objects one at a time.'],
       ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
   }
