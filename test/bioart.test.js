@@ -40,7 +40,7 @@ function makeCollection() {
   }
   rows.push('Website_images/logo.svg,,NIH logo,https://bioart.niaid.nih.gov/,,,SVG,1,0,logo.svg,Website images');
   fs.writeFileSync(path.join(dir, 'catalog.json'), JSON.stringify(catalog));
-  fs.writeFileSync(path.join(dir, 'file_index.csv'), '﻿' + rows.join('\n') + '\n');
+  fs.writeFileSync(path.join(dir, 'file_index.csv'), '\uFEFF' + rows.join('\n') + '\n');
   return dir;
 }
 

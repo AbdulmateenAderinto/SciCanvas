@@ -47,7 +47,7 @@ function readCsv(text) {
     else f += c;
   }
   if (f || row.length) { row.push(f); rows.push(row); }
-  const head = rows.shift().map((h) => h.replace(/^﻿/, ''));
+  const head = rows.shift().map((h) => h.replace(/^\uFEFF/, ''));
   return rows.filter((r) => r.length === head.length).map((r) => Object.fromEntries(head.map((h, k) => [h, r[k]])));
 }
 
@@ -92,7 +92,7 @@ function vectorToSvg(file, tmp, tools) {
 // ns1:href). Browsers draw that, but SciCanvas' SVG cleaner expects plain <svg> tags, so write them in the usual form.
 // Only names change; the drawing is untouched.
 function plainSvg(text) {
-  let s = text.replace(/^﻿/, '');
+  let s = text.replace(/^\uFEFF/, '');
   const esc = (p) => p.replace(/[.-]/g, '\\$&');
   const ns = /\sxmlns:([\w.-]+)\s*=\s*(["'])http:\/\/www\.w3\.org\/2000\/svg\2/.exec(s);
   if (ns && !/<svg[\s>]/.test(s)) {
