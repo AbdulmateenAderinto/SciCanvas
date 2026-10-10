@@ -143,8 +143,16 @@
     const sel = selected().filter((o) => o.type !== 'connector');
     if (sel.length !== 2) { toast('Select the two things to compare'); return; }
     const [a, b] = [...sel].sort((p, q) => center(p).x - center(q).x), ba = bounds(a, objs()), bb = bounds(b, objs());
-    const top = Math.min(ba.y, bb.y), h = Math.max(8, Math.min(ba.h, bb.h) * 0.08), y = top - 14 - h;
-    const xa = center(a).x, xb = center(b).x;
+    const xa = center(a).x, xb = center(b).x, pg = page();
+    // clear everything in between too: taller bars and earlier brackets, so comparisons stack
+    let top = Math.min(ba.y, bb.y);
+    for (const o of objs()) {
+      if (o.type === 'connector' || o.hidden || o === a || o === b) continue;
+      const q = bounds(o, objs());
+      if (q.w * q.h > pg.width * pg.height * 0.25 || q.x > xb || q.x + q.w < xa || q.y + q.h > Math.max(ba.y + ba.h, bb.y + bb.h)) continue;
+      top = Math.min(top, q.y);
+    }
+    const h = Math.max(8, Math.min(ba.h, bb.h) * 0.08), y = top - 14 - h;
     checkpoint();
     const path = makePathFromNodes([{ x: xa, y: y + h }, { x: xa, y }, { x: xb, y }, { x: xb, y: y + h }], { strokeWidth: 1.6, stroke: '#222222', cap: 'butt', name: 'Significance bracket' });
     const t = Make.text('*', 0, 0, { fontSize: 18, bold: true, color: '#222222' });
