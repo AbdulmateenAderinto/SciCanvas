@@ -163,6 +163,62 @@
       ta, el('div', { class: 'btnrow', style: 'margin-top:8px' }, go)));
   }
   ARRANGE_COMMANDS.gatingBuilder = openGatingBuilder;
+
+  // Western blot schematic: lanes, then "Protein (42 kDa): 0.1, 0.8, 1" rows of band intensities (0–1).
+  function parseBlot(text) {
+    let lanes = [];
+    const rows = [];
+    for (const raw of String(text).split('\n')) {
+      const l = raw.trim();
+      if (!l) continue;
+      const m = /^(.+?)\s*:\s*(.*)$/.exec(l);
+      if (!m) continue;
+      if (/^lanes?$/i.test(m[1].trim())) { lanes = m[2].split(',').map((x) => x.trim()).filter(Boolean); continue; }
+      const kd = /\(([^)]*kda[^)]*)\)/i.exec(m[1]);
+      rows.push({ name: m[1].replace(/\([^)]*kda[^)]*\)/i, '').trim(), kda: kd ? kd[1].trim() : '', bands: m[2].split(',').map((x) => Math.max(0, Math.min(1, parseFloat(x) || 0))) });
+    }
+    const n = Math.max(lanes.length, ...rows.map((r) => r.bands.length), 1);
+    while (lanes.length < n) lanes.push(`Lane ${lanes.length + 1}`);
+    return { lanes, rows };
+  }
+  globalThis.parseBlot = parseBlot;
+  function openBlotBuilder() {
+    const ta = el('textarea', { rows: 6, style: 'width:100%;font-family:inherit', value: "Lanes: Ctrl, EGF 5', EGF 15', EGF 30'\np-ERK (42 kDa): 0.1, 0.8, 1, 0.6\nTotal ERK (42 kDa): 1, 1, 1, 1\nGAPDH (37 kDa): 1, 1, 1, 1" });
+    const go = el('button', { class: 'primary', textContent: 'Insert blot', onclick: () => {
+      const { lanes, rows } = parseBlot(ta.value);
+      if (!rows.length) { toast('Add at least one protein line, e.g. “GAPDH (37 kDa): 1, 1, 1”'); return; }
+      const laneW = 46, stripH = 30, gap = 12, nameW = 120, at = viewCenter(), o = [];
+      const W = lanes.length * laneW, x0 = at.x - W / 2, y0 = at.y - (rows.length * (stripH + gap)) / 2;
+      lanes.forEach((ln, i) => { // lane labels, angled
+        const t = Make.text(ln, 0, 0, { fontSize: 12, color: '#222222' });
+        if (typeof postEdit === 'function') postEdit(t);
+        t.x = x0 + i * laneW + laneW / 2 - 4; t.y = y0 - 12 - t.h; t.rot = -40;
+        t.x -= t.w / 2 * Math.cos(40 * Math.PI / 180) - 6; t.y -= t.w / 2 * Math.sin(40 * Math.PI / 180) - 4;
+        o.push(t);
+      });
+      rows.forEach((r, ri) => {
+        const y = y0 + ri * (stripH + gap);
+        o.push(Make.rect(x0 - 4, y, W + 8, stripH, { fill: '#f1f1ef', stroke: '#b9b9b5', strokeWidth: 1, radius: 2 }));
+        r.bands.forEach((v, i) => { if (v > 0) o.push(Make.ellipse(x0 + i * laneW + 6, y + stripH / 2 - 5, laneW - 12, 10, { fill: '#1d1d1d', stroke: 'none', opacity: Math.max(0.08, v), blur: 0.6 })); });
+        const nm = Make.text(r.name, 0, 0, { fontSize: 13, color: '#222222', bold: true });
+        if (typeof postEdit === 'function') postEdit(nm);
+        nm.x = x0 - 12 - nm.w; nm.y = y + stripH / 2 - nm.h / 2;
+        o.push(nm);
+        if (r.kda) { const kd = Make.text(r.kda, x0 + W + 12, 0, { fontSize: 12, color: '#56657a' }); if (typeof postEdit === 'function') postEdit(kd); kd.y = y + stripH / 2 - kd.h / 2; o.push(kd); }
+      });
+      void nameW;
+      closeModal();
+      addObjects(o);
+      groupSelection();
+      const g = selected()[0];
+      if (g) g.name = 'Western blot';
+      render({ props: true });
+    } });
+    openModal('Western blot builder', el('div', { style: 'width:min(560px,80vw)' },
+      el('p', { class: 'note', textContent: 'First line: lane names. Then one line per protein with band intensities from 0 (none) to 1 (strongest); put the size in brackets, e.g. “GAPDH (37 kDa)”.' }),
+      ta, el('div', { class: 'btnrow', style: 'margin-top:8px' }, go)));
+  }
+  ARRANGE_COMMANDS.blotBuilder = openBlotBuilder;
   globalThis.parseTimeline = parse;
   ARRANGE_COMMANDS.timelineBuilder = openTimelineBuilder;
 })();

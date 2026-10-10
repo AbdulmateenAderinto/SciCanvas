@@ -129,6 +129,7 @@ function buildMenu() {
         { label: 'Timeline Builder…', click: send('timelineBuilder') },
         { label: 'Cohort / Study Groups Builder…', click: send('cohortBuilder') },
         { label: 'Gating Strategy Builder…', click: send('gatingBuilder') },
+        { label: 'Western Blot Builder…', click: send('blotBuilder') },
         { label: 'Line Legend', click: send('lineLegend') },
         { label: 'Colour Legend', click: send('colourLegend') },
         { label: 'Significance Bracket (Select Two Objects)', click: send('sigBracket') },

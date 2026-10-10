@@ -38,3 +38,8 @@ test('cohort builder reads group sizes', () => {
 test('gating strategy steps and splits', () => {
   assert.equal(JSON.stringify(A.globals.parseGates('Lymphocytes > Live → CD3+ > CD4+ / CD8+')), JSON.stringify([['Lymphocytes'], ['Live'], ['CD3+'], ['CD4+', 'CD8+']]));
 });
+
+test('western blot builder reads lanes, sizes and intensities', () => {
+  const b = A.globals.parseBlot("Lanes: Ctrl, EGF\np-ERK (42 kDa): 0.1, 1.4\nGAPDH: 1, 1, 1");
+  assert.equal(JSON.stringify(b), JSON.stringify({ lanes: ['Ctrl', 'EGF', 'Lane 3'], rows: [{ name: 'p-ERK', kda: '42 kDa', bands: [0.1, 1] }, { name: 'GAPDH', kda: '', bands: [1, 1, 1] }] }));
+});

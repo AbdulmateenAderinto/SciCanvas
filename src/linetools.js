@@ -1080,6 +1080,7 @@
       ['Timeline builder', 'Insert › Timeline Builder…: one line per time point (“Day 0: tumour implant”, “Week 2: boost”). You get a timeline arrow with ticks and labels, and each event above its tick with a matching icon (swap any with Replace icon).'],
       ['Cohort builder', 'Insert › Cohort / Study Groups Builder…: one line per group (“Vehicle: 8”). Each group becomes a row of that many mice (or rats, people, flasks, tubes) in its own colour, labelled with n.'],
       ['Gating strategy builder', 'Insert › Gating Strategy Builder…: type gates from parent to child separated by “>”, and split with “/” (Lymphocytes > Live > CD3+ > CD4+ / CD8+). You get dot-plot icons joined by arrows; replace them with your own plots.'],
+      ['Western blot builder', 'Insert › Western Blot Builder…: “Lanes: Ctrl, EGF 5′…” then one line per protein with band intensities 0–1 and the size in brackets (“p-ERK (42 kDa): 0.1, 0.8, 1”). You get strips with graded bands, angled lane labels, names and sizes.'],
       ['Significance brackets', 'Select two bars, images or groups, right-click › Significance bracket (or Insert › Significance Bracket). A bracket with * goes above them; double-click the * to change it to **, ns or a p value.'],
       ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
   }
