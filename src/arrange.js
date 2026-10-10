@@ -305,6 +305,7 @@ const CTX_SVG = {
 Object.assign(CTX_SVG, {
   lineStyle: '<path d="M2 6h10" stroke="currentColor" stroke-width="1.8"/><path d="M11 3l4 3-4 3z" fill="currentColor"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2 2"/><path d="M15 9.5v5" stroke="currentColor" stroke-width="1.8"/>',
   colour: '<circle cx="9" cy="9" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 2.5A6.5 6.5 0 0 1 15.5 9H9z" fill="#e8743b"/><path d="M15.5 9A6.5 6.5 0 0 1 9 15.5V9z" fill="#3fa58b"/><path d="M9 15.5A6.5 6.5 0 0 1 2.5 9H9z" fill="#4a7fd6"/>',
+  painter: '<path d="M3 3h10v4H3z" fill="currentColor"/><path d="M13 5h2v4H8v2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="6.5" y="11" width="3" height="5.5" rx="1" fill="currentColor"/>',
   similar: '<circle cx="7.5" cy="7.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11 11l5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
   swap: '<path d="M3 6h11M11 3l3 3-3 3M15 12H4M7 9l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   straight: '<rect x="1.5" y="7" width="4" height="4" fill="currentColor"/><rect x="12.5" y="7" width="4" height="4" fill="currentColor"/><path d="M5.5 9h7" stroke="currentColor" stroke-width="1.8"/><path d="M9 2v3M9 13v3" stroke="currentColor" stroke-width="1.2"/>',
@@ -322,6 +323,7 @@ function updateContextBar() {
     ctxBtn('backward', 'sendBackward', 'Send backward (⌘[)'), ctxBtn('back', 'sendBack', 'Send to back (⇧⌘[)'),
     '<span class="ctxsep"></span>',
     ctxBtn('colour', '@colour', 'Colour'),
+    !multi && typeof ARRANGE_COMMANDS.formatPainter === 'function' ? ctxBtn('painter', 'formatPainter', 'Format painter: click other objects to give them this style') : '',
     ctxBtn('align', '@align', multi ? 'Align / distribute selection' : 'Align to page'),
     ctxBtn('flip', 'flipH', 'Flip horizontally (⇧H)'),
     multi ? ctxBtn('group', 'group', 'Group (⌘G)') : hasGroup ? ctxBtn('group', 'ungroup', 'Ungroup (⇧⌘G)') : '',

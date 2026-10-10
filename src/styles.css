@@ -398,3 +398,4 @@ button.aimenu span { color: var(--muted); font-size: 11.5px; }
 .qa-item.on, .qa-item:hover { border-color: var(--accent); background: var(--accent-soft); }
 .qa-item svg, .qa-item img, .qa-item .pp-thumb { width: 52px; height: 52px; object-fit: contain; }
 .qa-item span { font-size: 10px; color: #4a525c; max-width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#stage.painter, #stage.painter * { cursor: copy !important; }

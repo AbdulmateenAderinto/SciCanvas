@@ -212,6 +212,32 @@
     return t;
   };
 
+  // Format painter: pick up the selected object's style, then click objects to apply it (Esc to stop).
+  let painting = false;
+  const stopPaint = () => { painting = false; stage.classList.remove('painter'); };
+  ARRANGE_COMMANDS.formatPainter = () => {
+    if (!selected().length) { toast('Select the object whose style you want to copy'); return; }
+    copyStyle();
+    painting = true; stage.classList.add('painter');
+    toast('Click objects to apply this style · Esc to stop', 3500);
+  };
+  svg.addEventListener('pointerdown', (e) => {
+    if (!painting) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const o = hitObject(e.target);
+    if (!o) { stopPaint(); return; } // clicking empty canvas ends painting
+    state.sel = [o.id];
+    pasteStyle();
+    render({ props: true });
+  }, true);
+  window.addEventListener('keydown', (e) => { if (painting && e.key === 'Escape') stopPaint(); }, true);
+  const prevMenu6 = contextMenuTemplate;
+  contextMenuTemplate = function () {
+    const t = prevMenu6();
+    if (state.sel.length === 1) t.push({ label: 'Format painter (click others to apply this style)', cmd: 'formatPainter' });
+    return t;
+  };
+
   // Colour legend: one swatch per colour used for shapes and icons, named after the first thing in that colour.
   ARRANGE_COMMANDS.colourLegend = () => {
     const seen = new Map();
