@@ -416,3 +416,18 @@ body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user
 #cropbar button[data-shape].on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 #cropbar button[data-act] { padding: 5px 10px; font-size: 12px; }
 #cropbar .cb-sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
+
+/* ---------- Editing text on the canvas (richedit.js) ---------- */
+#richEditor { position: absolute; z-index: 6; margin: 0; background: transparent; border: none; outline: 1.5px solid rgba(59,111,214,.55); outline-offset: 2px; border-radius: 1px; caret-color: currentColor; overflow: visible; box-sizing: content-box; cursor: text; }
+#richEditor:focus { outline: 1.5px solid rgba(59,111,214,.75); }
+#richEditor sup, #richEditor sub { font-size: 70%; line-height: 0; }
+#textEditor.ta-model { opacity: 0 !important; pointer-events: none !important; }
+.tc-pop { padding: 8px; display: flex; flex-direction: column; gap: 3px; background: #fff; }
+.tc-row { display: flex; gap: 3px; }
+.tc-sw { width: 20px; height: 20px; padding: 0; border-radius: 4px; border: 1px solid rgba(0,0,0,.12); cursor: pointer; }
+.tc-sw:hover { transform: scale(1.15); box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--accent); }
+.tc-label { font-size: 10px; color: #6b7280; margin-top: 6px; }
+.tc-foot { margin-top: 8px; display: flex; }
+.tc-more { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; }
+.tc-more:hover { border-color: var(--accent); color: var(--accent); }
+.tc-custom-in { width: 22px; height: 18px; padding: 0; border: none; }
