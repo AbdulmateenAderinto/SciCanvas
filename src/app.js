@@ -1106,6 +1106,13 @@ async function importDataUrl(name, url, at) {
 
 // ---------- Drag & drop ----------
 stage.addEventListener('dragover', (e) => { e.preventDefault(); });
+// A file dropped anywhere else (library, panels) must not open in place of the app: images land on the page.
+document.addEventListener('dragover', (e) => { if (!e.defaultPrevented) e.preventDefault(); });
+document.addEventListener('drop', async (e) => {
+  if (e.defaultPrevented) return;
+  e.preventDefault();
+  for (const f of (e.dataTransfer && e.dataTransfer.files) || []) if (/image\/(png|jpe?g|svg\+xml|gif|webp|tiff?)/.test(f.type)) await importFile(f);
+});
 stage.addEventListener('drop', async (e) => {
   e.preventDefault();
   const p = toWorld(e);

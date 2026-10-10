@@ -33,6 +33,13 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
   win.on('closed', () => { win = null; });
+  // Never navigate the app window away (a file or link dropped outside the canvas would replace the app and the
+  // open figure); web links go to the browser instead.
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url === win.webContents.getURL()) return;
+    e.preventDefault();
+    if (/^https?:/.test(url)) shell.openExternal(url);
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url);
     return { action: 'deny' };
