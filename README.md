@@ -3,9 +3,15 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.1
+## Version 1.2
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.2**
+- **The whole NIH BioArt collection built in**: 4,821 images from all 958 entries of NIAID's BioArt Source (bioart.niaid.nih.gov), in every version BioArt offers (colours, black and white, views), so a search shows all of them next to the other libraries. They're public domain except the Human Reference Atlas images (CC BY); File › Credits adds NIH's credit line.
+- **Organs drawn from professional medical artwork**: 75 organ, tissue and disease icons now use Servier Medical Art, Reactome and DBCLS illustrations (heart, lungs, brain, liver, kidney, gut, glands, bones, vessels, disease views such as infarct, stroke, pneumonia, aneurysm, DVT and pulmonary embolism), plus new Larynx, Aorta, Heart conduction system, Pulmonary embolism and Brain (horizontal section) icons. Classic icon style keeps the earlier drawings.
+- **One shaded finish for every built-in icon**, matching the reference illustrations (Classic turns it off).
+- **About 26,800 icons in all**: 2,154 built-in, the four icon libraries (about 19,900) and NIH BioArt (4,821).
 
 **New in 1.1**
 - **130 new icons** in 9 new soft-style groups: neuroscience (neuron types, synapse, myelin, brain views, retina), heart & circulation (four-chamber heart, plaque, clot, stent, ECG), channels, pumps & transporters (Na⁺/K⁺ channels and pumps, aquaporin, GLUT, ABC transporter, ATP synthase, junctions, endo-/exocytosis), metabolism & small molecules (skeletal structures of pyruvate, lactate, acetyl-CoA, glutamate, GABA, dopamine, serotonin, acetylcholine, testosterone; NADH, insulin, ions, enzyme–substrate), cell division & cell fate (every mitosis stage, crossing over, necrosis, migration, phagocytosis), tissues (epithelia, bone, cartilage, muscle, villus, alveoli, nephron, liver lobule, islet), people & places, data & computing, and environment & ecology.
@@ -37,7 +43,7 @@ Get the installer from the [latest release](https://github.com/AbdulmateenAderin
 - **Windows**: `SciCanvas-Setup-<version>.exe`. Double-click to install. Windows may show "Windows protected your PC" because the app isn't signed with a paid certificate: click **More info → Run anyway**.
 - **Mac**: `SciCanvas-<version>-arm64.dmg` for Apple-silicon Macs (M1 and later) or `-x64.dmg` for Intel Macs. Open it and drag SciCanvas to Applications. The first time, right-click the app and choose **Open** (or allow it under System Settings › Privacy & Security), because it isn't notarised by Apple.
 
-From 1.1 the installers include all ~21,700 icons: the 1,801 built-in ones and the four icon libraries (about 19,900 more), so they're bigger downloads (a few hundred MB). Library updates can still be installed from **Insert › Icon Libraries…** in the app.
+From 1.2 the installers include about 26,800 icons: the 2,154 built-in ones, the four icon libraries (about 19,900) and NIH BioArt (4,821), so they're big downloads (several hundred MB). Library updates can still be installed from **Insert › Icon Libraries…** in the app.
 
 ## Run (from the source code)
 
@@ -63,6 +69,8 @@ Anyone with write access to the repo can publish; GitHub builds the installers (
 3. A few minutes later the Windows `.exe` and both Mac `.dmg` files appear on the release (progress is under the **Actions** tab). Each build is started once as a smoke test before it's attached.
 
 Only releases whose tag starts with `v` (like `v1.1.0`) get installers; others, such as the `icon-libraries` release, are left alone. The build downloads the icon libraries from that `icon-libraries` release (`iconpacks.tar.gz`) and puts them inside the installers. To refresh them: run `npm run icons`, then `COPYFILE_DISABLE=1 tar -czf iconpacks.tar.gz -C assets iconpacks` (on a Mac, `COPYFILE_DISABLE=1` keeps hidden `._` files out) and replace the file on that release.
+
+NIH BioArt is a second file on the same release, `bioart.tar.gz`, built from a downloaded copy of the whole BioArt collection (a folder of `BIOART-…` entry folders plus `catalog.json` and `file_index.csv`): run `npm run icons:bioart -- <collection folder>` (AI/EPS conversion needs `pdftocairo` and Ghostscript), then `COPYFILE_DISABLE=1 tar -czf bioart.tar.gz -C assets iconpacks/bioart` and add or replace the file on the release. Installers built without it still work, just without BioArt.
 
 ## Checks
 
