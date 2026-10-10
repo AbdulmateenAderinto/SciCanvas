@@ -7,7 +7,7 @@
     ['Line tools', 'Bend points, routing around objects, hops, branches and merges, feedback loops, cofactor arrows (ATP → ADP), scale bars, timelines, flow and animated arrows, SBGN.'],
     ['Pathway editing', 'Drop an icon onto a line to insert it; right-click › Remove from pathway; Select connected; Connect in order; Straighten.'],
     ['Quick add', 'Press / over the canvas and type to add an icon or shape at the pointer.'],
-    ['Text helpers', 'Format chemical formulas (H₂O, Ca²⁺), tidy units (µm, °C, ±), LaTeX equations, and gene / protein name styling.'],
+    ['Text helpers', 'Format chemical formulas (H₂O, Ca²⁺), tidy units, statistics and species names (µm, °C, ±, p < 0.05, E. coli), LaTeX equations, and gene / protein name styling.'],
     ['Figure check fixes', 'The Check tab now fixes what it finds: small text, hairlines, off-page objects, labels that don’t fit, red/green colours, loose line ends, near-misalignments, mixed fonts — or Fix all.'],
     ['Timeline and cohort builders', 'Insert › Builders › Timeline (“Day 0: implant” lines → a study timeline with icons) Cohort Builder (“Vehicle: 8” → rows of coloured animals with n) Gating Strategy Builder (“Live > CD3+ > CD4+ / CD8+”) and Western Blot Builder (lanes and band intensities → a blot schematic).'],
     ['Legends and brackets', 'Insert a line legend or a colour legend (placed where there is room), and significance brackets between two bars.'],
