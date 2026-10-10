@@ -22,6 +22,7 @@ function renderLibrary() {
   $('#icongrid').innerHTML = items.map((it) => {
     let pic;
     if (it.native) pic = nativeThumb(it.id);
+    else if (it.pack === 'phylopic' && typeof IconStyle !== 'undefined' && IconStyle.mode !== 'classic') pic = `<span class="pp-thumb" style="-webkit-mask-image:url('${it.url}');mask-image:url('${it.url}')"></span>`; // Refined-style colour (phylostyle.js)
     else pic = `<img loading="lazy" decoding="async" src="${it.url}" alt="">`;
     const tip = it.native ? it.name : `${it.name} — ${it.author} (${LICENSE_NAMES[it.license] || it.license})${it.kb > 1024 ? ` · ${(it.kb / 1024).toFixed(1)} MB` : ''}`;
     const nc = isNonCommercial(it.license) ? '<em class="nc" title="Non-commercial licence">NC</em>' : '';

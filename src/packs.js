@@ -247,9 +247,10 @@ function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
   else if (cat === 'Soft style') all = all.filter((i) => i.category && i.category.startsWith('Soft'));
   else if (cat === 'Refined') all = all.filter((i) => i.category && i.category.startsWith('Refined'));
   else if (cat !== 'All') all = all.filter((i) => i.category === cat);
+  // PhyloPic silhouettes rank after illustrated icons unless the search is their own (scientific) name.
   const scored = [];
   for (const it of all) {
-    if (!words.length) { scored.push([boost.has(it.category) ? 2 : it.native ? 1 : 0, it]); continue; }
+    if (!words.length) { scored.push([boost.has(it.category) ? 2 : it.native ? 1 : it.pack === 'phylopic' ? -1 : 0, it]); continue; }
     const name = it.name.toLowerCase();
     const score = (ws) => {
       let s = 0;
@@ -260,7 +261,7 @@ function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
     };
     let s = score(words);
     if (s < 0 && synWords) { s = score(synWords); if (s >= 0) s = Math.min(s, 3.5) - 0.5; }
-    if (s >= 0) scored.push([s + (it.native ? 0.5 : 0) + (it.category && it.category.startsWith('Refined') ? 0.4 : 0) + (boost.has(it.category) ? 1 : 0) - (it.kb > 1024 ? 1 : 0) - (isNonCommercial(it.license) ? 0.3 : 0) - (it.pack === 'phylopic' ? 0.2 : 0), it]);
+    if (s >= 0) scored.push([s + (it.native ? 0.5 : 0) + (it.category && it.category.startsWith('Refined') ? 0.4 : 0) + (boost.has(it.category) ? 1 : 0) - (it.kb > 1024 ? 1 : 0) - (isNonCommercial(it.license) ? 0.3 : 0) - (it.pack === 'phylopic' && !name.startsWith(q) ? 3.5 : 0), it]);
   }
   if (cat !== 'Recent') scored.sort((a, b) => b[0] - a[0]);
   return { total: scored.length, items: scored.slice(0, limit).map((x) => x[1]) };
