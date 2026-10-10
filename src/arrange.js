@@ -310,11 +310,14 @@ Object.assign(CTX_SVG, {
   swap: '<path d="M3 6h11M11 3l3 3-3 3M15 12H4M7 9l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   straight: '<rect x="1.5" y="7" width="4" height="4" fill="currentColor"/><rect x="12.5" y="7" width="4" height="4" fill="currentColor"/><path d="M5.5 9h7" stroke="currentColor" stroke-width="1.8"/><path d="M9 2v3M9 13v3" stroke="currentColor" stroke-width="1.2"/>',
 });
-const ctxBtn = (key, cmd, title) => `<button data-ctx="${cmd}" title="${title}"><svg viewBox="0 0 18 18" width="16" height="16">${CTX_SVG[key]}</svg></button>`;
+CTX_SVG.crop = '<path d="M5 1.5V13h11.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1.5 5H13v11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>';
+// Each button says what it does under its icon (short name; the tooltip keeps the full name and shortcut).
+const CTX_LABEL = { bringFront: 'Front', bringForward: 'Forward', sendBackward: 'Backward', sendBack: 'Back', '@align': 'Align', flipH: 'Flip', group: 'Group', ungroup: 'Ungroup', editPoints: 'Points', cropStart: 'Crop', duplicate: 'Duplicate', lock: 'Lock', deleteSel: 'Delete', ungroupIcon: 'Edit parts', replaceSel: 'Replace', selectSameIcon: 'Select same', zoomWedge: 'Callout', '@lines': 'Style', lineSwap: 'Swap', lineStraighten: 'Straighten', '@colour': 'Colour', formatPainter: 'Painter', findSimilar: 'Similar' };
+const ctxBtn = (key, cmd, title) => `<button data-ctx="${cmd}" title="${title}"><svg viewBox="0 0 18 18" width="16" height="16">${CTX_SVG[key]}</svg><span class="ctxlbl">${CTX_LABEL[cmd] || title.split(/ \(| —|…/)[0]}</span></button>`;
 function updateContextBar() {
   const bar = $('#ctxbar');
   const sel = selected();
-  if (!sel.length || state.tool !== 'select' || nodeEdit || drag || editing) { bar.classList.add('hidden'); return; }
+  if (!sel.length || state.tool !== 'select' || nodeEdit || drag || editing || (typeof cropMode !== 'undefined' && cropMode)) { bar.classList.add('hidden'); return; }
   const multi = sel.length > 1, hasGroup = sel.some((o) => o.type === 'group'), isPath = sel.length === 1 && sel[0].type === 'path';
   const allLines = sel.every((o) => o.type === 'connector') && typeof ARRANGE_COMMANDS.lineSwap === 'function';
   bar.innerHTML = [
@@ -329,6 +332,7 @@ function updateContextBar() {
     multi ? ctxBtn('group', 'group', 'Group (⌘G)') : hasGroup ? ctxBtn('group', 'ungroup', 'Ungroup (⇧⌘G)') : '',
     isPath ? ctxBtn('points', 'editPoints', 'Edit points') : '',
     sel.length === 1 && sel[0].type === 'icon' ? ctxBtn('similar', 'findSimilar', 'Find similar icons in the library') : '',
+    sel.length === 1 && ['icon', 'image'].includes(sel[0].type) && !sel[0].locked ? ctxBtn('crop', 'cropStart', 'Crop (double-click a cropped object to adjust)') : '',
     '<span class="ctxsep"></span>',
     ctxBtn('dup', 'duplicate', 'Duplicate (⌘D)'), ctxBtn('lock', 'lock', 'Lock (⌘L)'), ctxBtn('del', 'deleteSel', 'Delete (⌫)'),
   ].join('');
@@ -448,6 +452,7 @@ function contextMenuTemplate() {
   const isPath = n === 1 && sel[0].type === 'path', hasGroup = sel.some((o) => o.type === 'group');
   return [
     { label: 'Cut', role: 'cut' }, { label: 'Copy', role: 'copy' }, { label: 'Paste', role: 'paste' }, { label: 'Duplicate', cmd: 'duplicate' }, { label: 'Copy as image', cmd: 'copyImage' }, { label: 'Copy as SVG', cmd: 'copySvg' },
+    ...(n === 1 && ['icon', 'image'].includes(sel[0].type) ? [{ label: 'Crop', cmd: 'cropStart' }, ...(sel[0].crop ? [{ label: 'Remove crop', cmd: 'cropReset' }] : [])] : []),
     { type: 'separator' },
     { label: 'Bring to front', cmd: 'bringFront' }, { label: 'Bring forward', cmd: 'bringForward' }, { label: 'Send backward', cmd: 'sendBackward' }, { label: 'Send to back', cmd: 'sendBack' },
     { type: 'separator' },
@@ -554,8 +559,8 @@ function renderLayers() {
     r.append(caret, kind, name);
     if (!parent) {
       r.append(
-        el('button', { class: 'lbtn' + (o.hidden ? ' on' : ''), title: o.hidden ? 'Show' : 'Hide', textContent: o.hidden ? '◌' : '👁', onclick: (e) => { e.stopPropagation(); checkpoint(); o.hidden = !o.hidden; if (o.hidden) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }),
-        el('button', { class: 'lbtn' + (o.locked ? ' on' : ''), title: o.locked ? 'Unlock' : 'Lock', textContent: o.locked ? '🔒' : '🔓', onclick: (e) => { e.stopPropagation(); checkpoint(); o.locked = !o.locked; if (o.locked) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }));
+        el('button', { class: 'lbtn' + (o.hidden ? ' on' : ''), title: o.hidden ? 'Show' : 'Hide', textContent: o.hidden ? '◌ Show' : '👁 Hide', onclick: (e) => { e.stopPropagation(); checkpoint(); o.hidden = !o.hidden; if (o.hidden) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }),
+        el('button', { class: 'lbtn' + (o.locked ? ' on' : ''), title: o.locked ? 'Unlock' : 'Lock', textContent: o.locked ? '🔒 Unlock' : '🔓 Lock', onclick: (e) => { e.stopPropagation(); checkpoint(); o.locked = !o.locked; if (o.locked) state.sel = state.sel.filter((i) => i !== o.id); render({ props: true }); } }));
     }
     r.addEventListener('click', (e) => {
       const id = parent ? parent.id : o.id;

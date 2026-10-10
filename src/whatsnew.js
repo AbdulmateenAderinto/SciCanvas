@@ -14,7 +14,7 @@
     ['Faster arranging', 'Smart duplicate (⌘D repeats the step), paste in place (⇧⌘V) or right-click › Paste here, Tidy into grid, Arrange in a circle (with Connect in order for cycle diagrams), Move / Copy to page, Format painter, Tab through objects.'],
     ['Library', 'Library → category → clade dropdowns (PhyloPic in 20 groups), hover previews, Find similar icons.'],
     ['Alt text', 'Properties › Page › Alt text, with Draft from figure (what’s on the page and what the arrows say); saved in exported SVGs.'],
-    ['Images', 'Double-click an image to crop it on the canvas; right-click › Trim white / transparent edges crops pasted plots and screenshots to their content.'],
+    ['Images', 'Crop pictures and icons on the canvas (double-click a picture, or Crop on the floating toolbar); right-click › Trim white / transparent edges crops pasted plots and screenshots to their content.'],
     ['Pathway from text', 'New notation: <=> reversible, -o catalysis, “ : verb” labels and [ATP → ADP] cofactors.'],
     ['Presenting', 'In Present mode, L toggles a laser pointer and B blanks the screen.'],
     ['Copy as SVG', 'Edit › Copy as SVG pastes into Figma, Illustrator or Inkscape as editable vectors.'],

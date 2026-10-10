@@ -352,40 +352,14 @@
   const prevMenu8 = contextMenuTemplate;
   contextMenuTemplate = function () {
     const t = prevMenu8();
-    if (selected().some((o) => o.type === 'image')) t.push({ label: 'Crop on canvas (or double-click)', cmd: 'cropCanvas' }, { label: 'Trim white / transparent edges', cmd: 'trimImage' });
+    if (selected().some((o) => o.type === 'image')) t.push({ label: 'Trim white / transparent edges', cmd: 'trimImage' });
     return t;
   };
 
-  // Crop on the canvas: double-click an image, drag its edges; the cropped-away part shows faintly. Enter / Esc ends.
-  async function cropOnCanvas(o) {
-    if (!o || o.type !== 'image' || typeof startHandles !== 'function') return;
-    if (o.rot) { toast('Straighten the image (rotation 0) to crop it on the canvas, or use Properties › Crop'); return; }
-    if (!o.nw || !o.nh) { const sz = await loadImageSize(o.src); o.nw = sz.w; o.nh = sz.h; }
-    o.crop = o.crop || { l: 0, t: 0, r: 0, b: 0 };
-    const full = () => { const c = o.crop, fw = o.w / (1 - c.l - c.r), fh = o.h / (1 - c.t - c.b); return { x: o.x - c.l * fw, y: o.y - c.t * fh, w: fw, h: fh }; };
-    const F0 = full(); // the uncropped image's place stays fixed while cropping
-    state.sel = []; render({ props: true }); // only the crop handles while cropping
-    startHandles({
-      hint: 'Drag the edges to crop · Enter or Esc when done',
-      lines: (z) => `<image href="${o.src}" x="${F0.x}" y="${F0.y}" width="${F0.w}" height="${F0.h}" preserveAspectRatio="none" opacity=".28" pointer-events="none"/>`
-        + `<rect x="${F0.x}" y="${F0.y}" width="${F0.w}" height="${F0.h}" fill="none" stroke="#8a9bb0" stroke-width="${1 / z}" stroke-dasharray="${4 / z}" pointer-events="none"/>`
-        + `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="none" stroke="#3b6fd6" stroke-width="${1.5 / z}" pointer-events="none"/>`,
-      handles: () => [{ id: 'l', x: o.x, y: o.y + o.h / 2 }, { id: 'r', x: o.x + o.w, y: o.y + o.h / 2 }, { id: 't', x: o.x + o.w / 2, y: o.y }, { id: 'b', x: o.x + o.w / 2, y: o.y + o.h }],
-      drag: (id, p) => {
-        const c = o.crop, F = F0, min = 0.04;
-        if (id === 'l') c.l = Math.max(0, Math.min(1 - c.r - min, (p.x - F.x) / F.w));
-        if (id === 'r') c.r = Math.max(0, Math.min(1 - c.l - min, (F.x + F.w - p.x) / F.w));
-        if (id === 't') c.t = Math.max(0, Math.min(1 - c.b - min, (p.y - F.y) / F.h));
-        if (id === 'b') c.b = Math.max(0, Math.min(1 - c.t - min, (F.y + F.h - p.y) / F.h));
-        o.x = F.x + c.l * F.w; o.y = F.y + c.t * F.h; o.w = F.w * (1 - c.l - c.r); o.h = F.h * (1 - c.t - c.b);
-      },
-      end: () => { const c = o.crop; if (!(c.l || c.t || c.r || c.b)) o.crop = null; if (objs().includes(o)) state.sel = [o.id]; render({ props: true }); },
-    });
-  }
-  ARRANGE_COMMANDS.cropCanvas = () => cropOnCanvas(selected().find((x) => x.type === 'image'));
+  // Double-click a picture to crop it (crop.js does the cropping; it opens on its own only for cropped objects).
   svg.addEventListener('dblclick', (e) => {
     const o = hitObject(e.target);
-    if (o && o.type === 'image') { e.stopImmediatePropagation(); cropOnCanvas(o); }
+    if (o && o.type === 'image' && typeof startCrop === 'function' && state.tool === 'select') { e.stopImmediatePropagation(); state.sel = [o.id]; render({ props: true }); startCrop(o); }
   }, true);
 
   // Colour legend: one swatch per colour used for shapes and icons, named after the first thing in that colour.

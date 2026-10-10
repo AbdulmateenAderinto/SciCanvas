@@ -203,6 +203,7 @@ function renderOverlay(extra = '') {
       }
       continue;
     }
+    if (typeof cropActive === 'function' && cropActive(o.id)) continue; // crop mode draws its own frame (crop.js)
     const selCol = o.type === 'group' ? '#8a4fff' : '#3b6fd6';
     const tf = `translate(${o.x} ${o.y}) rotate(${o.rot || 0} ${o.w / 2} ${o.h / 2})`;
     s += `<g transform="${tf}"><rect data-move-id="${o.id}" width="${o.w}" height="${o.h}" fill="none" stroke="transparent" stroke-width="${10 / z}" pointer-events="stroke" style="cursor:move"/>`;
@@ -213,13 +214,23 @@ function renderOverlay(extra = '') {
       if (o.type === 'protocol') handles = ['e', 'w'];
       const pos = { n: [0.5, 0], s: [0.5, 1], e: [1, 0.5], w: [0, 0.5], nw: [0, 0], ne: [1, 0], se: [1, 1], sw: [0, 1] };
       const cursors = { n: 'ns', s: 'ns', e: 'ew', w: 'ew', nw: 'nwse', se: 'nwse', ne: 'nesw', sw: 'nesw' };
+      // As in BioRender: round dots at the corners (resize, keeping proportions for icons and pictures) and white
+      // pills on the sides (stretch one way). Each sits on a larger invisible grab area so it's easy to hit.
       for (const h of handles) {
-        const [u, v] = pos[h];
-        s += `<rect data-handle="${h}" x="${u * o.w - hs / 2}" y="${v * o.h - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="${selCol}" stroke-width="${sw}" style="cursor:${cursors[h]}-resize"/>`;
+        const [u, v] = pos[h], x = u * o.w, y = v * o.h, cur = `cursor:${cursors[h]}-resize`;
+        s += `<circle data-handle="${h}" cx="${x}" cy="${y}" r="${9 / z}" fill="transparent" style="${cur}"/>`;
+        if (h.length === 2) s += `<circle data-handle="${h}" cx="${x}" cy="${y}" r="${4.5 / z}" fill="${selCol}" stroke="#fff" stroke-width="${1.5 / z}" style="${cur}"/>`;
+        else {
+          const across = h === 'n' || h === 's', pw = (across ? 16 : 6) / z, ph = (across ? 6 : 16) / z;
+          s += `<rect data-handle="${h}" x="${x - pw / 2}" y="${y - ph / 2}" width="${pw}" height="${ph}" rx="${3 / z}" fill="#fff" stroke="${selCol}" stroke-width="${1.2 / z}" style="${cur}"/>`;
+        }
       }
       if (o.type !== 'protocol') {
-        s += `<line x1="${o.w / 2}" y1="0" x2="${o.w / 2}" y2="${-22 / z}" stroke="${selCol}" stroke-width="${sw}"/>`;
-        s += `<circle data-handle="rot" cx="${o.w / 2}" cy="${-24 / z}" r="${hs * 0.65}" fill="#fff" stroke="${selCol}" stroke-width="${sw}" style="cursor:grab"/>`;
+        const ry = -26 / z, rr = 7 / z;
+        s += `<line x1="${o.w / 2}" y1="0" x2="${o.w / 2}" y2="${ry + rr}" stroke="${selCol}" stroke-width="${sw}"/>`;
+        s += `<circle data-handle="rot" cx="${o.w / 2}" cy="${ry}" r="${rr}" fill="#fff" stroke="${selCol}" stroke-width="${sw}" style="cursor:grab"/>`;
+        s += `<path d="M${o.w / 2 + 3.6 / z} ${ry - 2 / z}A${4 / z} ${4 / z} 0 1 0 ${o.w / 2 + 3.8 / z} ${ry + 1.6 / z}" fill="none" stroke="${selCol}" stroke-width="${1.2 / z}" pointer-events="none"/>`;
+        s += `<circle cx="${o.w / 2}" cy="${ry}" r="${1.6 / z}" fill="${selCol}" pointer-events="none"/>`;
       }
     }
     s += '</g>';
@@ -780,7 +791,9 @@ function handlePointerMove(e) {
     }
     case 'resize': {
       const o = drag.o;
-      const lock = ['icon', 'image'].includes(o.type) ? !e.shiftKey : e.shiftKey;
+      // Corners keep an icon's or picture's proportions (Shift frees them); side handles stretch one way only.
+      const corner = drag.h.length === 2;
+      const lock = corner && ['icon', 'image'].includes(o.type) ? !e.shiftKey : e.shiftKey;
       const r = computeResize(drag, p, o.type === 'text' ? true : lock);
       $('#guides').innerHTML = o.type === 'text' || o.type === 'protocol' ? '' : snapResize(drag, r, lock, e);
       if (o.type === 'text') {
@@ -1214,7 +1227,7 @@ function color(list, key) {
   const inp = el('input', { type: 'color', value: toHex(list[0][key]), oninput: (e) => setProps(list, key, e.target.value) });
   const none = el('button', { textContent: 'None', title: 'Transparent', onclick: () => setProps(list, key, 'none', { rebuild: true }) });
   wrap.append(inp);
-  if (window.EyeDropper) wrap.append(el('button', { textContent: '💧', title: 'Pick a colour from anywhere on screen', onclick: async () => { const c = await pickScreenColour(); if (c) setProps(list, key, c, { rebuild: true }); } }));
+  if (window.EyeDropper) wrap.append(el('button', { textContent: '💧 Pick', title: 'Pick a colour from anywhere on screen', onclick: async () => { const c = await pickScreenColour(); if (c) setProps(list, key, c, { rebuild: true }); } }));
   if (['fill', 'stroke', 'bg', 'fill2', 'clipStroke'].includes(key)) wrap.append(none);
   return wrap;
 }
@@ -1394,7 +1407,7 @@ function renderProps() {
   if (o.erase && o.erase.length) P.append(sect('Erased areas', el('div', { class: 'note', textContent: `${o.erase.length} eraser stroke(s). Erasing is non-destructive.` }), btn('Restore erased areas', () => { checkpoint(); o.erase = []; render({ props: true }); })));
   P.append(sect('Link', row('URL', el('input', { type: 'text', value: o.link || '', placeholder: 'https://doi.org/…', oninput: (e) => setProps(L, 'link', e.target.value.trim()) })),
     el('div', { class: 'note', textContent: 'Clickable in exported PDF and SVG files. ⌘-click the object to open it.' })));
-  if (o.type === 'image') P.append(cropSection(o));
+  if (o.type === 'image' || o.type === 'icon') P.append(cropSection(o));
   P.append(alignSection(sel));
   P.append(arrangeSection(sel));
 }
@@ -1496,10 +1509,12 @@ function cropSection(o) {
     o.w = visW * scale; o.h = visH * scale;
     renderScene(); renderOverlay();
   };
-  if (!o.nw) return sect('Crop', el('div', { class: 'note', textContent: 'Use “Reset size” once to enable cropping for this image.' }));
-  return sect('Crop', ...[['l', 'Left'], ['r', 'Right'], ['t', 'Top'], ['b', 'Bottom']].map(([k, l]) =>
-    row(l, el('input', { type: 'range', min: 0, max: 0.45, step: 0.005, value: c[k] || 0, oninput: (e) => set(k, parseFloat(e.target.value)) }))),
-    btn('Remove crop', () => { checkpoint(); const s = o.w / ((1 - (o.crop?.l || 0) - (o.crop?.r || 0)) * o.nw); o.crop = null; o.w = o.nw * s; o.h = o.nh * s; render({ props: true }); }));
+  // Crop on the canvas (crop.js) works for icons and pictures; pictures also keep the per-side sliders.
+  const onCanvas = el('div', { class: 'row' }, btn('Crop on canvas', () => startCrop(o), 'primary'), o.crop ? btn('Remove crop', () => resetCrop(o)) : null);
+  const tip = el('div', { class: 'note', textContent: 'Drag the frame’s corners and sides to trim; drag inside to move the drawing. Enter or click outside to finish, Esc to cancel. Double-click a cropped object to change its crop.' });
+  if (o.type !== 'image' || !o.nw) return sect('Crop', onCanvas, tip);
+  return sect('Crop', onCanvas, tip, ...[['l', 'Left'], ['r', 'Right'], ['t', 'Top'], ['b', 'Bottom']].map(([k, l]) =>
+    row(l, el('input', { type: 'range', min: 0, max: 0.45, step: 0.005, value: c[k] || 0, oninput: (e) => set(k, parseFloat(e.target.value)) }))));
 }
 
 function renderPageProps(P) {
