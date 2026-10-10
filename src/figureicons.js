@@ -1,13 +1,15 @@
 // Soft-style icons for sequencing and immunology figures: gut-associated lymphoid tissue and germinal centres,
 // sequencing instruments (nanopore, PacBio, Illumina, capillary), a Sanger chromatogram with ABI base colours,
-// and retroviral transduction with a GFP reporter. Drawn with the shared kit from softicons.js.
+// and retroviral transduction with a GFP reporter. Drawn with the shared kit from softicons.js in the flat BioRender
+// manner: soft fills, an outline in a darker tone of the same hue, rounded shapes and no added shading.
 (() => {
   const K = globalThis.SoftKit;
   if (!K) return;
   const { P, OW, f, oc, rng, hash, glob, tube, tubes, ball, ell, helix, cr } = K;
   const CAT = { imm: 'Soft · Cells', tissue: 'Soft · Organs & body systems', seq: 'Soft · Lab equipment', dna: 'Soft · DNA & genetics' };
   const R = (name) => rng(hash(name));
-  const S = (name, cat, tags, vb, draw, color = P.navy) => K.add(name, cat, tags, color, () => draw(R(name)), vb);
+  const NAMES = new Set();
+  const S = (name, cat, tags, vb, draw, color = P.navy) => { NAMES.add(name); K.add(name, cat, tags, color, () => draw(R(name)), vb); };
   const mix = (a, b, k) => Color.mix(a, b, k);
   const light = (c, k) => mix(c, '#ffffff', k);
 
@@ -48,10 +50,10 @@
     [[60, 22], [100, 22]].forEach(([cx]) => {
       s += path(`M${cx - 24} 46 C${cx - 22} 26 ${cx - 12} 16 ${cx} 16 C${cx + 12} 16 ${cx + 22} 26 ${cx + 24} 46 Z`, MUC, { oc: '#d9a7a1', w: 1.4 });
       s += line(`M${cx - 23} 44 C${cx - 21} 26 ${cx - 12} 17.5 ${cx} 17.5 C${cx + 12} 17.5 ${cx + 21} 26 ${cx + 23} 44`, '#c9858d', 2.2, { op: 0.7 }); // follicle-associated epithelium
-      s += ell(cx, 54, 21, 23, '#a99fdc', 0, { oc: '#6f63b8', w: 1.4 });           // follicle (mantle)
-      s += packed(cx, 54, 20, 22, 1.25, '#8378c9', r, (x, y) => ((x - cx) / 12) ** 2 + ((y - 58) / 12) ** 2 > 1);
-      s += ell(cx, 58, 12, 12, '#f3e6b8', 0, { oc: '#c9a85a', w: 1.2 });           // germinal centre
-      s += packed(cx, 58, 11, 11, 1.5, '#e2c06a', r);
+      s += ell(cx, 54, 21, 23, '#d9cdf0', 0, { oc: '#8b74c9', w: 1.4 });           // follicle (mantle)
+      s += packed(cx, 54, 20, 22, 1.3, '#b39ddf', r, (x, y) => ((x - cx) / 12) ** 2 + ((y - 58) / 12) ** 2 > 1);
+      s += ell(cx, 58, 12, 12, '#f6efcc', 0, { oc: '#c9a85a', w: 1.2 });           // germinal centre
+      s += packed(cx, 58, 11, 11, 1.5, '#e6c56a', r);
     });
     return s;
   }, '#7f72c4');
@@ -257,4 +259,6 @@
   };
   S('Retroviral plasmid (insert, GFP, PuroR)', CAT.dna, 'retroviral plasmid vector map pMX insert GFP puromycin resistance LTR cloning Aicda', [100, 100], plasmid(true), GFP);
   S('Retroviral plasmid (empty, GFP, PuroR)', CAT.dna, 'retroviral plasmid vector map pMX empty vector control GFP puromycin resistance LTR', [100, 100], plasmid(false), GFP);
+  // Flat like BioRender: mark these as finished so iconfinish.js does not add its shadow bands and light streaks.
+  for (const ic of ICONS) if (NAMES.has(ic.name) && /^s-/.test(ic.id)) ic.finished = true;
 })();
