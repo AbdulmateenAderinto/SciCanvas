@@ -1065,6 +1065,7 @@
       ['Gene and protein names', 'Edit › Gene & Protein Names… lists gene / protein symbols in your text, guesses which is which from nearby words, and sets italics (genes) and human or mouse capitalisation once you have checked them.'],
       ['Insert into a pathway', 'Drag an icon or shape from the library onto a line between two objects: it goes into the path (A → new → B) and both lines keep their style. Drag a line style from the Shapes tab onto a line to restyle it, or onto the page to draw one.'],
       ['Connect and select pathways', 'Select several objects, right-click › Connect in order to join them with arrows in reading order. Select connected (right-click or Arrange › Lines) selects everything linked to the selection through lines, so a whole pathway moves together. Tab / Shift+Tab steps through objects one at a time.'],
+      ['Quick add and paste here', 'Press / over the canvas and type to add an icon right where the pointer is (arrow keys to choose, Enter to add). Right-click empty canvas › Paste here pastes at that spot; ⇧⌘V pastes in place.'],
       ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
   }
 
@@ -1078,7 +1079,7 @@
       const rows = [];
       try { for (const c of (await window.native.menuCommands()) || []) if (c.accel) rows.push([c.path.slice(-1)[0].replace(/…$/, ''), c.accel]); } catch { /* menus unavailable */ }
       const TOOLS_KEYS = [['Select', 'V'], ['Pan (or hold Space)', 'H'], ['Text', 'T'], ['Rectangle', 'R'], ['Ellipse', 'E'], ['Shapes', 'S'], ['Connector', 'C'], ['Brush', 'B'], ['Pencil', 'D'], ['Pen', 'P'], ['Line', 'L'], ['Arrow', 'A'], ['Airbrush', 'W'], ['Numbered badge', 'N'], ['Comment', 'M'], ['Lasso', 'Q']];
-      const CANVAS = [['Nudge 1 px / 10 px', '←↑→↓ / ⇧←↑→↓'], ['Add a connected copy', '⌥⇧←↑→↓'], ['Next / previous object', 'Tab / ⇧Tab'], ['Delete', '⌫'], ['Deselect, back to pointer', 'Esc'], ['Duplicate while dragging', '⌥-drag'], ['Turn snapping off while dragging', 'hold ⌘'], ['Constrain angle / proportions', 'hold ⇧'], ['Paste in place', '⇧⌘V']];
+      const CANVAS = [['Nudge 1 px / 10 px', '←↑→↓ / ⇧←↑→↓'], ['Add a connected copy', '⌥⇧←↑→↓'], ['Next / previous object', 'Tab / ⇧Tab'], ['Delete', '⌫'], ['Deselect, back to pointer', 'Esc'], ['Duplicate while dragging', '⌥-drag'], ['Turn snapping off while dragging', 'hold ⌘'], ['Constrain angle / proportions', 'hold ⇧'], ['Paste in place', '⇧⌘V'], ['Add an icon at the pointer', '/']];
       const table = (title, list) => el('details', { class: 'help', open: title === 'Tools' }, el('summary', { textContent: title, style: 'cursor:pointer;font-weight:600' }),
         el('div', { style: 'display:grid;grid-template-columns:1fr auto;gap:2px 16px;margin-top:6px;font-size:13px' }, ...list.flatMap(([a, k]) => [el('span', { textContent: a }), el('kbd', { textContent: k, style: 'font-family:inherit;color:#4a525c' })])));
       body.firstChild.append(el('h3', { textContent: 'Keyboard shortcuts', style: 'margin:16px 0 6px;font-size:14px' }), table('Tools', TOOLS_KEYS), table('On the canvas', CANVAS), rows.length ? table('Menu commands', rows) : null);
