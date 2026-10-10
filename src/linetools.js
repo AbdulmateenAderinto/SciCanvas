@@ -991,7 +991,7 @@
         row('Tick labels', txt('tickLabels', 'Day 0, Day 3, Day 7')),
       ),
       el('div', { class: 'btnrow' }, btn('Two-way', twoWay), btn('Add branch', addBranchFromLine), btn('Legend', insertLegend),
-        btn('Use for new lines', () => { const st = styleOf(o); delete st.offset; delete st.endGap; globalThis.linePreset = st; toast('New lines (connector tool, quick-connect arrows) will use this style'); })),
+        btn('Use for new lines', () => { const st = styleOf(o); delete st.offset; globalThis.linePreset = st; toast('New lines (connector tool, quick-connect arrows) will use this style'); })),
       el('div', { class: 'note', textContent: 'Drop a line end onto another line to branch from it or merge into it; drop it on an object’s outline to pin it to that exact spot. Drag the small orange circles to add bend points.' }));
     const P = $('#props'), anchor = [...P.querySelectorAll('h3')].filter((h) => h.textContent === 'Connector').pop(); // the style section, after the name
     if (anchor && anchor.parentElement) anchor.parentElement.after(s); else P.append(s);
