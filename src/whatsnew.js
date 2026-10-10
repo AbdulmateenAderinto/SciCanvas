@@ -11,7 +11,7 @@
     ['Figure check fixes', 'The Check tab now fixes what it finds: small text, hairlines, off-page objects, labels that don’t fit, red/green colours, loose line ends, near-misalignments, mixed fonts — or Fix all.'],
     ['Timeline and cohort builders', 'Insert › Builders › Timeline (“Day 0: implant” lines → a study timeline with icons) Cohort Builder (“Vehicle: 8” → rows of coloured animals with n) Gating Strategy Builder (“Live > CD3+ > CD4+ / CD8+”) and Western Blot Builder (lanes and band intensities → a blot schematic).'],
     ['Legends and brackets', 'Insert a line legend or a colour legend (placed where there is room), and significance brackets between two bars.'],
-    ['Faster arranging', 'Smart duplicate (⌘D repeats the step), paste in place (⇧⌘V) or right-click › Paste here, Tidy into grid, Move / Copy to page, Format painter, Tab through objects.'],
+    ['Faster arranging', 'Smart duplicate (⌘D repeats the step), paste in place (⇧⌘V) or right-click › Paste here, Tidy into grid, Arrange in a circle (with Connect in order for cycle diagrams), Move / Copy to page, Format painter, Tab through objects.'],
     ['Library', 'Library → category → clade dropdowns (PhyloPic in 20 groups), hover previews, Find similar icons.'],
     ['Alt text', 'Properties › Page › Alt text, with Draft from figure (what’s on the page and what the arrows say); saved in exported SVGs.'],
     ['Images', 'Right-click › Trim white / transparent edges crops pasted plots and screenshots to their content.'],
