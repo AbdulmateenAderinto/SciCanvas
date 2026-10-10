@@ -1077,6 +1077,7 @@
       ['Formulas, units and symbols', 'Select text, right-click › Format chemical formulas (H2O → H₂O, Ca2+ → Ca²⁺, SO42- → SO₄²⁻), or the H₂O button in the text bar while typing. Tidy units & symbols turns 10 um into 10 µm, 5ug/ml into 5 µg/mL, 37 C into 37 °C, +/- into ±, and -> into →.'],
       ['Format painter', 'Select an object and click the paint-roller button on the floating toolbar (or right-click › Format painter), then click other objects to give them the same style. Esc or a click on empty canvas stops.'],
       ['Colour legend', 'Insert › Colour Legend (or right-click empty canvas) adds a key with one swatch per colour used by shapes and icons, named after the first thing in that colour. Double-click a name to edit it.'],
+      ['Timeline builder', 'Insert › Timeline Builder…: one line per time point (“Day 0: tumour implant”, “Week 2: boost”). You get a timeline arrow with ticks and labels, and each event above its tick with a matching icon (swap any with Replace icon).'],
       ['Significance brackets', 'Select two bars, images or groups, right-click › Significance bracket (or Insert › Significance Bracket). A bracket with * goes above them; double-click the * to change it to **, ns or a p value.'],
       ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
   }

@@ -126,6 +126,7 @@ function buildMenu() {
         { label: 'Ungroup Icon into Editable Parts', click: send('ungroupIcon') },
         { label: 'Table', click: send('insertTable') },
         { label: 'Equation (LaTeX)…', click: send('equation') },
+        { label: 'Timeline Builder…', click: send('timelineBuilder') },
         { label: 'Line Legend', click: send('lineLegend') },
         { label: 'Colour Legend', click: send('colourLegend') },
         { label: 'Significance Bracket (Select Two Objects)', click: send('sigBracket') },

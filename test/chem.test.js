@@ -23,3 +23,9 @@ test('units and symbols are tidied only where unambiguous', () => {
   };
   for (const [a, b] of Object.entries(cases)) assert.equal(t(a), b, a);
 });
+
+test('timeline builder reads "time: event" lines in several notations', () => {
+  const p = A.globals.parseTimeline;
+  assert.equal(JSON.stringify(p('Day 0: implant\nWeek 2 - boost\n E12.5: harvest \n\n48 h')), JSON.stringify([
+    { when: 'Day 0', what: 'implant' }, { when: 'Week 2', what: 'boost' }, { when: 'E12.5', what: 'harvest' }, { when: '48 h', what: '' }]));
+});
