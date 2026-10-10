@@ -66,6 +66,12 @@ function curveGeometry(L, fs, curve) {
   const d = `M${P[0][0]} ${P[0][1]} A${R} ${R} 0 ${large} ${up ? 1 : 0} ${P[60][0]} ${P[60][1]}`;
   return { w, h, d };
 }
+// The dash pattern plus one stroke-linecap: dots are zero-length dashes that only show with round caps, and an element
+// with two stroke-linecap attributes is invalid SVG (SVG and PNG export of dotted lines failed).
+function dashAndCap(o, sw, cap) {
+  const d = dashAttr(o, sw);
+  return /stroke-linecap/.test(d) ? d : `${d} stroke-linecap="${cap}"`;
+}
 function dashAttr(o, sw) {
   const style = o.dashStyle || (o.dash ? 'dashed' : 'solid');
   if (style === 'dashed') return ` stroke-dasharray="${sw * 3} ${sw * 2.4}"`;
@@ -300,7 +306,7 @@ function connectorSvg(o, objects, forExport) {
   }
   let s = '';
   if (!forExport) s += `<path d="${d}" stroke="transparent" stroke-width="${sw + 12}" fill="none"/>`;
-  s += `<path d="${d}" stroke="${color}" stroke-width="${sw}" fill="none" stroke-linecap="round"${dashAttr(o, sw)}/>`;
+  s += `<path d="${d}" stroke="${color}" stroke-width="${sw}" fill="none"${dashAndCap(o, sw, 'round')}/>`;
   s += arrowHead(o.head, b, tanB, color, sw, hsz) + arrowHead(o.tail, a, tanA, color, sw, hsz);
   if (o.label) {
     const fs = o.labelSize || 13;
@@ -604,11 +610,10 @@ function renderParts(o, objects, forExport) {
       inner = pathSvg(o);
       break;
     case 'shape': {
-      const dash = dashAttr(o, o.strokeWidth || 2);
       const d = o.kind === 'cycle' ? cycleGeometry(o, o.w, o.h).arc : shapePath(o.kind, o.w, o.h, o);
       const geom = `<path d="${d}"/>`;
       const paint = OPEN_SHAPES.has(o.kind) ? { fill: 'none', defs: '', overlay: '' } : fillPaint(o, geom);
-      inner = (paint.defs ? `<defs>${paint.defs}</defs>` : '') + `<path d="${d}" fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}" stroke-linejoin="round" stroke-linecap="${o.kind === 'cycle' ? 'butt' : 'round'}"${dash}/>` + paint.overlay;
+      inner = (paint.defs ? `<defs>${paint.defs}</defs>` : '') + `<path d="${d}" fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}" stroke-linejoin="round" ${dashAndCap(o, o.strokeWidth || 2, o.kind === 'cycle' ? 'butt' : 'round')}/>` + paint.overlay;
       if (o.kind === 'cycle') { // filled heads at the ends of the arc
         const { heads } = cycleGeometry(o, o.w, o.h);
         if (heads && o.stroke && o.stroke !== 'none') inner += `<path d="${heads}" fill="${o.stroke}" stroke="${o.stroke}" stroke-width="${Math.min(1, (o.strokeWidth ?? 2) * 0.3)}" stroke-linejoin="round"/>`;
@@ -666,7 +671,9 @@ function renderParts(o, objects, forExport) {
   }
   if (o.type !== 'connector') inner = applyErase(o, applyEffects(o, inner));
   if (o.type !== 'connector' && o.type !== 'group' && !forExport) {
-    inner = `<rect width="${o.w}" height="${o.h}" fill="transparent"/>` + inner; // hit area
+    // Hit area: the box, at least 12 units across, so flat lines (a horizontal line's box is 1 unit tall) can be clicked.
+    const hw = Math.max(o.w, 12), hh = Math.max(o.h, 12);
+    inner = `<rect x="${(o.w - hw) / 2}" y="${(o.h - hh) / 2}" width="${hw}" height="${hh}" fill="transparent"/>` + inner;
   }
   return { transform, inner };
 }

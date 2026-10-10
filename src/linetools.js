@@ -280,12 +280,60 @@
   globalThis.connectorPolyline = (o, objects) => geom(o, objects || objs()).pts;
   globalThis.connectorGeom = geom;
 
+  // Where each line's ends were last drawn, and the box of what they were attached to. Some operations replace or
+  // remove objects without letting go of the lines attached to them first (boolean union, crop to shape, cutters…);
+  // such a line then re-attaches to the shape now covering that spot, or stays where it was, instead of breaking.
+  const lastEnds = new Map();
+  const finite = (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y);
+  const gone = (end, objects) => !!(end && end.id && !objOf(end, objects));
   const prevEnds = connectorEnds;
   connectorEnds = function (o, objects) {
-    if (!shaped(o, objects || [])) return prevEnds(o, objects);
-    const P = geom(o, objects || []).pts;
-    return [P[0], P[P.length - 1]];
+    const list = objects || [];
+    if (list.length && (gone(o.from, list) || gone(o.to, list))) {
+      const last = lastEnds.get(o.id);
+      const fix = (end, i) => (gone(end, list) ? (last ? { x: last.pts[i].x, y: last.pts[i].y } : null) : end);
+      const f = fix(o.from, 0), t = fix(o.to, 1);
+      if (!f || !t) { const p = f && !f.id ? f : t && !t.id ? t : { x: 0, y: 0 }; return [p, p]; }
+      return connectorEnds({ ...o, from: f, to: t }, list);
+    }
+    let ends;
+    if (!shaped(o, list)) ends = prevEnds(o, objects);
+    else { const P = geom(o, list).pts; ends = [P[0], P[P.length - 1]]; }
+    if (list.length && o.id && finite(ends[0]) && finite(ends[1])) {
+      const box = (end) => { const T = objOf(end, list); return T && T.type !== 'connector' ? bounds(T, list) : null; };
+      lastEnds.set(o.id, { pts: ends, boxes: [box(o.from), box(o.to)] });
+    }
+    return ends;
   };
+  // Before each redraw, let go of (or re-attach) ends whose object is gone.
+  function healLines() {
+    const pg = state.doc && state.doc.pages && state.doc.pages[state.pageIndex];
+    if (!pg || !pg.objects) return;
+    const list = pg.objects, ids = new Set(list.map((x) => x.id));
+    for (const o of list) {
+      if (o.type !== 'connector') continue;
+      ['from', 'to'].forEach((k, i) => {
+        const end = o[k];
+        if (!end || !end.id || ids.has(end.id)) return;
+        const last = lastEnds.get(o.id);
+        if (!last) return;
+        const old = last.boxes[i], p = last.pts[i];
+        let into = null;
+        if (old) { // the shape now covering the old object's centre, if it's about the same size (not a background)
+          const c = { x: old.x + old.w / 2, y: old.y + old.h / 2 };
+          for (const x of list) {
+            if (x === o || x.type === 'connector' || x.hidden || x.id === (o[k === 'from' ? 'to' : 'from'] || {}).id) continue;
+            const b = bounds(x, list);
+            if (c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h && b.w * b.h <= old.w * old.h * 4) into = x;
+          }
+        }
+        o[k] = into ? { id: into.id } : { x: p.x, y: p.y };
+      });
+    }
+  }
+  const prevRender = render;
+  render = function (...args) { try { healLines(); } catch (e) { console.error(e); } return prevRender.apply(this, args); };
+  globalThis.healLines = healLines;
   const prevBounds = bounds;
   bounds = function (o, objects) {
     if (o.type !== 'connector' || !fancy(o, objects || [])) return prevBounds(o, objects);
@@ -365,6 +413,10 @@
 
   const prevSvg = connectorSvg;
   connectorSvg = function (o, objects, forExport) {
+    if (objects && objects.length && (gone(o.from, objects) || gone(o.to, objects))) {
+      const [p, q] = connectorEnds(o, objects);
+      if (!finite(p) || !finite(q) || dist(p, q) < 0.5) return '';
+    }
     if (!fancy(o, objects)) return prevSvg(o, objects, forExport);
     const color = o.color || '#333', sw = o.width || 2, hsz = o.headSize || 1, P0 = geom(o, objects).pts, L = polyLen(P0);
     if (L < 0.5) return '';
@@ -734,7 +786,7 @@
     const o = L[0], re = (k, v) => { checkpoint(); for (const x of L) { if (v === undefined || v === '' || v === false) delete x[k]; else x[k] = v; } render({ props: true }); };
     const sel = (k, opts) => el('select', { onchange: (e) => re(k, e.target.value || undefined) }, ...opts.map(([v, l]) => el('option', { value: v, textContent: l, selected: String(o[k] ?? '') === v })));
     const tick = (k, label) => el('label', { style: 'display:flex;gap:4px;align-items:center;width:auto;color:inherit' }, el('input', { type: 'checkbox', checked: !!o[k], onchange: (e) => re(k, e.target.checked || undefined) }), label);
-    const txt = (k, ph) => el('input', { type: 'text', value: o[k] || '', placeholder: ph || '', oninput: (e) => { for (const x of L) { if (e.target.value) x[k] = e.target.value; else delete x[k]; } renderScene(); }, onchange: () => checkpoint() });
+    const txt = (k, ph) => el('input', { type: 'text', value: o[k] || '', placeholder: ph || '', oninput: (e) => { checkpoint('prop:' + k + L.map((x) => x.id).join()); for (const x of L) { if (e.target.value) x[k] = e.target.value; else delete x[k]; } renderScene(); markDirty(); } });
     const loop = selfLoop(o);
     const s = sect('Line extras',
       row('Line', sel('lineStyle', [['', 'Single'], ['double', 'Double ═'], ['wavy', 'Wavy ∿'], ['zigzag', 'Zigzag ⩘']])),

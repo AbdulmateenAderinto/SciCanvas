@@ -105,3 +105,13 @@ test('PowerPoint gets special lines as pictures, plain ones as native connectors
   assert.ok(G.pictureOnly(line({ points: [{ x: 1, y: 1 }] })));
   assert.equal(G.pictureOnly(line({})), null);
 });
+
+test('a line whose object disappears keeps its last position instead of breaking', () => {
+  const a = box('a', 0, 0), b = box('b', 300, 0), o = line({ id: 'keep', from: { id: 'a' }, to: { id: 'b' } });
+  const before = G.connectorEnds(o, [a, b, o]);
+  const after = G.connectorEnds(o, [b, o]); // 'a' was removed without letting go of the line
+  assert.equal(JSON.stringify(after), JSON.stringify(before));
+  assert.ok(clean(G.connectorSvg(o, [b, o], true)));
+  const never = line({ id: 'never', from: { id: 'zz' }, to: { x: 50, y: 50 } });
+  assert.equal(G.connectorSvg(never, [never], true), '', 'nothing to draw from an unknown object');
+});
