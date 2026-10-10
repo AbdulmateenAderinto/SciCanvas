@@ -350,6 +350,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Help', accelerator: 'F1', click: send('help') },
         { label: 'What’s New', click: send('whatsNew') },
+        { label: 'Check for Updates…', click: send('checkUpdates') },
         { role: 'toggleDevTools' },
         { role: 'togglefullscreen' },
       ],
@@ -699,6 +700,13 @@ ipcMain.handle('delete-user-icon', (_e, file) => {
 // ---------- Clipboard ----------
 // SVG markup as text: Figma, Illustrator and Inkscape paste it as editable vectors.
 ipcMain.handle('read-clipboard-text', () => clipboard.readText());
+// Help › Check for Updates: compares this version with the latest GitHub release (only when asked).
+ipcMain.handle('check-updates', async () => {
+  const r = await fetch('https://api.github.com/repos/AbdulmateenAderinto/SciCanvas/releases/latest', { headers: { 'User-Agent': 'SciCanvas', Accept: 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
+  const j = await r.json();
+  return { current: app.getVersion(), latest: String(j.tag_name || '').replace(/^v/, ''), url: j.html_url, name: j.name || j.tag_name };
+});
 // Autosave for figures too big for browser storage (written atomically).
 const autosavePath = () => path.join(app.getPath('userData'), 'autosave.json');
 ipcMain.on('autosave-file', (_e, text) => {

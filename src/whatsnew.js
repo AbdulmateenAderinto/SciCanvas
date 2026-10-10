@@ -26,6 +26,20 @@
   }
   globalThis.openWhatsNew = openWhatsNew;
   ARRANGE_COMMANDS.whatsNew = openWhatsNew;
+  const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+  globalThis.versionNewer = newer;
+  ARRANGE_COMMANDS.checkUpdates = async () => {
+    if (!window.native.checkUpdates) return;
+    toast('Checking for updates…');
+    try {
+      const u = await window.native.checkUpdates();
+      if (u.latest && newer(u.latest, u.current)) {
+        openModal('Update available', el('div', { style: 'max-width:420px' },
+          el('p', { textContent: `SciCanvas ${u.latest} is available (you have ${u.current}).` }),
+          el('div', { class: 'btnrow' }, el('button', { class: 'primary', textContent: 'Open the download page', onclick: () => { window.open(u.url); closeModal(); } }))));
+      } else toast(`You have the latest version (${u.current})`);
+    } catch (e) { toast('Could not check for updates: ' + e.message); }
+  };
   setTimeout(() => {
     try {
       if (localStorage.getItem('scicanvas:whatsnew') === VERSION) return;

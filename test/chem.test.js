@@ -48,3 +48,9 @@ test('pathway text: new arrow kinds, labels and cofactors', () => {
   const r = A.globals.parsePathwayText('Glucose -> G6P : hexokinase [ATP -> ADP]\nA <=> B\nE -o S\nX -| Y : blocks');
   assert.equal(JSON.stringify(r.edges), JSON.stringify([['Glucose', 'G6P', 'arrow', 'hexokinase [ATP -> ADP]'], ['A', 'B', 'rev', ''], ['E', 'S', 'circle', ''], ['X', 'Y', 'bar', 'blocks']]));
 });
+
+test('version comparison for update checks', () => {
+  const n = A.globals.versionNewer;
+  assert.ok(n('1.3.0', '1.2.0') && n('1.10.0', '1.9.9') && n('2.0', '1.9.9'));
+  assert.ok(!n('1.2.0', '1.2.0') && !n('1.2.0', '1.3.0'));
+});

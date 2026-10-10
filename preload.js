@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('native', {
   copyImage: (dataUrl) => ipcRenderer.invoke('copy-image', dataUrl),
   copySvg: (svg) => ipcRenderer.invoke('copy-svg', svg),
   readClipboardText: () => ipcRenderer.invoke('read-clipboard-text'),
+  checkUpdates: () => ipcRenderer.invoke('check-updates'),
   autosaveFile: (text) => ipcRenderer.send('autosave-file', text),
   readAutosaveFile: () => ipcRenderer.invoke('read-autosave-file'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
