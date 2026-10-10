@@ -33,16 +33,18 @@
   function picturise(sel, kind) {
     sel.style.display = 'none';
     const b = document.createElement('button');
-    b.className = 'pp-btn';
+    b.className = 'pp-btn' + (kind.compact ? ' compact' : '');
     b.type = 'button';
-    const show = () => { const opt = sel.options[sel.selectedIndex]; b.innerHTML = kind.pic(sel.value, sel) + '<span class="pp-caret">▾</span>'; b.title = opt ? opt.textContent : ''; };
+    const show = () => { const opt = sel.options[sel.selectedIndex]; b.innerHTML = kind.pic(sel.value, sel) + (kind.compact ? '' : '<span class="pp-caret">▾</span>'); b.title = `${sel.title ? sel.title + ': ' : ''}${opt ? opt.textContent : ''}`; };
+    sel.addEventListener('change', show); // kept in step when something else changes the value
+    sel._ppShow = show;
     show();
     b.addEventListener('click', (e) => {
       e.preventDefault();
       if (pop && pop._for === sel) { close(); return; }
       close();
       pop = document.createElement('div');
-      pop.className = 'pp-pop' + (kind.wide ? ' wide' : '');
+      pop.className = 'pp-pop' + (kind.wide ? ' wide' : '') + (kind.popClass ? ' ' + kind.popClass : '');
       pop._for = sel;
       for (const opt of sel.options) {
         const t = document.createElement('button');
@@ -55,11 +57,35 @@
       }
       document.body.append(pop);
       const r = b.getBoundingClientRect(), pr = pop.getBoundingClientRect();
-      pop.style.left = Math.max(4, Math.min(r.left, innerWidth - pr.width - 8)) + 'px';
-      pop.style.top = (r.bottom + pr.height + 6 > innerHeight ? Math.max(4, r.top - pr.height - 4) : r.bottom + 4) + 'px';
+      if (kind.compact) { // toolbar: open to the right of the button
+        pop.style.left = (r.right + 6) + 'px';
+        pop.style.top = Math.max(4, Math.min(r.top - 6, innerHeight - pr.height - 8)) + 'px';
+      } else {
+        pop.style.left = Math.max(4, Math.min(r.left, innerWidth - pr.width - 8)) + 'px';
+        pop.style.top = (r.bottom + pr.height + 6 > innerHeight ? Math.max(4, r.top - pr.height - 4) : r.bottom + 4) + 'px';
+      }
     });
     sel.after(b);
   }
+  // The toolbar's own option lists (shape tool, pencil mode, brush path) are 34 px wide: pictures read better there.
+  const icon = (d) => `<svg viewBox="0 0 24 24" width="24" height="24">${d}</svg>`;
+  const TOOLBAR = {
+    shapeKind: { pic: (v) => (globalThis.ShapeLib ? ShapeLib.shapeThumb({ kind: v, w: 60, h: 50 }) : v), compact: true, popClass: 'shapes' },
+    drawMode: { pic: (v) => icon({ free: '<path d="M3 15c3-8 6 4 9-3s5 3 9-5" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>', shape: '<path d="M4 12c0-5 6-8 10-6s7 2 6 7-7 7-11 5-5-2-5-6z" fill="#e8eef8" stroke="#4a6fae" stroke-width="1.5"/>', protein: '<path d="M4 12c0-5 6-8 10-6s7 2 6 7-7 7-11 5-5-2-5-6z" fill="#9fc0e8" stroke="#5b86bd" stroke-width="1.2"/><ellipse cx="9.5" cy="9" rx="3.5" ry="2" fill="#fff" opacity=".55"/>' }[v] || ''), compact: true },
+    brushMode: { pic: (v) => icon({ free: '<path d="M3 16c3-9 6 3 9-4s5 2 9-6" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>', line: '<line x1="3" y1="19" x2="21" y2="5" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>', arc: '<path d="M3 18 Q12 0 21 18" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>', ellipse: '<ellipse cx="12" cy="12" rx="9" ry="6" fill="none" stroke="#333" stroke-width="1.8"/>' }[v] || ''), compact: true },
+  };
+  const setupToolbar = () => {
+    for (const [id, kind] of Object.entries(TOOLBAR)) {
+      const sel = document.getElementById(id);
+      if (sel && sel._ppShow) { sel._ppShow(); continue; }
+      if (!sel || sel.dataset.pp || !sel.options.length) continue;
+      sel.dataset.pp = '1';
+      picturise(sel, kind);
+    }
+  };
+  setTimeout(setupToolbar, 0);
+  if (typeof setTool === 'function') { const prevTool = setTool; setTool = function (...a) { const r = prevTool.apply(this, a); setupToolbar(); return r; }; }
+
   const prev = renderProps;
   renderProps = function () {
     close();
