@@ -76,6 +76,22 @@ jobs:
           else
             echo "::warning::Couldn't download the icon libraries; building without them."
           fi
+      # NIH BioArt (~4,800 images) is kept as its own archive on the same release, built from a downloaded copy of the
+      # collection with `npm run icons:bioart -- <collection folder>` and packed as bioart.tar.gz (iconpacks/bioart/…).
+      # Optional: without it the build goes on without BioArt.
+      - name: Add NIH BioArt
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download icon-libraries --repo "${{ github.repository }}" --pattern bioart.tar.gz --dir .bioart-download; then
+            tar -xzf .bioart-download/bioart.tar.gz -C assets
+            rm -rf .bioart-download
+            find assets -name '._*' -delete
+            echo "BioArt icons: $(find assets/iconpacks/bioart/svg -type f | wc -l)"
+          else
+            echo "::warning::No bioart.tar.gz on the icon-libraries release; building without NIH BioArt."
+          fi
       # Signing the Mac app opens every one of the ~19,900 icon files at once, which is more than macOS lets
       # one process open by default ("EMFILE: too many open files"). Raise the limits before building.
       - name: Raise the open-file limit (Mac)
