@@ -767,6 +767,7 @@
 
   Object.assign(ARRANGE_COMMANDS, {
     lineBranch: () => branch('branch'), lineMerge: () => branch('merge'), lineTwoWay: twoWay, lineSelfLoop: selfLoopCmd,
+    lineSwap: () => { const L = selected().filter((o) => o.type === 'connector'); if (!L.length) return; checkpoint(); for (const c of L) { [c.from, c.to] = [c.to, c.from]; if (c.points) c.points.reverse(); } render({ props: true }); },
     lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, pasteInPlace, removeFromPath, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
     lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }), lineStraighten: straighten,
     equation: () => openEquationEditor(), geneStyle: () => openGeneHelper(),

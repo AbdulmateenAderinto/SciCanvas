@@ -302,13 +302,20 @@ const CTX_SVG = {
   del: '<path d="M3 5h12M7 5V3h4v2M5 5l1 11h6l1-11" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   points: '<path d="M3 14C6 3 12 15 15 4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="1.5" y="12.5" width="3" height="3" fill="currentColor"/><rect x="13.5" y="2.5" width="3" height="3" fill="currentColor"/>',
 };
+Object.assign(CTX_SVG, {
+  lineStyle: '<path d="M2 6h10" stroke="currentColor" stroke-width="1.8"/><path d="M11 3l4 3-4 3z" fill="currentColor"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2 2"/><path d="M15 9.5v5" stroke="currentColor" stroke-width="1.8"/>',
+  swap: '<path d="M3 6h11M11 3l3 3-3 3M15 12H4M7 9l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  straight: '<rect x="1.5" y="7" width="4" height="4" fill="currentColor"/><rect x="12.5" y="7" width="4" height="4" fill="currentColor"/><path d="M5.5 9h7" stroke="currentColor" stroke-width="1.8"/><path d="M9 2v3M9 13v3" stroke="currentColor" stroke-width="1.2"/>',
+});
 const ctxBtn = (key, cmd, title) => `<button data-ctx="${cmd}" title="${title}"><svg viewBox="0 0 18 18" width="16" height="16">${CTX_SVG[key]}</svg></button>`;
 function updateContextBar() {
   const bar = $('#ctxbar');
   const sel = selected();
   if (!sel.length || state.tool !== 'select' || nodeEdit || drag || editing) { bar.classList.add('hidden'); return; }
   const multi = sel.length > 1, hasGroup = sel.some((o) => o.type === 'group'), isPath = sel.length === 1 && sel[0].type === 'path';
+  const allLines = sel.every((o) => o.type === 'connector') && typeof ARRANGE_COMMANDS.lineSwap === 'function';
   bar.innerHTML = [
+    allLines ? ctxBtn('lineStyle', '@lines', 'Line style') + ctxBtn('swap', 'lineSwap', 'Swap direction') + ctxBtn('straight', 'lineStraighten', 'Straighten (moves the end object)') + '<span class="ctxsep"></span>' : '',
     ctxBtn('front', 'bringFront', 'Bring to front (⇧⌘])'), ctxBtn('forward', 'bringForward', 'Bring forward (⌘])'),
     ctxBtn('backward', 'sendBackward', 'Send backward (⌘[)'), ctxBtn('back', 'sendBack', 'Send to back (⇧⌘[)'),
     '<span class="ctxsep"></span>',
@@ -338,6 +345,7 @@ function setupContextBar() {
     if (!b) return;
     const cmd = b.dataset.ctx;
     if (cmd === '@align') return showAlignPopover(b);
+    if (cmd === '@lines' && globalThis.VisualMenu && VisualMenu.openLines) { const r = b.getBoundingClientRect(); return VisualMenu.openLines(r.left, r.bottom + 6); }
     runCommand(cmd);
   });
 }

@@ -241,5 +241,6 @@
   window.addEventListener('blur', closeAll);
   window.addEventListener('resize', closeAll);
   document.addEventListener('wheel', (e) => { if (panels.length && !e.target.closest('.cm-panel')) closeAll(); }, { capture: true, passive: true });
-  globalThis.VisualMenu = { openCanvasMenu, openToolFlyout, closeAll, ICON, brushThumb };
+  function openLines(x, y) { closeAll(); const p = panel(0); p.append(node('div', 'cm-head', 'Line style'), grid('lines', lineTiles())); panels.push(p); place(p, x, y); }
+  globalThis.VisualMenu = { openCanvasMenu, openToolFlyout, openLines, closeAll, ICON, brushThumb };
 })();
