@@ -482,7 +482,8 @@
   const prevKey = innerKey;
   innerKey = function (o, list) {
     let k = prevKey(o, list);
-    if (o.type === 'connector' && list && (o.jumps || o.route === 'auto' || shaped(o, list))) {
+    const onLine = (end) => { const T = end && end.id && list && objOf(end, list); return !!(T && T.type === 'connector'); };
+    if (o.type === 'connector' && list && (o.jumps || o.route === 'auto' || onLine(o.from) || onLine(o.to))) {
       k += '|' + list.map((x) => (x.type === 'connector' ? `${x.id}:${JSON.stringify([x.from, x.to, x.points, x.style, x.curve, x.offset, x.route])}` : `${r2(x.x)},${r2(x.y)},${r2(x.w)},${r2(x.h)},${x.rot || 0}`)).join(';');
     }
     return k;
