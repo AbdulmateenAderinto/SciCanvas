@@ -4,7 +4,7 @@
   const K = globalThis.RefinedKit;
   if (!K) return;
   const { f, PAL, line, path, rect, circ, ell, stroke, flat, dot, part, G, poly, smooth, wob, body, sball, speckle, tube, taper, wave, headRing, add } = K;
-  const IMM = 'Immune cells', IMOL = 'Immune molecules', MOL = 'Molecules & proteins', ORG = 'Organs & cancers', ANI = 'Animal models', ENG = 'Engineering & biomaterials';
+  const IMM = 'Immune cells', IMOL = 'Immune molecules', MOL = 'Molecules & proteins', ORG = 'Organs & cancers', ANI = 'Model organisms', ENG = 'Engineering & biomaterials';
   const cell = (c, r, o) => (K.cell ? K.cell(c, r, o) : sball(o.cx ?? 50, o.cy ?? 50, o.R ?? 38, o.R ?? 38, c));
   const TAU = Math.PI * 2;
   // Cauliflower outline: rounded bumps with creases between them (tumours, protein surfaces).

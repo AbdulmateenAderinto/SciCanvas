@@ -10,10 +10,7 @@ let activeCat = 'All', libLimit = LIB_FIRST;
 function renderLibrary() {
   const q = $('#search').value.trim();
   $$('#cats [data-cat]').forEach((b) => b.classList.toggle('active', b.dataset.cat === activeCat));
-  const sel = $('#catSel');
-  const cats = allCategories();
-  if (sel.options.length !== cats.length + 1) sel.innerHTML = '<option value="">Category…</option>' + cats.map((c) => `<option>${esc(c)}</option>`).join('');
-  sel.value = cats.includes(activeCat) ? activeCat : '';
+  renderCatPickers();
   const smart = activeCat === 'All' && typeof smartResults === 'function' ? smartResults(q) : null;
   $('#smartNote').classList.toggle('hidden', !smart);
   if (smart) $('#smartNote').textContent = `✦ Smart search: ${smart.terms.join(' · ')}`;
@@ -35,6 +32,74 @@ function renderLibrary() {
   foot.append(el('div', { class: 'btnrow' }, btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog), iconStyleButton()));
   foot.append(el('div', { class: 'note', style: 'margin-top:4px' }, `${(ICONS.length + Packs.all.length).toLocaleString()} icons from ${Packs.list.filter((p) => p.id !== 'mine').length + 1} libraries (CC0 / CC BY / MIT). Non-commercial icons are marked NC. File › Credits drafts your attributions.`));
 }
+// ---------- Library / category / clade pickers ----------
+// One long list of every category (PhyloPic alone has ~4,500 clades) becomes three short ones: the library, then its
+// categories (PhyloPic: everyday groups such as Mammals or Insects), then, for PhyloPic, the clades in that group.
+let libTreeCache = null;
+const stripLib = (c) => String(c).replace(/^(BioArt|PhyloPic) · /, '');
+function libraryTree() {
+  const key = `${ICONS.length}|${Packs.all.length}`;
+  if (libTreeCache && libTreeCache.key === key) return libTreeCache;
+  const libs = [], catLib = new Map();
+  const tally = (list) => { const m = new Map(); for (const i of list) m.set(i.category, (m.get(i.category) || 0) + 1); return m; };
+  const sortCats = (m) => [...m].sort((a, b) => (a[0] === 'My icons' ? -1 : b[0] === 'My icons' ? 1 : stripLib(a[0]).localeCompare(stripLib(b[0])))).map(([c, n]) => [c, stripLib(c), n]);
+  const native = nativeSearchList();
+  libs.push({ id: 'builtin', name: 'Built-in', count: native.length, cats: sortCats(tally(native)) });
+  for (const p of Packs.list) {
+    const items = Packs.all.filter((i) => i.pack === p.id);
+    if (!items.length) continue;
+    const lib = { id: p.id, name: p.name || p.id, count: items.length, cats: sortCats(tally(items)) };
+    if (p.id === 'phylopic') { // group → clades, with counts
+      const groups = new Map();
+      for (const i of items) {
+        const g = phyloGroup(i);
+        if (!groups.has(g)) groups.set(g, { count: 0, clades: new Map() });
+        const G = groups.get(g); G.count++; G.clades.set(i.category, (G.clades.get(i.category) || 0) + 1);
+      }
+      const order = Object.keys(globalThis.PHYLO_GROUPS || {});
+      lib.groups = [...groups].sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99))
+        .map(([g, G]) => [g, G.count, [...G.clades].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([c, n]) => [c, c === 'PhyloPic · Organisms' ? 'Unplaced' : stripLib(c), n])]);
+    }
+    libs.push(lib);
+  }
+  for (const L of libs) for (const [c] of L.cats) if (!catLib.has(c)) catLib.set(c, L.id);
+  return (libTreeCache = { key, libs, catLib });
+}
+function renderCatPickers() {
+  const T = libraryTree(), s1 = $('#catSel'), s2 = $('#catSel2'), s3 = $('#catSel3');
+  if (!s1) return;
+  let lib = '', v2 = '', group = '', v3 = '';
+  if (activeCat.startsWith('lib:')) lib = activeCat.slice(4);
+  else if (activeCat.startsWith('phylo:')) { lib = 'phylopic'; [group, v3] = activeCat.slice(6).split('|'); v2 = 'phylo:' + group; v3 = v3 ? activeCat : ''; }
+  else if (T.catLib.has(activeCat)) { lib = T.catLib.get(activeCat); v2 = activeCat; }
+  const opts = (list, first) => `<option value="">${esc(first)}</option>` + list.map(([v, l, n]) => `<option value="${esc(v)}">${esc(l)}${n != null ? ` (${n.toLocaleString()})` : ''}</option>`).join('');
+  s1.innerHTML = opts(T.libs.map((L) => [L.id, L.name, L.count]), 'All libraries');
+  s1.value = lib;
+  const L = T.libs.find((x) => x.id === lib);
+  s2.classList.toggle('hidden', !L);
+  s3.classList.add('hidden');
+  if (!L) return;
+  if (L.groups) {
+    s2.innerHTML = opts(L.groups.map(([g, n]) => ['phylo:' + g, g, n]), `All ${L.name} groups`);
+    s2.value = v2;
+    const G = group && L.groups.find(([g]) => g === group);
+    if (G) {
+      s3.classList.remove('hidden');
+      s3.innerHTML = opts(G[2].map(([c, l, n]) => [`phylo:${group}|${c}`, l, n]), `All ${G[2].length.toLocaleString()} clades`);
+      s3.value = v3;
+    }
+  } else {
+    s2.innerHTML = opts(L.cats, `All ${L.cats.length} categories`);
+    s2.value = v2;
+  }
+}
+function setupCatPickers() {
+  const go = (v) => { activeCat = v; libLimit = LIB_FIRST; renderLibrary(); };
+  $('#catSel').addEventListener('change', (e) => go(e.target.value ? 'lib:' + e.target.value : 'All'));
+  $('#catSel2').addEventListener('change', (e) => go(e.target.value || 'lib:' + $('#catSel').value));
+  $('#catSel3').addEventListener('change', (e) => go(e.target.value || $('#catSel2').value));
+}
+
 // Refined / Classic finish for the built-in icons (src/iconstyle.js); redraws the library and the canvas.
 function iconStyleButton() {
   if (typeof IconStyle === 'undefined') return '';
@@ -58,9 +123,9 @@ function renderLibraryBanner() {
 }
 function setupLibrary() {
   let t;
-  $('#search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { libLimit = LIB_FIRST; if (activeCat !== 'All' && $('#search').value && !['★ Favorites', 'Recent'].includes(activeCat)) activeCat = 'All'; renderLibrary(); }, 120); });
+  $('#search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { libLimit = LIB_FIRST; if (activeCat !== 'All' && $('#search').value && !['★ Favorites', 'Recent'].includes(activeCat) && !/^(lib|phylo):/.test(activeCat)) activeCat = 'All'; renderLibrary(); }, 120); });
   $('#cats').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { activeCat = b.dataset.cat; libLimit = LIB_FIRST; renderLibrary(); } });
-  $('#catSel').addEventListener('change', (e) => { activeCat = e.target.value || 'All'; libLimit = LIB_FIRST; renderLibrary(); });
+  setupCatPickers();
   $('#icongrid').addEventListener('click', (e) => {
     const req = e.target.closest('[data-request-icon]');
     if (req) { e.preventDefault(); requestContent('icon', req.dataset.requestIcon); return; }

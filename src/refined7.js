@@ -5,7 +5,7 @@
   const K = globalThis.RefinedKit;
   if (!K) return;
   const { f, PAL, line, path, rect, circ, ell, stroke, flat, dot, part, G, poly, smooth, wob, body, taper, add } = K;
-  const ANI = 'Animal models', PLANT = 'Plants';
+  const ANI = 'Model organisms', PLANT = 'Model organisms';
   const PINK = '#eeb2b4', NOSE = '#e98b97', EYE = '#2a2e33';
   const eye = (x, y, r = 2, c = EYE) => circ(x, y, r, c, { w: 0.5 }) + dot(x - r * 0.35, y - r * 0.35, r * 0.32, '#ffffff');
   const whiskers = (x, y, dir = 1) => stroke(`M${x} ${y} l${9 * dir} -3.5 M${x} ${y + 1} l${10 * dir} 0 M${x} ${y + 2} l${9 * dir} 3.5`, '#9aa3ab', 0.4);
