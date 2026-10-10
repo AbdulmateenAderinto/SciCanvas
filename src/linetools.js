@@ -1128,6 +1128,27 @@
         r.issues.push({ sev: 'info', kind: 'Fonts', msg: `${fams.size} different fonts (${[...fams.keys()].map(nm).join(', ')}). One or two fonts look more consistent.`, fixLabel: `Use ${nm(top)}`,
           fix: () => { const walk = (os) => { for (const o of os) { if (o.type === 'text') o.family = top; else if (o.label && ['rect', 'ellipse', 'shape'].includes(o.type)) o.labelFamily = top; if (typeof postEdit === 'function' && (o.type === 'text' || o.label)) postEdit(o); if (o.children) walk(o.children); } }; walk(list); } });
       }
+      // Text running into other text.
+      const texts = list.filter((o) => o.type === 'text' && !o.hidden && String(o.text || '').trim());
+      const tb = texts.map((o) => bounds(o, list));
+      const clashed = new Set();
+      for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
+        const A = tb[i], B = tb[j], ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x), oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+        if (ox > 2 && oy > 2 && ox * oy > Math.min(A.w * A.h, B.w * B.h) * 0.15 && !clashed.has(texts[j].id)) {
+          clashed.add(texts[j].id);
+          r.issues.push({ sev: 'warn', kind: 'Text', msg: `“${String(texts[j].text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}” overlaps “${String(texts[i].text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}”`, id: texts[j].id });
+        }
+      }
+      // Almost aligned: edges or centres 0.5–3 px apart look like a mistake; line them up exactly.
+      const shapes = list.filter((o) => !o.hidden && o.type !== 'connector' && o.type !== 'comment' && !o.rot && !o.locked);
+      const near = [];
+      const keys = [['x', (o) => o.x], ['centre x', (o) => o.x + o.w / 2], ['right edge', (o) => o.x + o.w], ['y', (o) => o.y], ['centre y', (o) => o.y + o.h / 2], ['bottom edge', (o) => o.y + o.h]];
+      for (let i = 0; i < shapes.length; i++) for (let j = i + 1; j < shapes.length; j++) for (const [nmK, f] of keys) {
+        const d = f(shapes[j]) - f(shapes[i]);
+        if (Math.abs(d) >= 0.5 && Math.abs(d) <= 3) { near.push([shapes[i], shapes[j], nmK, d]); break; }
+      }
+      if (near.length) r.issues.push({ sev: 'info', kind: 'Layout', msg: `${near.length} pair${near.length > 1 ? 's' : ''} of objects ${near.length > 1 ? 'are' : 'is'} almost aligned (0.5–3 px off), e.g. ${nameOf(near[0][0])} and ${nameOf(near[0][1])}.`, id: near[0][1].id, fixLabel: 'Line them up',
+        fix: () => { const moved = new Set(); for (const [, b, k, d] of near) { if (moved.has(b.id)) continue; moved.add(b.id); if (/x|right/.test(k)) b.x -= d; else b.y -= d; } } });
       const hasLegend = list.some((o) => o.type === 'group' && /legend/i.test(o.name || ''));
       if (styled.length && !hasLegend) add('info', `${styled.length} dashed, dotted or styled line${styled.length > 1 ? 's' : ''} but no line legend to say what each style means.`, null, () => insertLegend(), 'Add legend');
       return r;
