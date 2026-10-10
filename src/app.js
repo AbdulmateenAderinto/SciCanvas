@@ -164,15 +164,17 @@ function renderOverlay(extra = '') {
     if (nodeEdit && o.id === nodeEdit.id) continue;
     if (o.type === 'connector') {
       const [a, b] = connectorEnds(o, objs());
-      s += `<path d="M${a.x} ${a.y}L${b.x} ${b.y}" stroke="#3b6fd6" stroke-width="${sw}" stroke-dasharray="${4 / z}" fill="none" pointer-events="none"/>`;
+      const shaped = typeof connectorShaped === 'function' && connectorShaped(o); // waypoints, auto route or a loop
+      const line = shaped ? connectorPolyline(o, objs()) : [a, b];
+      s += `<path d="M${line.map((q) => `${q.x} ${q.y}`).join('L')}" stroke="#3b6fd6" stroke-width="${sw}" stroke-dasharray="${4 / z}" fill="none" pointer-events="none"/>`;
       if (sel.length === 1) {
         for (const [k, p] of [['from', a], ['to', b]]) s += `<circle data-handle="${k}" cx="${p.x}" cy="${p.y}" r="${hs * 0.8}" fill="${o[k].id ? '#3b6fd6' : '#fff'}" stroke="#3b6fd6" stroke-width="${sw}" style="cursor:move"/>`;
-        if (o.style === 'curved') {
+        if (o.style === 'curved' && !shaped) {
           const cp = connectorControl(o, a, b) || { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
           const m = { x: 0.25 * a.x + 0.5 * cp.x + 0.25 * b.x, y: 0.25 * a.y + 0.5 * cp.y + 0.25 * b.y };
           s += `<rect data-handle="curve" x="${m.x - hs / 2}" y="${m.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" transform="rotate(45 ${m.x} ${m.y})" style="cursor:pointer"/>`;
         }
-        if (o.style === 'elbow') { // drag the middle segment of the elbow
+        if (o.style === 'elbow' && !shaped) { // drag the middle segment of the elbow
           const m = elbowBendHandle(o, a, b);
           if (m) s += `<rect data-handle="bend" x="${m.x - hs / 2}" y="${m.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" transform="rotate(45 ${m.x} ${m.y})" style="cursor:${m.axis === 'x' ? 'ew-resize' : 'ns-resize'}"/>`;
         }
@@ -370,8 +372,10 @@ function cloneObjects(list, context, offset = 20) {
     const c = remap(o);
     if (c.type === 'connector') {
       const [a, b] = resolved[o.id];
-      c.from = o.from.id && idMap[o.from.id] ? { id: idMap[o.from.id] } : { x: a.x + offset, y: a.y + offset };
-      c.to = o.to.id && idMap[o.to.id] ? { id: idMap[o.to.id] } : { x: b.x + offset, y: b.y + offset };
+      const keep = (end) => { const { x: _x, y: _y, ...rest } = end; return { ...rest, id: idMap[end.id] }; }; // port, edge point, place on a line
+      c.from = o.from.id && idMap[o.from.id] ? keep(o.from) : { x: a.x + offset, y: a.y + offset };
+      c.to = o.to.id && idMap[o.to.id] ? keep(o.to) : { x: b.x + offset, y: b.y + offset };
+      if (c.points) c.points = c.points.map((q) => ({ x: q.x + offset, y: q.y + offset }));
     } else { c.x += offset; c.y += offset; }
     return c;
   });
@@ -423,6 +427,7 @@ function groupSelection() {
       const [a, b] = connectorEnds(o, objs());
       if (!(o.from.id && ids.has(o.from.id))) c.from = { x: a.x - bb.x, y: a.y - bb.y };
       if (!(o.to.id && ids.has(o.to.id))) c.to = { x: b.x - bb.x, y: b.y - bb.y };
+      if (c.points) c.points = c.points.map((q) => ({ x: q.x - bb.x, y: q.y - bb.y }));
     } else { c.x -= bb.x; c.y -= bb.y; }
     return c;
   });
@@ -451,6 +456,7 @@ function ungroupSelection() {
       if (c.type === 'connector') {
         if (!c.from.id) c.from = toWorldPt(c.from);
         if (!c.to.id) c.to = toWorldPt(c.to);
+        if (c.points) c.points = c.points.map(toWorldPt);
         c.width = (c.width || 2) * Math.sqrt(sx * sy);
         return c;
       }
@@ -583,6 +589,7 @@ svg.addEventListener('pointerdown', (e) => {
     else if (h === 'from' || h === 'to') drag = { mode: 'endpoint', o, end: h };
     else if (h === 'curve') drag = { mode: 'curve', o };
     else if (h === 'bend') drag = { mode: 'bend', o };
+    else if (h.startsWith('wp')) drag = { mode: 'waypoint', o, h }; // bend points (linetools.js)
     else drag = { mode: 'resize', o, h, start: { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0 }, font: o.fontSize };
     return;
   }
@@ -599,7 +606,7 @@ svg.addEventListener('pointerdown', (e) => {
           objs().push(...copies);
           state.sel = copies.map((c) => c.id);
         }
-        drag = { mode: 'move', start: p, moved: false, clickedId: hit.id, orig: selected().map((o) => ({ o, x: o.x, y: o.y, from: { ...o.from }, to: { ...o.to } })) };
+        drag = { mode: 'move', start: p, moved: false, clickedId: hit.id, orig: selected().map((o) => ({ o, x: o.x, y: o.y, from: { ...o.from }, to: { ...o.to }, points: o.points && o.points.map((q) => ({ ...q })) })) };
         render({ props: true });
       } else {
         if (groupEdit) { exitGroupEdit(); return; }
@@ -733,6 +740,7 @@ function handlePointerMove(e) {
         if (r.o.type === 'connector') {
           if (!r.o.from.id) r.o.from = { x: r.from.x + dx, y: r.from.y + dy };
           if (!r.o.to.id) r.o.to = { x: r.to.x + dx, y: r.to.y + dy };
+          if (r.points) r.o.points = r.points.map((q) => ({ x: q.x + dx, y: q.y + dy }));
         } else { r.o.x = r.x + dx; r.o.y = r.y + dy; }
       }
       $('#guides').innerHTML = guides;
@@ -778,13 +786,18 @@ function handlePointerMove(e) {
       }
       drag.o[drag.end] = { x: q.x, y: q.y };
       $('#guides').innerHTML = guides;
-      renderScene(); renderOverlay(portsOverlay(over));
+      renderScene(); renderOverlay(portsOverlay(over) + (typeof endSnapMarker === 'function' ? endSnapMarker(over, p, drag.o.id) : ''));
       return;
     }
     case 'curve': {
       const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
       drag.o.curve = 2 * ((p.x - (a.x + b.x) / 2) * (-dy / len) + (p.y - (a.y + b.y) / 2) * (dx / len));
+      renderScene(); renderOverlay();
+      return;
+    }
+    case 'waypoint': {
+      waypointDrag(drag, p, e);
       renderScene(); renderOverlay();
       return;
     }
@@ -818,9 +831,10 @@ function handlePointerMove(e) {
       let q = p, guides = '';
       if (!over) { const [a] = connectorEnds({ ...drag.o, style: 'straight' }, objs()); ({ p: q, guides } = snapLinePoint(a, p, e)); }
       drag.o.to = { x: q.x, y: q.y };
+      if (!over || over.id !== drag.o.from.id) drag.left = true; // went outside the start object: back onto it makes a loop
       $('#guides').innerHTML = guides;
       renderScene();
-      renderOverlay(portsOverlay(over));
+      renderOverlay(portsOverlay(over) + (typeof endSnapMarker === 'function' ? endSnapMarker(over, p, drag.o.id) : ''));
       return;
     }
     case 'brush': {
@@ -866,14 +880,18 @@ window.addEventListener('pointerup', (e) => {
       const o = d.o, end = d.mode === 'connect' ? 'to' : d.end;
       const target = objectAtPoint(e.clientX, e.clientY, o.id);
       const other = end === 'to' ? o.from : o.to;
-      if (target && target.id !== other.id) {
+      if (target && (target.id !== other.id || d.left)) {
         const port = nearestPort(target, p, 14 / state.zoom);
-        o[end] = port ? { id: target.id, port } : { id: target.id };
+        const at = !port && typeof edgePointAt === 'function' ? edgePointAt(target, p) : null; // anywhere on the edge
+        o[end] = port ? { id: target.id, port } : at ? { id: target.id, at } : { id: target.id };
+      } else if (!target && typeof connectorAtPoint === 'function') { // onto another line: branch from / merge into it
+        const hitLine = connectorAtPoint(p, o.id);
+        if (hitLine) o[end] = { id: hitLine.o.id, t: hitLine.t };
       }
       if (d.mode === 'connect') {
         const len = d.start ? Math.hypot(p.x - d.start.x, p.y - d.start.y) : 99;
         if (!o.to.id && len < 8) o.to = { x: (o.from.x ?? p.x) + 120, y: o.from.y ?? p.y }; // click = default-length arrow
-        if (o.from.id && o.from.id === o.to.id) { page().objects = objs().filter((x) => x !== o); break; }
+        if (o.from.id && o.from.id === o.to.id && !d.left) { page().objects = objs().filter((x) => x !== o); break; }
         if (o.from.id && !o.to.id && len < 8) { const c = center(byId(o.from.id)); o.to = { x: c.x + byId(o.from.id).w / 2 + 120, y: c.y }; }
         state.sel = [o.id];
         toolStaysHint();
@@ -980,7 +998,7 @@ window.addEventListener('keydown', (e) => {
     const step = e.shiftKey ? 10 : 1;
     const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0, dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
     for (const o of selected()) {
-      if (o.type === 'connector') { if (!o.from.id) o.from = { x: o.from.x + dx, y: o.from.y + dy }; if (!o.to.id) o.to = { x: o.to.x + dx, y: o.to.y + dy }; }
+      if (o.type === 'connector') { if (!o.from.id) o.from = { x: o.from.x + dx, y: o.from.y + dy }; if (!o.to.id) o.to = { x: o.to.x + dx, y: o.to.y + dy }; if (o.points) o.points = o.points.map((q) => ({ x: q.x + dx, y: q.y + dy })); }
       else { o.x += dx; o.y += dy; }
     }
     render();

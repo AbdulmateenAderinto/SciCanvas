@@ -132,6 +132,8 @@
   globalThis.linePreset = null;
   const lineThumb = (p) => {
     const o = { id: 'lp', type: 'connector', from: { x: 8, y: p.style === 'elbow' ? 34 : 28 }, to: { x: 112, y: p.style === 'elbow' ? 8 : 28 }, color: '#333', width: 2, ...p, ...(p.style === 'curved' ? { curve: 22 } : {}) };
+    if (o.tickLabels) { o.ticks = o.tickLabels.split(',').length; delete o.tickLabels; } // ticks only: labels don't fit a thumbnail
+    if (o.sideIn || o.sideOut) { o.sideIn = o.sideIn && ' '; o.sideOut = o.sideOut && ' '; o.from = { x: 8, y: 36 }; o.to = { x: 112, y: 36 }; }
     return `<svg viewBox="0 0 120 44">${connectorSvg(o, [o], true)}</svg>`;
   };
   function useLinePreset(name) {
@@ -139,7 +141,7 @@
     if (!p) return;
     const sel = selected().filter((o) => o.type === 'connector');
     globalThis.linePreset = { ...p };
-    if (sel.length) { checkpoint(); for (const o of sel) Object.assign(o, { dashStyle: 'solid', radius: 0, ...p }); render({ props: true }); toast(`${name} applied to ${sel.length} connector${sel.length > 1 ? 's' : ''}`); return; }
+    if (sel.length) { checkpoint(); for (const o of sel) { for (const k of globalThis.LINE_RESET || []) delete o[k]; Object.assign(o, { dashStyle: 'solid', radius: 0, ...p }); } render({ props: true }); toast(`${name} applied to ${sel.length} connector${sel.length > 1 ? 's' : ''}`); return; }
     setTool('connector');
     toast(`${name}: drag from one object to another (or anywhere on the page)`);
   }
