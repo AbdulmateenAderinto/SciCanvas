@@ -187,7 +187,7 @@
     const go = el('button', { class: 'primary', textContent: 'Insert blot', onclick: () => {
       const { lanes, rows } = parseBlot(ta.value);
       if (!rows.length) { toast('Add at least one protein line, e.g. “GAPDH (37 kDa): 1, 1, 1”'); return; }
-      const laneW = 46, stripH = 30, gap = 12, nameW = 120, at = viewCenter(), o = [];
+      const laneW = 46, stripH = 30, gap = 12, at = viewCenter(), o = [];
       const W = lanes.length * laneW, x0 = at.x - W / 2, y0 = at.y - (rows.length * (stripH + gap)) / 2;
       lanes.forEach((ln, i) => { // lane labels, angled
         const t = Make.text(ln, 0, 0, { fontSize: 12, color: '#222222' });
@@ -206,7 +206,6 @@
         o.push(nm);
         if (r.kda) { const kd = Make.text(r.kda, x0 + W + 12, 0, { fontSize: 12, color: '#56657a' }); if (typeof postEdit === 'function') postEdit(kd); kd.y = y + stripH / 2 - kd.h / 2; o.push(kd); }
       });
-      void nameW;
       closeModal();
       addObjects(o);
       groupSelection();
