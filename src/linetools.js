@@ -606,18 +606,32 @@
   };
   globalThis.quickConnectEnd = function (d, len) {
     if (len >= 8 || d.o.to.id) return false;
-    const { src, side } = d.qc, gap = 70;
+    addConnectedCopy(d.qc.src, d.qc.side, d.o);
+    return true;
+  };
+  // A copy of src on that side, joined by line c (or a new line in the current style).
+  function addConnectedCopy(src, side, c) {
+    const gap = 70;
     const [copy] = cloneObjects([src], objs(), 0);
     const dx = side === 'e' ? src.w + gap : side === 'w' ? -(src.w + gap) : 0, dy = side === 's' ? src.h + gap : side === 'n' ? -(src.h + gap) : 0;
     copy.x = src.x + dx; copy.y = src.y + dy;
     if (copy.type === 'text' || copy.label != null) { if (copy.type === 'text') copy.text = ''; else copy.label = ''; } // a fresh box to type in
-    if (copy.type === 'text' && !copy.text) copy.text = 'Text';
+    if (copy.type === 'text' && !copy.text) { copy.text = 'Text'; if (typeof postEdit === 'function') postEdit(copy); }
     objs().push(copy);
-    d.o.to = { id: copy.id, port: OPP[side] };
+    if (!c) { c = Make.connector({ id: src.id, port: side }, { x: 0, y: 0 }, presetStyle()); objs().push(c); }
+    c.to = { id: copy.id, port: OPP[side] };
     state.sel = [copy.id];
     render({ props: true });
-    return true;
-  };
+  }
+  // Option+Shift+Arrow: add a connected copy on that side (as in draw.io).
+  window.addEventListener('keydown', (e) => {
+    if (!e.altKey || !e.shiftKey || e.metaKey || e.ctrlKey || !e.key.startsWith('Arrow') || (typeof isTyping === 'function' && isTyping())) return;
+    const sel = selected();
+    if (sel.length !== 1 || sel[0].type === 'connector' || sel[0].locked) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    checkpoint();
+    addConnectedCopy(sel[0], { ArrowRight: 'e', ArrowLeft: 'w', ArrowUp: 'n', ArrowDown: 's' }[e.key]);
+  }, true);
 
   svg.addEventListener('dblclick', (e) => {
     const h = e.target.closest && e.target.closest('[data-handle^="wp:"]');
@@ -867,6 +881,21 @@
     const P = $('#props'), anchor = [...P.querySelectorAll('h3')].filter((h) => h.textContent === 'Connector').pop(); // the style section, after the name
     if (anchor && anchor.parentElement) anchor.parentElement.after(s); else P.append(s);
   };
+
+  // ---------- Help topics ----------
+  if (typeof HELP !== 'undefined') {
+    const at = HELP.findIndex(([t]) => t === 'Connect objects') + 1 || HELP.length;
+    HELP.splice(at, 0,
+      ['Quick connect', 'Select one object: small arrows appear on its sides. Drag one onto another object to connect them, or click it to add a connected copy on that side. Option+Shift+Arrow does the same from the keyboard.'],
+      ['Bend, route and hop lines', 'Select a line and drag the small orange circles to add bend points (double-click one to remove it). Arrange › Lines › Route Around Objects finds a path past everything in the way; Hop over Crossing Lines adds little bridges where lines cross.'],
+      ['Branch and merge lines', 'Drop a line’s end onto another line to branch from it or merge into it. Or select three or more objects, right-click, and choose Branch (one → many) or Merge (many → one). Drag an end onto an object’s outline to pin it to that exact spot.'],
+      ['Reaction arrows, labels and cofactors', 'In Properties › Line extras: Side in / Side out draw a curved cofactor arrow (ATP → ADP); Above / Below add labels on either side; “Labels at” slides them along the line and “follow the line’s angle” turns them with it. Mid arrows show direction on long lines.'],
+      ['Scale bars, dimensions and timelines', 'Line style menu (right-click): Dimension line and Scale bar show their length in your units (set Units in Line extras); Timeline adds ticks with labels such as Day 0, Day 7. Flow arrows, gradient, double, wavy and zigzag lines are there too.'],
+      ['SBGN', 'Shapes › SBGN has the process-description glyphs; Line style has the SBGN arcs (production, consumption, catalysis, stimulation, necessary stimulation, modulation, inhibition). Insert › Line Legend explains the lines on a page.'],
+      ['Equations', 'Insert › Equation (LaTeX)… renders LaTeX and chemistry (\\ce{…}) without internet. Double-click an equation to edit it.'],
+      ['Gene and protein names', 'Edit › Gene & Protein Names… lists gene / protein symbols in your text, guesses which is which from nearby words, and sets italics (genes) and human or mouse capitalisation once you have checked them.'],
+      ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
+  }
 
   // ---------- Figure check (Check tab): common line mistakes ----------
   if (typeof checkFigure === 'function') {
