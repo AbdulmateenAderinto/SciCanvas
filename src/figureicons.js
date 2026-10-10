@@ -35,28 +35,68 @@
   // =====================================================================================
   // Gut-associated lymphoid tissue and germinal centres
   // =====================================================================================
-  // Peyer's patch: a section through the small-intestinal wall. Villi either side, two follicle-associated
-  // epithelium domes over lymphoid follicles with pale germinal centres, then submucosa and muscle layers.
-  S("Peyer's patch", CAT.tissue, "Peyer's patch Peyers patches GALT gut-associated lymphoid tissue small intestine ileum follicle germinal centre dome M cell mucosa", [160, 104], (r) => {
-    const MUC = '#f4c9c4', VIL = '#eba29d', SUB = '#f8e3d6', MUS = '#d8857c';
-    let s = rr(0, 74, 160, 14, 0, SUB, { oc: '#dfbfae', w: 1.2 }) + rr(0, 87, 160, 15, 0, MUS, { w: 1.4 });
-    for (let x = 6; x < 160; x += 9) s += line(`M${x} 90 L${x + 4} 99`, mix(MUS, '#7a3a34', 0.3), 1, { op: 0.6 });
-    s += path('M0 44 H160 V76 H0 Z', MUC, { oc: '#d9a7a1', w: 1.2 });
-    // villi on both flanks
-    const villus = (x, h) => path(`M${x - 5} 46 C${x - 5} ${46 - h * 0.6} ${x - 4.5} ${46 - h} ${x} ${46 - h} C${x + 4.5} ${46 - h} ${x + 5} ${46 - h * 0.6} ${x + 5} 46 Z`, VIL, { w: 1.4 });
-    [8, 19, 30].forEach((x, i) => { s += villus(x, 30 + (i % 2) * 5 + r() * 3); });
-    [131, 142, 153].forEach((x, i) => { s += villus(x, 31 + (i % 2) * 4 + r() * 3); });
-    // two domes with follicles
-    [[60, 22], [100, 22]].forEach(([cx]) => {
-      s += path(`M${cx - 24} 46 C${cx - 22} 26 ${cx - 12} 16 ${cx} 16 C${cx + 12} 16 ${cx + 22} 26 ${cx + 24} 46 Z`, MUC, { oc: '#d9a7a1', w: 1.4 });
-      s += line(`M${cx - 23} 44 C${cx - 21} 26 ${cx - 12} 17.5 ${cx} 17.5 C${cx + 12} 17.5 ${cx + 21} 26 ${cx + 23} 44`, '#c9858d', 2.2, { op: 0.7 }); // follicle-associated epithelium
-      s += ell(cx, 54, 21, 23, '#d9cdf0', 0, { oc: '#8b74c9', w: 1.4 });           // follicle (mantle)
-      s += packed(cx, 54, 20, 22, 1.3, '#b39ddf', r, (x, y) => ((x - cx) / 12) ** 2 + ((y - 58) / 12) ** 2 > 1);
-      s += ell(cx, 58, 12, 12, '#f6efcc', 0, { oc: '#c9a85a', w: 1.2 });           // germinal centre
-      s += packed(cx, 58, 11, 11, 1.5, '#e6c56a', r);
-    });
-    return s;
-  }, '#7f72c4');
+  // Peyer's patch, modelled on BioRender gut-mucosa scenes: finger-shaped villi lined by columnar epithelium (cell
+  // borders, nuclei, goblet cells) under a pale-green mucus layer, a dome of follicle-associated epithelium with
+  // purple M cells, and beneath it the patch itself — a soft lavender glow around a follicle of B cells (blue),
+  // T cells (green) and dendritic cells (purple) with a pale germinal centre. Lamina propria, muscularis mucosae
+  // and submucosa below.
+  const crPoints = (pts, step = 0.6) => { // Catmull-Rom spline sampled into points about `step` apart
+    const out = [], n = pts.length, P = (i) => pts[Math.max(0, Math.min(n - 1, i))];
+    for (let i = 0; i < n - 1; i++) {
+      const [p0, p1, p2, p3] = [P(i - 1), P(i), P(i + 1), P(i + 2)], m = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / step));
+      for (let k = 0; k < m; k++) {
+        const t = k / m, t2 = t * t, t3 = t2 * t;
+        out.push([0, 1].map((j) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
+      }
+    }
+    out.push(pts[n - 1]);
+    return out;
+  };
+  const offsetPts = (pts, d) => pts.map(([x, y], i) => { // + d moves towards the lumen (left of travel)
+    const [ax, ay] = pts[Math.max(0, i - 1)], [bx, by] = pts[Math.min(pts.length - 1, i + 1)], L = Math.hypot(bx - ax, by - ay) || 1;
+    return [x + ((by - ay) / L) * d, y - ((bx - ax) / L) * d];
+  });
+  const ptsD = (pts) => 'M' + pts.map(([x, y]) => `${f(x)} ${f(y)}`).join(' L');
+  const band = (a, b) => ptsD(a) + ' L' + [...b].reverse().map(([x, y]) => `${f(x)} ${f(y)}`).join(' L') + ' Z';
+  S("Peyer's patch", CAT.tissue, "Peyer's patch Peyers patches GALT gut-associated lymphoid tissue small intestine ileum villi villus epithelium follicle germinal centre dome M cell goblet cell mucus lamina propria", [200, 132], (r) => {
+    const LP = '#f8ece2', EPI = '#f4ddd2', EPIO = '#d8b1a3', MUC = '#dcefc9', MUCO = '#a9cf8c', MCELL = '#dccaf0', GOB = '#d4e6b5';
+    const surf = crPoints([[-14, 72], [-6, 70], [6, 66], [9, 34], [12, 17], [21, 9], [30, 17], [33, 34], [35, 62], [41, 70], [47, 62], [49, 34], [52, 17], [61, 9], [70, 17], [73, 34], [75, 58],
+      [82, 64], [94, 56], [108, 47], [125, 44], [142, 47], [156, 56], [166, 64], [171, 58], [173, 34], [176, 17], [185, 9], [194, 17], [197, 34], [199, 60], [204, 66], [216, 70], [224, 72]]);
+    const inner = offsetPts(surf, -9), mucus = offsetPts(surf, 4.5);
+    // tissue layers
+    let s = `<path d="${ptsD(surf)} L224 132 L-14 132 Z" fill="${LP}" stroke="none" data-flat="1"/>`;
+    s += `<rect x="-2" y="112" width="204" height="20" fill="#f6e6dc" data-flat="1"/>`;
+    s += `<path d="M-2 101 C30 97 60 105 100 101 C140 97 170 105 202 101 L202 112 C170 116 140 108 100 112 C60 116 30 108 -2 112 Z" fill="#f1bfcc" stroke="#dd93a8" stroke-width="1" data-flat="1"/>`;
+    for (let k = 0; k < 3; k++) s += line(`M-2 ${104 + k * 3} C30 ${100 + k * 3} 60 ${108 + k * 3} 100 ${104 + k * 3} C140 ${100 + k * 3} 170 ${108 + k * 3} 202 ${104 + k * 3}`, '#e3a2b5', 0.6, { op: 0.8 });
+    // the patch: lavender glow, follicle, germinal centre, mixed immune cells
+    for (const [rad, op] of [[44, 0.1], [37, 0.14], [30, 0.18]]) s += `<ellipse cx="125" cy="80" rx="${rad}" ry="${rad * 0.62}" fill="#b9a2e6" opacity="${op}" data-flat="1"/>`;
+    s += ell(125, 80, 24, 17, '#ece3f8', 0, { oc: '#c5b3e8', w: 1 });
+    s += ell(126, 82, 11, 8, '#fbf3d9', 0, { oc: '#e6cf8f', w: 0.9 });
+    const cellAt = (x, y, c, rad = 2.9) => ball(x, y, rad, c, { oc: oc(c), w: 0.7 }) + `<circle cx="${f(x + 0.4)}" cy="${f(y + 0.3)}" r="${f(rad * 0.48)}" fill="${oc(c)}" opacity=".55"/>`;
+    const dc = (x, y) => { let d = ''; for (let k = 0; k < 7; k++) { const t = (k / 7) * Math.PI * 2 + r(); d += tube([[x, y], [x + Math.cos(t) * 5.5, y + Math.sin(t) * 5.5]], 1.3, '#8a6cc4', { ow: 0.5 }); } return d + ball(x, y, 2.6, '#9b7fd1', { w: 0.7 }); };
+    [[108, 76], [113, 85], [118, 70], [134, 71], [140, 79], [137, 88], [116, 91], [129, 92], [146, 85], [105, 84]].forEach(([x, y], i) => { s += cellAt(x, y, i % 3 === 2 ? '#8fd18a' : '#bfe3f2'); });
+    [[122, 80], [129, 79], [125, 85], [131, 85]].forEach(([x, y]) => { s += cellAt(x, y, '#f2d488', 2.4); }); // germinal-centre B cells
+    s += dc(102, 70) + dc(148, 72) + dc(124, 64);
+    // epithelium: band, cell borders every ~4.6 units, nuclei, then M cells on the dome and goblet cells on villi
+    s += `<path d="${band(surf, inner)}" fill="${EPI}" stroke="${EPIO}" stroke-width="0.9" stroke-linejoin="round" data-flat="1"/>`;
+    const cum = [0]; for (let i = 1; i < surf.length; i++) cum.push(cum[i - 1] + Math.hypot(surf[i][0] - surf[i - 1][0], surf[i][1] - surf[i - 1][1]));
+    const idx = []; for (let d = 2, i = 0; d < cum[cum.length - 1]; d += 4.6) { while (cum[i] < d) i++; idx.push(i); }
+    for (let k = 0; k < idx.length - 1; k++) {
+      const a = idx[k], b = idx[k + 1], m = Math.round((a + b) / 2), [mx] = surf[m];
+      const quad = `M${f(surf[a][0])} ${f(surf[a][1])} L${f(surf[b][0])} ${f(surf[b][1])} L${f(inner[b][0])} ${f(inner[b][1])} L${f(inner[a][0])} ${f(inner[a][1])} Z`;
+      const onDome = mx > 104 && mx < 146, mcell = onDome && k % 3 === 0, goblet = !onDome && k % 7 === 3;
+      if (mcell) s += `<path d="${quad}" fill="${MCELL}" stroke="#a98bd6" stroke-width=".7" stroke-linejoin="round" data-flat="1"/>`;
+      if (goblet) s += `<path d="${quad}" fill="${GOB}" stroke="#9fc27a" stroke-width=".7" stroke-linejoin="round" data-flat="1"/>`;
+      s += line(`M${f(surf[a][0])} ${f(surf[a][1])} L${f(inner[a][0])} ${f(inner[a][1])}`, EPIO, 0.55);
+      const [nx, ny] = offsetPts(surf, -6)[m];
+      s += `<circle cx="${f(nx)}" cy="${f(ny)}" r="${mcell ? 1.3 : 1.05}" fill="${mcell ? '#7d58b8' : goblet ? '#7aa356' : '#c58f84'}"/>`;
+      if (goblet) { const [gx, gy] = offsetPts(surf, -3)[m]; s += `<circle cx="${f(gx)}" cy="${f(gy)}" r=".6" fill="#ffffff"/>`; }
+    }
+    // mucus layer on the luminal side
+    s += `<path d="${band(mucus, surf)}" fill="${MUC}" stroke="none" data-flat="1"/>` + line(ptsD(mucus), MUCO, 0.9);
+    // the tissue runs past both sides; a nested <svg> clips it to the frame without needing clip-path ids
+    return `<svg x="0" y="0" width="200" height="132" viewBox="0 0 200 132" overflow="hidden">${s}</svg>`;
+  }, '#9b7fd1');
 
   // Germinal centre: mantle of naive B cells, a dark zone of dividing centroblasts and a light zone with a
   // follicular dendritic cell network and centrocytes.
