@@ -19,7 +19,7 @@ test('units and symbols are tidied only where unambiguous', () => {
     '10 um beads': '10 µm beads', '5ug/ml': '5 µg/mL', '200 ul': '200 µL', '50uM drug': '50 µM drug', '2 ml': '2 mL',
     'at 37 C for 1 h': 'at 37 °C for 1 h', '37oC': '37 °C', '4 degC': '4 °C', 'mean +/- SD': 'mean ± SD',
     'A -> B': 'A → B', 'A <=> B': 'A ⇌ B', '2 x 10^6 cells': '2 × 10^{6} cells', 'diluted 10x.': 'diluted 10×.',
-    'Group C': 'Group C', 'umbrella': 'umbrella', 'xml': 'xml', 'Figure 2': 'Figure 2', '300 C-terminal': '300 C-terminal', 'pH 7': 'pH 7',
+    '(p<.05)': '({i|p} < 0.05)', 'n=5 mice': '{i|n} = 5 mice', 'P <= 0.001': '{i|P} ≤ 0.001', 'pH 7.4': 'pH 7.4', 'Group C': 'Group C', 'umbrella': 'umbrella', 'xml': 'xml', 'Figure 2': 'Figure 2', '300 C-terminal': '300 C-terminal', 'pH 7': 'pH 7',
   };
   for (const [a, b] of Object.entries(cases)) assert.equal(t(a), b, a);
 });

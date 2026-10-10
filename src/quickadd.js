@@ -116,7 +116,9 @@
       .replace(/\+\/-|\+-(?=\s?\d)/g, '±')
       .replace(/<=>/g, '⇌').replace(/<->/g, '↔').replace(/(^|[^-<])->/g, '$1→').replace(/<-(?!>|-)/g, '←')
       .replace(/(\d)\s?x\s?10\^?(-?\d+)/g, (m, a, e) => `${a} × 10^{${e.replace('-', '−')}}`)
-      .replace(/(\d)x(?=\s|$|[,.;)])/g, '$1×');
+      .replace(/(\d)x(?=\s|$|[,.;)])/g, '$1×')
+      // statistics: italic p and n, spaced operators, a leading zero (p<.05 → p < 0.05)
+      .replace(/(^|[\s(,;])([pPnN])\s*(<=|>=|[<>=≤≥])\s*(\.?\d[\d.]*(?:e-?\d+)?)/g, (m, pre, v, op, num) => `${pre}{i|${v}} ${op.replace('<=', '≤').replace('>=', '≥')} ${num.startsWith('.') ? '0' + num : num}`);
   }
   globalThis.tidyUnits = tidyUnits;
   ARRANGE_COMMANDS.tidyUnits = () => {
