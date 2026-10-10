@@ -1128,6 +1128,30 @@
         r.issues.push({ sev: 'info', kind: 'Fonts', msg: `${fams.size} different fonts (${[...fams.keys()].map(nm).join(', ')}). One or two fonts look more consistent.`, fixLabel: `Use ${nm(top)}`,
           fix: () => { const walk = (os) => { for (const o of os) { if (o.type === 'text') o.family = top; else if (o.label && ['rect', 'ellipse', 'shape'].includes(o.type)) o.labelFamily = top; if (typeof postEdit === 'function' && (o.type === 'text' || o.label)) postEdit(o); if (o.children) walk(o.children); } }; walk(list); } });
       }
+      // Labels wider or taller than the shape they sit in.
+      for (const o of list) {
+        if (o.hidden || !o.label || !['rect', 'ellipse', 'shape'].includes(o.type)) continue;
+        const fs = o.labelSize || 16, lines = String(o.label).split('\n');
+        const plain = (t) => t.replace(/\{[^|{}]*\||\}|[\^_]\{/g, '');
+        const wMax = Math.max(...lines.map((l) => measureText(plain(l), fs, o.labelFamily || 'sans', o.labelBold, o.labelItalic).w)), hTot = lines.length * fs * 1.25;
+        const room = (o.type === 'ellipse' ? 0.72 : 0.92), fit = Math.min((o.w * room - 4) / wMax, (o.h * room) / hTot);
+        if (fit < 0.97) r.issues.push({ sev: 'warn', kind: 'Text', msg: `${nameOf(o)}: the label doesn't fit inside the shape`, id: o.id, fixLabel: 'Fit label', fix: () => {
+          // try two balanced lines first (long names), then shrink only as much as still needed
+          let label = o.label, best = fit;
+          if (lines.length === 1 && /\s/.test(label)) {
+            const words = label.split(/\s+/);
+            let cand = null;
+            for (let i = 1; i < words.length; i++) {
+              const two = [words.slice(0, i).join(' '), words.slice(i).join(' ')], w2 = Math.max(...two.map((l) => measureText(plain(l), fs, o.labelFamily || 'sans', o.labelBold, o.labelItalic).w));
+              const f2 = Math.min((o.w * room - 4) / w2, (o.h * room) / (2 * fs * 1.25));
+              if (!cand || f2 > cand.f) cand = { f: f2, text: two.join('\n') };
+            }
+            if (cand && cand.f > best) { best = cand.f; label = cand.text; }
+          }
+          o.label = label;
+          if (best < 1) o.labelSize = Math.max(6, Math.floor(fs * best * 10) / 10);
+        } });
+      }
       // Text running into other text.
       const texts = list.filter((o) => o.type === 'text' && !o.hidden && String(o.text || '').trim());
       const tb = texts.map((o) => bounds(o, list));
