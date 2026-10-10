@@ -261,7 +261,7 @@
     const pages = state.doc.pages.map((p, i) => [i, p.name || `Page ${i + 1}`]).filter(([i]) => i !== state.pageIndex);
     const sub = (move) => [...pages.map(([i, name]) => { ARRANGE_COMMANDS[`toPage:${move ? 'm' : 'c'}:${i}`] = () => sendToPage(i, move); return { label: name, cmd: `toPage:${move ? 'm' : 'c'}:${i}` }; }),
       { type: 'separator' }, (() => { const i = state.doc.pages.length; ARRANGE_COMMANDS[`toPage:${move ? 'm' : 'c'}:${i}`] = () => sendToPage(i, move); return { label: 'New page', cmd: `toPage:${move ? 'm' : 'c'}:${i}` }; })()];
-    t.push({ label: 'Move to page', submenu: sub(true) }, { label: 'Copy to page', submenu: sub(false) });
+    t.push({ label: 'Move or copy to page', submenu: [{ label: 'Move to', enabled: false }, ...sub(true), { type: 'separator' }, { label: 'Copy to', enabled: false }, ...sub(false)] });
     return t;
   };
 

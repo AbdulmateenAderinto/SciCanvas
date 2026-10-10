@@ -246,8 +246,9 @@
   const prevMenu = contextMenuTemplate;
   contextMenuTemplate = function () {
     const base = prevMenu(), none = !state.sel.length;
-    const extra = [toolsMenu(), shapesMenu(), linesMenu(selected().some((o) => o.type === 'connector') ? 'Change line style' : 'Line style')];
-    return none ? [...extra, { type: 'separator' }, ...base] : [...base, { type: 'separator' }, ...extra];
+    // Empty canvas: tools, shapes and line styles first. With a selection, only what applies to it (line style for lines).
+    if (none) return [toolsMenu(), shapesMenu(), linesMenu('Line style'), { type: 'separator' }, ...base];
+    return selected().some((o) => o.type === 'connector') ? [...base, { type: 'separator' }, linesMenu('Change line style')] : base;
   };
 
   // Toolbar flyouts (right-click a tool for its variants) are drawn as picture grids by ctxmenu.js.
