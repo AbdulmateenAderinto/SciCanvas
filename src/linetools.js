@@ -828,10 +828,24 @@
     const list = nonLines();
     if (list.length < 2) { toast('Select two or more objects to connect'); return; }
     const rowH = Math.max(...list.map((o) => o.h)) * 0.6;
-    const order = [...list].sort((a, b) => (Math.abs(center(a).y - center(b).y) > rowH ? center(a).y - center(b).y : center(a).x - center(b).x));
+    // On a circle (a cycle): go round clockwise from the top, close the loop, and bow each arrow outward.
+    const cx = list.reduce((t, o) => t + center(o).x, 0) / list.length, cy = list.reduce((t, o) => t + center(o).y, 0) / list.length;
+    const radii = list.map((o) => Math.hypot(center(o).x - cx, center(o).y - cy)), mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+    const ring = list.length >= 3 && mean > 0 && Math.sqrt(radii.reduce((t, r) => t + (r - mean) ** 2, 0) / radii.length) / mean < 0.15;
+    const ang = (o) => (Math.atan2(center(o).y - cy, center(o).x - cx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI);
+    const order = ring ? [...list].sort((a, b) => ang(a) - ang(b)) : [...list].sort((a, b) => (Math.abs(center(a).y - center(b).y) > rowH ? center(a).y - center(b).y : center(a).x - center(b).x));
     checkpoint();
     const made = [];
-    for (let i = 1; i < order.length; i++) made.push(Make.connector({ id: order[i - 1].id }, { id: order[i].id }, presetStyle()));
+    const pairs = order.slice(1).map((o, i) => [order[i], o]);
+    if (ring) pairs.push([order[order.length - 1], order[0]]);
+    for (const [a, b] of pairs) {
+      const st = presetStyle();
+      if (ring && !st.style) { // bow outward
+        const pa = center(a), pb = center(b), dx = pb.x - pa.x, dy = pb.y - pa.y, L = Math.hypot(dx, dy) || 1, mx = (pa.x + pb.x) / 2 - cx, my = (pa.y + pb.y) / 2 - cy;
+        Object.assign(st, { style: 'curved', curve: Math.sign((-dy / L) * mx + (dx / L) * my) * L * 0.18 });
+      }
+      made.push(Make.connector({ id: a.id }, { id: b.id }, st));
+    }
     objs().push(...made);
     state.sel = made.map((c) => c.id);
     render({ props: true });

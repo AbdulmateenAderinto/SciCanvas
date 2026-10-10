@@ -205,10 +205,26 @@
     });
     render({ props: true });
   };
+  // Arrange in a circle: evenly round their centre, keeping the order they already go round in (cycles, hubs).
+  ARRANGE_COMMANDS.arrangeCircle = () => {
+    const sel = selected().filter((o) => o.type !== 'connector');
+    if (sel.length < 3) { toast('Select three or more objects'); return; }
+    const cx = sel.reduce((s, o) => s + center(o).x, 0) / sel.length, cy = sel.reduce((s, o) => s + center(o).y, 0) / sel.length;
+    const radii = sel.map((o) => Math.hypot(center(o).x - cx, center(o).y - cy)), mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+    const ring = mean > 0 && Math.sqrt(radii.reduce((t, r) => t + (r - mean) ** 2, 0) / radii.length) / mean < 0.25;
+    const rowH = Math.max(...sel.map((o) => o.h)) * 0.6, ang = (o) => (Math.atan2(center(o).y - cy, center(o).x - cx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI);
+    // already roughly round: keep the order they go round in; otherwise reading order, clockwise from the top
+    const order = ring ? [...sel].sort((a, b) => ang(a) - ang(b)) : [...sel].sort((a, b) => (Math.abs(center(a).y - center(b).y) > rowH ? center(a).y - center(b).y : center(a).x - center(b).x));
+    const size = Math.max(...sel.map((o) => Math.max(o.w, o.h)));
+    const R = Math.max(size * 1.1 / (2 * Math.sin(Math.PI / sel.length)), Math.max(...sel.map((o) => Math.hypot(center(o).x - cx, center(o).y - cy))) * 0.6);
+    checkpoint();
+    order.forEach((o, i) => { const a = -Math.PI / 2 + (i * 2 * Math.PI) / sel.length; o.x = cx + R * Math.cos(a) - o.w / 2; o.y = cy + R * Math.sin(a) - o.h / 2; });
+    render({ props: true });
+  };
   const prevMenu5 = contextMenuTemplate;
   contextMenuTemplate = function () {
     const t = prevMenu5();
-    if (selected().filter((o) => o.type !== 'connector').length >= 3) t.push({ label: 'Tidy into grid', cmd: 'tidyGrid' });
+    if (selected().filter((o) => o.type !== 'connector').length >= 3) t.push({ label: 'Tidy into grid', cmd: 'tidyGrid' }, { label: 'Arrange in a circle', cmd: 'arrangeCircle' });
     return t;
   };
 
