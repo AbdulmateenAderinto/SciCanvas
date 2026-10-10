@@ -10,7 +10,8 @@ library → canvas → relationships → data → review → export.
 **New in 1.2**
 - **The whole NIH BioArt collection built in**: 4,821 images from all 958 entries of NIAID's BioArt Source (bioart.niaid.nih.gov), in every version BioArt offers (colours, black and white, views), so a search shows all of them next to the other libraries. They're public domain except the Human Reference Atlas images (CC BY); File › Credits adds NIH's credit line.
 - **Organs drawn from professional medical artwork**: 75 organ, tissue and disease icons now use Servier Medical Art, Reactome and DBCLS illustrations (heart, lungs, brain, liver, kidney, gut, glands, bones, vessels, disease views such as infarct, stroke, pneumonia, aneurysm, DVT and pulmonary embolism), plus new Larynx, Aorta, Heart conduction system, Pulmonary embolism and Brain (horizontal section) icons. Classic icon style keeps the earlier drawings.
-- **One shaded finish for every built-in icon**, matching the reference illustrations (Classic turns it off).
+- **Refined icons redrawn to real proportions**: culture plates with real well spacing, Falcon tubes, bottles, glassware and T-flasks drawn to labware dimensions; cells, antibodies, mice and nanoparticles redrawn to the reference templates; about 94 new icons, including flow cytometer models and HPLC modules.
+- **One shaded finish for every built-in icon**, matching the reference illustrations, and one shared DNA helix for every DNA icon (Classic turns the finish off).
 - **PowerPoint export keeps the design tools**: fill-editor gradients, patterns, fill opacity, inner glow, warped and perspective shapes, per-corner radii, text box columns and spacing, and label leader lines stay editable in PowerPoint; textures, blurs, halos and cutaways go in as pictures.
 - **About 26,800 icons in all**: 2,154 built-in, the four icon libraries (about 19,900) and NIH BioArt (4,821).
 
@@ -72,6 +73,8 @@ Anyone with write access to the repo can publish; GitHub builds the installers (
 Only releases whose tag starts with `v` (like `v1.1.0`) get installers; others, such as the `icon-libraries` release, are left alone. The build downloads the icon libraries from that `icon-libraries` release (`iconpacks.tar.gz`) and puts them inside the installers. To refresh them: run `npm run icons`, then `COPYFILE_DISABLE=1 tar -czf iconpacks.tar.gz -C assets iconpacks` (on a Mac, `COPYFILE_DISABLE=1` keeps hidden `._` files out) and replace the file on that release.
 
 NIH BioArt is a second file on the same release, `bioart.tar.gz`, built from a downloaded copy of the whole BioArt collection (a folder of `BIOART-…` entry folders plus `catalog.json` and `file_index.csv`): run `npm run icons:bioart -- <collection folder>` (AI/EPS conversion needs `pdftocairo` and Ghostscript), then `COPYFILE_DISABLE=1 tar -czf bioart.tar.gz -C assets iconpacks/bioart` and add or replace the file on the release. Installers built without it still work, just without BioArt.
+
+Upload or replace these archives **before** publishing: the build fetches them in its first minute. If a release's installers were built without them, rebuild them with **Actions › Build installers › Run workflow**, entering the release tag (for example `v1.2.0`); the new installers replace the old ones on that release.
 
 ## Checks
 
