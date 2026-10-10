@@ -1172,7 +1172,9 @@
         const A = tb[i], B = tb[j], ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x), oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
         if (ox > 2 && oy > 2 && ox * oy > Math.min(A.w * A.h, B.w * B.h) * 0.15 && !clashed.has(texts[j].id)) {
           clashed.add(texts[j].id);
-          r.issues.push({ sev: 'warn', kind: 'Text', msg: `“${String(texts[j].text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}” overlaps “${String(texts[i].text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}”`, id: texts[j].id });
+          const ta = texts[i], tb2 = texts[j];
+          r.issues.push({ sev: 'warn', kind: 'Text', msg: `“${String(tb2.text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}” overlaps “${String(ta.text).replace(/\{[^|{}]*\||\}|[\^_]\{/g, '').slice(0, 24)}”`, id: tb2.id,
+            fixLabel: 'Separate', fix: () => { const a = bounds(ta, list), b = bounds(tb2, list); if (b.y >= a.y) tb2.y += a.y + a.h + 4 - b.y; else tb2.y -= b.y + b.h + 4 - a.y; } });
         }
       }
       // Almost aligned: edges or centres 0.5–3 px apart look like a mistake; line them up exactly.
