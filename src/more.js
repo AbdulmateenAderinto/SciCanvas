@@ -141,6 +141,7 @@ function openSymbolPicker(anchor, o) {
   setTimeout(() => window.addEventListener('pointerdown', close, true), 0);
 }
 function insertSymbol(ch, o) {
+  if (typeof RichEdit !== 'undefined' && RichEdit.active()) { RichEdit.insert(ch); return; } // editing on the canvas (richedit.js)
   const ta = $('#textEditor');
   if (!ta.classList.contains('hidden')) { // editing on canvas: insert at the caret
     const s = ta.selectionStart, e = ta.selectionEnd;
