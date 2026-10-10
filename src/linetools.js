@@ -767,7 +767,7 @@
 
   Object.assign(ARRANGE_COMMANDS, {
     lineBranch: () => branch('branch'), lineMerge: () => branch('merge'), lineTwoWay: twoWay, lineSelfLoop: selfLoopCmd,
-    lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, pasteInPlace, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
+    lineAddBranch: addBranchFromLine, selectConnected, lineConnectOrder: connectInOrder, pasteInPlace, removeFromPath, lineLegend: insertLegend, lineAutoRoute: () => setLines({ route: 'auto', style: 'elbow', radius: 8 }),
     lineClearBends: () => setLines({ points: undefined, route: undefined }), lineJumps: () => setLines({ jumps: true }), lineStraighten: straighten,
     equation: () => openEquationEditor(), geneStyle: () => openGeneHelper(),
   });
@@ -843,6 +843,24 @@
       toast('Inserted into the line');
     }, 60);
   }, true);
+  // Remove a step from a pathway: A → X → C becomes A → C (X and its outgoing line are deleted).
+  function removeFromPath() {
+    const steps = nonLines();
+    if (!steps.length) return;
+    checkpoint();
+    let n = 0;
+    for (const x of steps) {
+      const ins = objs().filter((c) => c.type === 'connector' && c.to.id === x.id && c.from.id !== x.id);
+      const outs = objs().filter((c) => c.type === 'connector' && c.from.id === x.id && c.to.id !== x.id);
+      if (ins.length !== 1 || outs.length !== 1) continue;
+      ins[0].to = deep(outs[0].to);
+      page().objects = objs().filter((o) => o !== x && o !== outs[0]);
+      n++;
+    }
+    state.sel = [];
+    render({ props: true });
+    toast(n ? `Removed ${n} step${n > 1 ? 's' : ''} and reconnected the path` : 'Works on objects with one line in and one line out');
+  }
   // Tab / Shift+Tab: select the next / previous object (handy for small or overlapping ones).
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey || (typeof isTyping === 'function' && isTyping())) return;
@@ -901,6 +919,7 @@
     if (others.length >= 2) items.push({ label: 'Connect in order (arrows)', cmd: 'lineConnectOrder' });
     if (others.length === 2) items.push({ label: 'Two-way arrows between these', cmd: 'lineTwoWay' });
     if (sel.length) items.push({ label: 'Select connected (whole pathway)', cmd: 'selectConnected' });
+    if (others.length && !lines.length && others.some((x) => objs().some((c) => c.type === 'connector' && c.to.id === x.id) && objs().some((c) => c.type === 'connector' && c.from.id === x.id))) items.push({ label: 'Remove from pathway (reconnect)', cmd: 'removeFromPath' });
     if (others.length >= 3) items.push({ label: 'Branch: one → many', cmd: 'lineBranch' }, { label: 'Merge: many → one', cmd: 'lineMerge' });
     if (others.length === 1 && !lines.length) items.push({ label: 'Add feedback loop', cmd: 'lineSelfLoop' });
     if (!sel.length) items.push({ label: 'Insert equation (LaTeX)…', cmd: 'equation' }, { label: 'Insert line legend', cmd: 'lineLegend' }, { label: 'Gene & protein names…', cmd: 'geneStyle' });
