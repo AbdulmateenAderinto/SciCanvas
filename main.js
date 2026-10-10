@@ -351,6 +351,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Help', accelerator: 'F1', click: send('help') },
         { label: 'What’s New', click: send('whatsNew') },
+        { label: 'Take the Tour', click: send('tour') },
         { label: 'Check for Updates…', click: send('checkUpdates') },
         { role: 'toggleDevTools' },
         { role: 'togglefullscreen' },

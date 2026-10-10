@@ -21,11 +21,48 @@
   function openWhatsNew() {
     const body = el('div', { style: 'max-width:620px' },
       el('p', { class: 'note', textContent: 'Everything is also in Help (F1), with the keyboard shortcuts at the end.' }),
+      el('div', { class: 'btnrow' }, btn('Take the tour', () => ARRANGE_COMMANDS.tour(), 'primary')),
       ...ITEMS.map(([t, d]) => el('div', { class: 'help' }, el('b', { textContent: t }), el('div', { textContent: d }))));
     openModal(`What’s new in SciCanvas ${VERSION}`, body);
   }
   globalThis.openWhatsNew = openWhatsNew;
   ARRANGE_COMMANDS.whatsNew = openWhatsNew;
+
+  // A short guided tour: a bubble beside each part of the window, Next / Back / Done.
+  const TOUR = [
+    ['#lib-library, #left', 'Icons', 'Search about 26,800 icons; pick a library and category from the dropdowns. Drag an icon onto the page, or rest on one for a large preview. Press / over the page to add one at the pointer.'],
+    ['[data-ltab="shapes"]', 'Shapes and lines', 'Shapes, SBGN glyphs and ready-made line styles. Drag a line style onto a line to restyle it.'],
+    ['#tools', 'Tools', 'Right-click any tool for a picture grid of its variants (shapes, line styles, brushes, pencil modes).'],
+    ['#stage', 'The page', 'Right-click for picture menus. Select one object and drag a small side arrow to another object to connect them, or click the arrow to add a connected copy.'],
+    ['[data-rtab="props"]', 'Properties', 'Everything about the selection, with picture choices for arrowheads, shading, warps and fonts. Lines have Line extras: bend, route, labels, cofactors, scale bars.'],
+    ['[data-rtab="check"]', 'Check', 'Checks the figure for print size, colours, overlaps and loose line ends, and fixes most of it in one click.'],
+    ['#topbar', 'Builders and more', 'Insert › Builders makes timelines, study groups, gating strategies and western blots from a few lines of text. Help (F1) lists every feature and shortcut.'],
+  ];
+  let tourStep = -1, tourBox = null;
+  const endTour = () => { tourStep = -1; if (tourBox) { tourBox.remove(); tourBox = null; } document.querySelectorAll('.tour-hi').forEach((x) => x.classList.remove('tour-hi')); };
+  function showTour(i) {
+    endTour();
+    tourStep = i;
+    const [sel, title, text] = TOUR[i];
+    const target = sel.split(',').map((x) => document.querySelector(x.trim())).find((x) => x && x.getBoundingClientRect().width);
+    if (target) target.classList.add('tour-hi');
+    tourBox = el('div', { class: 'tour-box' },
+      el('div', { class: 'note', textContent: `${i + 1} of ${TOUR.length}` }), el('b', { textContent: title }), el('p', { textContent: text }),
+      el('div', { class: 'btnrow' },
+        i > 0 ? btn('Back', () => showTour(i - 1)) : null,
+        i < TOUR.length - 1 ? btn('Next', () => showTour(i + 1), 'primary') : btn('Done', endTour, 'primary'),
+        btn('Skip', endTour)));
+    document.body.append(tourBox);
+    const r = target ? target.getBoundingClientRect() : { left: innerWidth / 2, right: innerWidth / 2, top: innerHeight / 3, bottom: innerHeight / 3, width: 0 };
+    const b = tourBox.getBoundingClientRect();
+    let x = r.right + 12, y = r.top + 8;
+    if (x + b.width > innerWidth - 8) x = Math.max(8, r.left - b.width - 12);
+    if (r.width > innerWidth * 0.5) { x = (innerWidth - b.width) / 2; y = Math.min(innerHeight - b.height - 20, r.top + 80); } // big targets: centre the bubble
+    tourBox.style.left = Math.max(8, x) + 'px';
+    tourBox.style.top = Math.max(8, Math.min(innerHeight - b.height - 8, y)) + 'px';
+  }
+  ARRANGE_COMMANDS.tour = () => { closeModal(); showTour(0); };
+  window.addEventListener('keydown', (e) => { if (tourStep >= 0 && e.key === 'Escape') endTour(); }, true);
   const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
   globalThis.versionNewer = newer;
   ARRANGE_COMMANDS.checkUpdates = async () => {
