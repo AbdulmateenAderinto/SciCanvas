@@ -90,6 +90,15 @@ function markDirty() {
     window.requestIdleCallback ? requestIdleCallback(save, { timeout: 4000 }) : save();
   }, 1500);
 }
+// Don't lose the last few seconds: write the autosave at once when the window closes or is hidden, and re-arm it
+// when a drag ends (the timer may have fired mid-drag, before the final position).
+function flushAutosave() {
+  clearTimeout(autosaveTimer);
+  try { localStorage.setItem('scicanvas:autosave', JSON.stringify({ doc: state.doc, filePath: state.filePath })); } catch (e) { /* quota — ignore */ }
+}
+window.addEventListener('beforeunload', () => { if (state.dirty) flushAutosave(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state.dirty) flushAutosave(); });
+window.addEventListener('pointerup', () => { if (state.dirty) markDirty(); }, true);
 function updateTitle() {
   const name = state.filePath ? state.filePath.split(/[\\/]/).pop() : 'Untitled';
   $('#docname').textContent = name + (state.dirty ? ' •' : '');
