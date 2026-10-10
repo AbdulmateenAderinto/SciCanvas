@@ -174,7 +174,7 @@
     const inside = (r, q) => q.x > r.x && q.x < r.x2 && q.y > r.y && q.y < r.y2;
     const obs = [];
     for (const T of objects) {
-      if (T === A || T === B || T.hidden || T.type === 'connector' || T.type === 'comment') continue;
+      if (T === A || T === B || (T.hidden && !T.pictureContext) || T.type === 'connector' || T.type === 'comment') continue;
       const bb = bounds(T, objects), r = { x: bb.x - M + 1, y: bb.y - M + 1, x2: bb.x + bb.w + M - 1, y2: bb.y + bb.h + M - 1 };
       if (r.x2 < box.x || r.x > box.x2 || r.y2 < box.y || r.y > box.y2) continue;
       if (inside(r, a) || inside(r, b) || inside(r, sa) || inside(r, sb)) continue;
@@ -365,7 +365,7 @@
   }
   // Path with a small hop wherever this line crosses a line drawn beneath it.
   function jumpPath(o, P, objects, r) {
-    const idx = objects.indexOf(o), others = objects.slice(0, idx < 0 ? objects.length : idx).filter((x) => x.type === 'connector' && !x.hidden && x.style !== 'zoom');
+    const idx = objects.indexOf(o), others = objects.slice(0, idx < 0 ? objects.length : idx).filter((x) => x.type === 'connector' && (!x.hidden || x.pictureContext) && x.style !== 'zoom');
     const lines = others.map((x) => { try { return geom(x, objects, 3).pts; } catch (e) { return []; } });
     let d = `M${r2(P[0].x)} ${r2(P[0].y)}`, any = false;
     for (let i = 1; i < P.length; i++) {
