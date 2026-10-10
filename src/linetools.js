@@ -1120,6 +1120,14 @@
       if (crossings) add('info', `${crossings} place${crossings > 1 ? 's' : ''} where lines cross. Hops make the paths easier to follow.`, null, () => { for (const c of lines) c.jumps = true; }, 'Add hops');
       // Dashed / dotted lines usually mean something (indirect, proposed): say so in a legend.
       const styled = lines.filter((c) => (c.dashStyle && c.dashStyle !== 'solid') || c.lineStyle);
+      // Several fonts by accident: offer the most common one everywhere.
+      const fams = new Map(), walkF = (os) => { for (const o of os) { if (o.type === 'text') fams.set(o.family || 'sans', (fams.get(o.family || 'sans') || 0) + 1); else if (o.label && ['rect', 'ellipse', 'shape'].includes(o.type)) fams.set(o.labelFamily || 'sans', (fams.get(o.labelFamily || 'sans') || 0) + 1); if (o.children) walkF(o.children); } };
+      walkF(list);
+      if (fams.size > 2) {
+        const top = [...fams].sort((a, b) => b[1] - a[1])[0][0], nm = (k) => ((typeof FONT_NAMES !== 'undefined' && FONT_NAMES.find(([x]) => x === k)) || [k, k])[1].replace(' ✦', '').replace(' (default)', '');
+        r.issues.push({ sev: 'info', kind: 'Fonts', msg: `${fams.size} different fonts (${[...fams.keys()].map(nm).join(', ')}). One or two fonts look more consistent.`, fixLabel: `Use ${nm(top)}`,
+          fix: () => { const walk = (os) => { for (const o of os) { if (o.type === 'text') o.family = top; else if (o.label && ['rect', 'ellipse', 'shape'].includes(o.type)) o.labelFamily = top; if (typeof postEdit === 'function' && (o.type === 'text' || o.label)) postEdit(o); if (o.children) walk(o.children); } }; walk(list); } });
+      }
       const hasLegend = list.some((o) => o.type === 'group' && /legend/i.test(o.name || ''));
       if (styled.length && !hasLegend) add('info', `${styled.length} dashed, dotted or styled line${styled.length > 1 ? 's' : ''} but no line legend to say what each style means.`, null, () => insertLegend(), 'Add legend');
       return r;
