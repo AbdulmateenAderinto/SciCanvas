@@ -1,7 +1,10 @@
-// What's new (v1.3): a short tour of the features added since 1.2, shown once after updating and from Help.
+// What's new (v1.6): a short tour of the features added since 1.5, shown once after updating and from Help.
 (() => {
-  const VERSION = '1.3';
+  const VERSION = '1.6';
   const ITEMS = [
+    ['Straight lines with Shift', 'Hold Shift while drawing or dragging a line end to keep it level, upright or at 45°, even over a shape: the line attaches where it meets the edge. Shift also lines up nodes in Edit Points.'],
+    ['Reshape text boxes', 'Drag the side handles of any text: left and right set the width and the words re-wrap, top and bottom set the height. Corners still scale the font.'],
+    ['New figure icons', 'Peyer’s patch, germinal centre and GC B cell, realistic lab mice (C57BL/6, albino, agouti), nanopore sequencers and flow cells, PacBio-, Illumina- and capillary sequencers, a Sanger chromatogram and retroviral transduction with GFP — search the Library for them.'],
     ['Pictures instead of lists', 'Right-click menus, toolbar flyouts and many Properties choices (arrowheads, shading, warps, fonts, patterns…) show previews.'],
     ['Quick connect', 'Select an object and drag one of the small side arrows onto another object, or click one (⌥⇧Arrow) to add a connected copy.'],
     ['Line tools', 'Bend points, routing around objects, hops, branches and merges, feedback loops, cofactor arrows (ATP → ADP), scale bars, timelines, flow and animated arrows, SBGN.'],
