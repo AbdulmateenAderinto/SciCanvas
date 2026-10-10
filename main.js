@@ -626,6 +626,7 @@ ipcMain.on('context-menu', (e, items) => {
   const build = (list) => list.map((it) => {
     if (it.type === 'separator') return { type: 'separator' };
     if (it.role) return { label: it.label, role: it.role };
+    if (it.enabled === false) return { label: it.label, enabled: false };
     if (it.submenu) return { label: it.label, submenu: build(it.submenu) };
     return { label: it.label, click: () => e.sender.send('menu', it.cmd) };
   });

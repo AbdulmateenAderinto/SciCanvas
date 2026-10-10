@@ -285,3 +285,33 @@ button.aimenu span { color: var(--muted); font-size: 11.5px; }
 
 /* PhyloPic silhouettes in the Refined colour (phylostyle.js) */
 .icon-cell .pp-thumb, .pp-thumb { display: block; width: 100%; height: 54px; margin: 0; background: #8a9bad; -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
+
+/* Shapes & lines library (shapelib.js) */
+.shapelib { overflow-y: auto; padding: 0 2px 12px; }
+.shapelib h4 { margin: 12px 2px 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.shapelib h4 .note { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.shapegrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.shapegrid.lines { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.shape-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 4px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; cursor: pointer; }
+.shape-cell:hover { border-color: var(--accent); background: var(--accent-soft); }
+.shape-cell svg { width: 100%; height: 44px; }
+.shapegrid.lines .shape-cell svg { height: 26px; }
+.shape-cell span { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* Text formatting bar (textfmt.js) */
+.textbar { position: absolute; z-index: 30; display: flex; align-items: center; gap: 2px; padding: 4px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(20,28,40,.16); }
+.textbar button { border: none; background: none; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 5px; font-size: 13px; color: #2c3740; cursor: pointer; }
+.textbar button:hover { background: var(--accent-soft); }
+.textbar button.on { background: #dfe7f7; color: var(--accent); }
+.textbar .tb-font { min-width: 110px; max-width: 150px; text-align: left; border: 1px solid var(--border); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.textbar .tb-size { min-width: 22px; text-align: center; font-size: 12px; color: #2c3740; }
+.textbar .tb-sep { width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
+.textbar .tb-a { border-bottom: 3px solid #d64545; font-weight: 700; padding: 0 1px; }
+.textbar-pop { position: absolute; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(20,28,40,.18); padding: 6px; z-index: 31; }
+.textbar-pop .fontlist { display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; min-width: 190px; }
+.textbar-pop .fontlist button { text-align: left; height: auto; padding: 5px 8px; font-size: 14px; }
+.textbar-pop .fontlist em { color: var(--accent); font-style: normal; font-size: 11px; }
+.textbar-pop .symgrid { display: grid; grid-template-columns: repeat(10, 26px); gap: 2px; }
+.textbar-pop .swatches { display: flex; flex-wrap: wrap; gap: 4px; width: 170px; }
+
+#lib-shapes .searchrow input { flex: 1; width: 100%; }

@@ -369,7 +369,7 @@ function openTransformDialog() {
 function localOutline(m) {
   if (m.type === 'ellipse') return `M${m.w / 2} 0 A${m.w / 2} ${m.h / 2} 0 1 1 ${m.w / 2} ${m.h} A${m.w / 2} ${m.h / 2} 0 1 1 ${m.w / 2} 0 Z`;
   if (m.type === 'rect') { const r = Math.min(m.radius || 0, m.w / 2, m.h / 2); return `M${r} 0 H${m.w - r} A${r} ${r} 0 0 1 ${m.w} ${r} V${m.h - r} A${r} ${r} 0 0 1 ${m.w - r} ${m.h} H${r} A${r} ${r} 0 0 1 0 ${m.h - r} V${r} A${r} ${r} 0 0 1 ${r} 0 Z`; }
-  if (m.type === 'shape' && !OPEN_SHAPES.has(m.kind)) return shapePath(m.kind, m.w, m.h);
+  if (m.type === 'shape' && !OPEN_SHAPES.has(m.kind)) return shapePath(m.kind, m.w, m.h, m);
   if (m.type === 'path' && m.closed) return nodesToD(scaledNodes(m), true);
   return null;
 }

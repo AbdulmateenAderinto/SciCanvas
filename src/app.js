@@ -172,6 +172,10 @@ function renderOverlay(extra = '') {
           const m = { x: 0.25 * a.x + 0.5 * cp.x + 0.25 * b.x, y: 0.25 * a.y + 0.5 * cp.y + 0.25 * b.y };
           s += `<rect data-handle="curve" x="${m.x - hs / 2}" y="${m.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" transform="rotate(45 ${m.x} ${m.y})" style="cursor:pointer"/>`;
         }
+        if (o.style === 'elbow') { // drag the middle segment of the elbow
+          const m = elbowBendHandle(o, a, b);
+          if (m) s += `<rect data-handle="bend" x="${m.x - hs / 2}" y="${m.y - hs / 2}" width="${hs}" height="${hs}" fill="#fff" stroke="#e8743b" stroke-width="${sw}" transform="rotate(45 ${m.x} ${m.y})" style="cursor:${m.axis === 'x' ? 'ew-resize' : 'ns-resize'}"/>`;
+        }
       }
       continue;
     }
@@ -576,6 +580,7 @@ svg.addEventListener('pointerdown', (e) => {
     if (h === 'rot') drag = { mode: 'rotate', o, c: center(o) };
     else if (h === 'from' || h === 'to') drag = { mode: 'endpoint', o, end: h };
     else if (h === 'curve') drag = { mode: 'curve', o };
+    else if (h === 'bend') drag = { mode: 'bend', o };
     else drag = { mode: 'resize', o, h, start: { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0 }, font: o.fontSize };
     return;
   }
@@ -639,7 +644,7 @@ svg.addEventListener('pointerdown', (e) => {
       checkpoint();
       const fromPort = hit && hit.type !== 'connector' ? nearestPort(hit, p, 14 / state.zoom) : null;
       const from = hit && hit.type !== 'connector' ? (fromPort ? { id: hit.id, port: fromPort } : { id: hit.id }) : { x: p.x, y: p.y };
-      const o = Make.connector(from, { x: p.x, y: p.y });
+      const o = Make.connector(from, { x: p.x, y: p.y }, typeof linePreset !== 'undefined' && linePreset ? { ...linePreset } : {});
       objs().push(o);
       drag = { mode: 'connect', o, start: p };
       break;
@@ -778,6 +783,12 @@ function handlePointerMove(e) {
       const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs());
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
       drag.o.curve = 2 * ((p.x - (a.x + b.x) / 2) * (-dy / len) + (p.y - (a.y + b.y) / 2) * (dx / len));
+      renderScene(); renderOverlay();
+      return;
+    }
+    case 'bend': {
+      const [a, b] = connectorEnds({ ...drag.o, style: 'straight' }, objs()), m = elbowBendHandle(drag.o, a, b);
+      if (m) drag.o.bend = Math.max(0.02, Math.min(0.98, m.axis === 'x' ? (p.x - a.x) / ((b.x - a.x) || 1) : (p.y - a.y) / ((b.y - a.y) || 1)));
       renderScene(); renderOverlay();
       return;
     }
@@ -1064,6 +1075,7 @@ $$('[data-ltab]').forEach((t) => t.addEventListener('click', () => {
   $$('[data-ltab]').forEach((x) => x.classList.toggle('active', x === t));
   $('#lib-library').classList.toggle('hidden', t.dataset.ltab !== 'library');
   $('#lib-uploads').classList.toggle('hidden', t.dataset.ltab !== 'uploads');
+  if ($('#lib-shapes')) $('#lib-shapes').classList.toggle('hidden', t.dataset.ltab !== 'shapes');
 }));
 
 
@@ -1254,10 +1266,13 @@ function renderProps() {
       break;
     case 'connector':
       P.append(sect('Connector',
-        row('Meaning', select(L, 'head', [['arrow', '→ Activation / leads to'], ['bar', '⊣ Inhibition'], ['open', '⟶ Open arrow'], ['dot', '● Binding / association'], ['none', '— Line only']])),
-        row('Start', select(L, 'tail', [['none', 'None'], ['arrow', 'Arrow'], ['bar', 'Bar'], ['open', 'Open'], ['dot', 'Dot']])),
+        row('End', select(L, 'head', HEAD_KINDS)),
+        row('Start', select(L, 'tail', HEAD_KINDS), btn('⇄', () => { checkpoint(); for (const x of L) [x.head, x.tail] = [x.tail || 'none', x.head || 'none']; render({ props: true }); })),
+        row('Head size', range(L, 'headSize', 0.4, 3, 0.1)),
         row('Path', select(L, 'style', [['straight', 'Straight'], ['curved', 'Curved'], ['elbow', 'Elbow']], true)),
         o.style === 'elbow' ? row('Bend at', range(L, 'bend', 0.05, 0.95, 0.05)) : null,
+        o.style === 'elbow' ? row('Corners', range(L, 'radius', 0, 40, 1)) : null,
+        o.style !== 'straight' ? el('div', { class: 'note', textContent: o.style === 'curved' ? 'Drag the orange handle on the canvas to bend the curve.' : 'Drag the orange handle to move the elbow; Corners rounds it.' }) : null,
         row('Colour', color(L, 'color')), swatches(L, 'color'),
         row('Width', num(L, 'width', 0.5, 0.5)),
         row('Line style', lineStyle(L)),
@@ -1319,7 +1334,7 @@ function renderProps() {
 // ---------- Icon colour, layers, effects, crop ----------
 function pathSection(o) {
   const L = [o];
-  const heads = [['none', 'None'], ['arrow', 'Arrow'], ['open', 'Open arrow'], ['bar', 'Bar ⊣'], ['dot', 'Dot']];
+  const heads = HEAD_KINDS;
   return sect(o.blur ? 'Shading stroke' : 'Drawing',
     btn('✎ Edit points', () => enterNodeEdit(o), 'primary'),
     el('div', { class: 'note', style: 'margin:6px 0' }, 'Or double-click the drawing. Drag points and handles; Alt-drag a handle for a sharp corner.'),
@@ -1338,6 +1353,7 @@ function pathSection(o) {
     o.closed ? row('Gradient to', color(L, 'fill2')) : null,
     !o.closed ? row('End', select(L, 'headEnd', heads)) : null,
     !o.closed ? row('Start', select(L, 'headStart', heads)) : null,
+    !o.closed && ((o.headEnd && o.headEnd !== 'none') || (o.headStart && o.headStart !== 'none')) ? row('Head size', range(L, 'headSize', 0.4, 3, 0.1)) : null,
     !o.closed ? row('Line caps', select(L, 'cap', [['round', 'Round'], ['butt', 'Flat'], ['square', 'Square']])) : null,
     el('h3', { textContent: 'Text along path', style: 'margin-top:12px' }),
     row('Text', textInput(L, 'pathText')),

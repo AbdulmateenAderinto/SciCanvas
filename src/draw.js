@@ -140,11 +140,11 @@ function pathSvg(o) {
   if (o.blur) defs += `<filter id="bl-${o.id}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${o.blur}"/></filter>`;
   // Trim the stroke under arrowheads so the line doesn't poke through the tip.
   let dd = d;
-  if (!o.closed && (o.headEnd === 'arrow' || o.headStart === 'arrow') && ns.length >= 2) {
+  if (!o.closed && (HEAD_INSET[o.headEnd] || HEAD_INSET[o.headStart]) && ns.length >= 2) {
     const trimmed = ns.map((n) => ({ ...n }));
-    const pull = (a, b) => { const len = Math.hypot(b.x - a.x, b.y - a.y) || 1, k = Math.min((6 + sw * 2.2) * 1.2, len / 2) / len; a.x += (b.x - a.x) * k; a.y += (b.y - a.y) * k; };
-    if (o.headEnd === 'arrow') { const L = trimmed[trimmed.length - 1], P = trimmed[trimmed.length - 1].ix != null ? { x: L.ix, y: L.iy } : trimmed[trimmed.length - 2]; pull(L, P); }
-    if (o.headStart === 'arrow') { const F = trimmed[0], N = trimmed[0].ox != null ? { x: F.ox, y: F.oy } : trimmed[1]; pull(F, N); }
+    const pull = (a, b, kind) => { const len = Math.hypot(b.x - a.x, b.y - a.y) || 1, k = Math.min(headScale(sw, o.headSize) * HEAD_INSET[kind], len / 2) / len; a.x += (b.x - a.x) * k; a.y += (b.y - a.y) * k; };
+    if (HEAD_INSET[o.headEnd]) { const L = trimmed[trimmed.length - 1], P = trimmed[trimmed.length - 1].ix != null ? { x: L.ix, y: L.iy } : trimmed[trimmed.length - 2]; pull(L, P, o.headEnd); }
+    if (HEAD_INSET[o.headStart]) { const F = trimmed[0], N = trimmed[0].ox != null ? { x: F.ox, y: F.oy } : trimmed[1]; pull(F, N, o.headStart); }
     dd = nodesToD(trimmed, false);
   }
   if (o.tube && !o.closed && stroke !== 'none') body += `<path d="${d}" fill="none" stroke="${o.tubeOutline || Color.dark(stroke, 0.36)}" stroke-width="${sw + 2 * (o.tubeOutlineWidth ?? 2.2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
@@ -157,7 +157,7 @@ function pathSvg(o) {
   if (!o.closed && !o.tube && ns.length >= 2 && stroke !== 'none') {
     const last = ns[ns.length - 1], prevE = last.ix != null ? { x: last.ix, y: last.iy } : ns[ns.length - 2];
     const first = ns[0], nextS = first.ox != null ? { x: first.ox, y: first.oy } : ns[1];
-    body += arrowHead(o.headEnd, last, prevE, stroke, sw) + arrowHead(o.headStart, first, nextS, stroke, sw);
+    body += arrowHead(o.headEnd, last, prevE, stroke, sw, o.headSize) + arrowHead(o.headStart, first, nextS, stroke, sw, o.headSize);
   }
   return (defs ? `<defs>${defs}</defs>` : '') + body;
 }
@@ -175,7 +175,7 @@ function ellipseNodes(w, h) {
 function canConvertToPath(o) {
   if (o.type === 'rect' && !o.radius) return true;
   if (o.type === 'ellipse') return true;
-  if (o.type === 'shape') return /^M[^ACQS]*Z$/i.test(shapePath(o.kind, o.w, o.h).trim().replace(/\s+/g, ' ').replace(/[ML]/g, (m) => m));
+  if (o.type === 'shape') return /^M[^ACQS]*Z$/i.test(shapePath(o.kind, o.w, o.h, o).trim().replace(/\s+/g, ' ').replace(/[ML]/g, (m) => m));
   return false;
 }
 function convertToPath(o) {
@@ -183,7 +183,7 @@ function convertToPath(o) {
   if (o.type === 'ellipse') nodes = ellipseNodes(o.w, o.h);
   else if (o.type === 'rect') nodes = [{ x: 0, y: 0 }, { x: o.w, y: 0 }, { x: o.w, y: o.h }, { x: 0, y: o.h }];
   else {
-    const nums = shapePath(o.kind, o.w, o.h).match(/-?[\d.]+(e-?\d+)?/g).map(Number);
+    const nums = shapePath(o.kind, o.w, o.h, o).match(/-?[\d.]+(e-?\d+)?/g).map(Number);
     nodes = [];
     for (let i = 0; i + 1 < nums.length; i += 2) nodes.push({ x: nums[i], y: nums[i + 1] });
   }

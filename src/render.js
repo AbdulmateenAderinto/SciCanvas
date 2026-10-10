@@ -77,7 +77,7 @@ function dashAttr(o, sw) {
 // ---------- Rich-ish text ----------
 // ^{superscript}, _{subscript}, and styled spans for individual words: {#d64545|red words}, {b|bold},
 // {i|italic}, combinable as {b#d64545|bold red}. Spans can contain ^{…} / _{…}.
-const STYLE_SPAN = /\{([bi]{0,2})(#[0-9a-fA-F]{3,8})?([bi]{0,2})\|((?:[^{}]|[\^_]\{[^{}]*\})*)\}/g;
+const STYLE_SPAN = /\{([bius]{0,4})(#[0-9a-fA-F]{3,8})?([bius]{0,4})\|((?:[^{}]|[\^_]\{[^{}]*\})*)\}/g;
 function parseMarkup(line) {
   const out = [];
   const subSup = (text, style) => {
@@ -96,7 +96,7 @@ function parseMarkup(line) {
     const flags = m[1] + m[3];
     if (!flags && !m[2]) continue;
     if (m.index > last) subSup(line.slice(last, m.index), {});
-    subSup(m[4], { color: m[2], bold: flags.includes('b') || undefined, italic: flags.includes('i') || undefined });
+    subSup(m[4], { color: m[2], bold: flags.includes('b') || undefined, italic: flags.includes('i') || undefined, underline: flags.includes('u') || undefined, strike: flags.includes('s') || undefined });
     last = STYLE_SPAN.lastIndex;
   }
   if (last < line.length) subSup(line.slice(last), {});
@@ -141,7 +141,7 @@ function textSvg(text, { fontSize = 16, color = '#222', family = 'sans', bold, i
     const y = top + i * lh + fontSize;
     s += `<tspan x="${x}" y="${y}">`;
     for (const seg of parseMarkup(line)) {
-      const st = `${seg.color ? ` fill="${seg.color}"` : ''}${seg.bold ? ' font-weight="700"' : ''}${seg.italic ? ' font-style="italic"' : ''}`;
+      const st = `${seg.color ? ` fill="${seg.color}"` : ''}${seg.bold ? ' font-weight="700"' : ''}${seg.italic ? ' font-style="italic"' : ''}${seg.underline || seg.strike ? ` text-decoration="${[seg.underline && 'underline', seg.strike && 'line-through'].filter(Boolean).join(' ')}"` : ''}`;
       if (!seg.s) s += `<tspan${st}>${esc(seg.t)}</tspan>`;
       else {
         const shift = seg.s > 0 ? -fontSize * 0.38 : fontSize * 0.22;
@@ -217,9 +217,34 @@ function connectorControl(o, a, b) {
   return { x: mx - (dy / len) * o.curve, y: my + (dx / len) * o.curve };
 }
 
-function arrowHead(kind, tip, from, color, sw) {
+// Line ends. 'bar' is the inhibition T-bar (⊣); HEAD_INSET is how far a line stops short of the tip (× head size)
+// so it doesn't poke through closed heads.
+const HEAD_KINDS = [['arrow', '→ Arrow (activation)'], ['stealth', '➤ Concave arrow'], ['open', '⟶ Open arrow'], ['harpoon', '⇀ Half arrow'], ['bar', '⊣ Inhibition (T-bar)'], ['dot', '● Dot (binding)'], ['circle', '○ Open circle'], ['diamond', '◆ Diamond'], ['odiamond', '◇ Open diamond'], ['square', '■ Square'], ['cross', '✕ Cross'], ['none', '— None']];
+const HEAD_INSET = { arrow: 1.2, stealth: 1.05, harpoon: 1.1, diamond: 1.6, odiamond: 1.6, square: 0.9, circle: 1.1 };
+const headScale = (sw, size) => (6 + sw * 2.2) * (size || 1);
+// The middle segment of a two-corner elbow, which the bend handle drags: { x, y, axis: 'x' | 'y' } or null.
+function elbowBendHandle(o, a, b) {
+  const startH = o.from.port ? 'ew'.includes(o.from.port) : Math.abs(b.x - a.x) >= Math.abs(b.y - a.y);
+  const endH = o.to.port ? 'ew'.includes(o.to.port) : startH;
+  if (startH !== endH) return null;
+  const t = o.bend ?? 0.5;
+  return startH ? { x: a.x + (b.x - a.x) * t, y: (a.y + b.y) / 2, axis: 'x' } : { x: (a.x + b.x) / 2, y: a.y + (b.y - a.y) * t, axis: 'y' };
+}
+// Polyline through pts with each inner corner rounded to radius r (clamped to half the shorter neighbouring segment).
+function roundedPolyline(pts, r) {
+  const P = pts.filter((p, i) => !i || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.01);
+  let d = `M${P[0].x} ${P[0].y}`;
+  for (let i = 1; i < P.length - 1; i++) {
+    const A = P[i - 1], C = P[i], B = P[i + 1], la = Math.hypot(A.x - C.x, A.y - C.y), lb = Math.hypot(B.x - C.x, B.y - C.y), rr = Math.min(r, la / 2, lb / 2);
+    const p1 = { x: C.x + ((A.x - C.x) / la) * rr, y: C.y + ((A.y - C.y) / la) * rr }, p2 = { x: C.x + ((B.x - C.x) / lb) * rr, y: C.y + ((B.y - C.y) / lb) * rr };
+    d += ` L${p1.x} ${p1.y} Q${C.x} ${C.y} ${p2.x} ${p2.y}`;
+  }
+  const L = P[P.length - 1];
+  return d + ` L${L.x} ${L.y}`;
+}
+function arrowHead(kind, tip, from, color, sw, size = 1) {
   const ang = Math.atan2(tip.y - from.y, tip.x - from.x);
-  const s = 6 + sw * 2.2;
+  const s = headScale(sw, size);
   const p = (dx, dy) => {
     const c = Math.cos(ang), n = Math.sin(ang);
     return `${tip.x + dx * c - dy * n},${tip.y + dx * n + dy * c}`;
@@ -229,6 +254,12 @@ function arrowHead(kind, tip, from, color, sw) {
     case 'open': return `<polyline points="${p(-s * 1.3, -s * 0.75)} ${p(0, 0)} ${p(-s * 1.3, s * 0.75)}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linejoin="round"/>`;
     case 'bar': return `<line x1="${p(0, -s).split(',')[0]}" y1="${p(0, -s).split(',')[1]}" x2="${p(0, s).split(',')[0]}" y2="${p(0, s).split(',')[1]}" stroke="${color}" stroke-width="${sw + 1.5}" stroke-linecap="round"/>`;
     case 'dot': return `<circle cx="${tip.x}" cy="${tip.y}" r="${s * 0.55}" fill="${color}"/>`;
+    case 'stealth': return `<polygon points="${p(0, 0)} ${p(-s * 1.5, -s * 0.75)} ${p(-s * 1.05, 0)} ${p(-s * 1.5, s * 0.75)}" fill="${color}" stroke="${color}" stroke-width="${sw * 0.3}" stroke-linejoin="round"/>`;
+    case 'harpoon': return `<polygon points="${p(0, 0)} ${p(-s * 1.4, -s * 0.78)} ${p(-s * 1.1, 0)}" fill="${color}" stroke="${color}" stroke-width="${sw * 0.3}" stroke-linejoin="round"/>`;
+    case 'circle': { const [cx, cy] = p(-s * 0.55, 0).split(','); return `<circle cx="${cx}" cy="${cy}" r="${s * 0.55}" fill="#ffffff" stroke="${color}" stroke-width="${sw}"/>`; }
+    case 'diamond': case 'odiamond': return `<polygon points="${p(0, 0)} ${p(-s * 0.8, -s * 0.55)} ${p(-s * 1.6, 0)} ${p(-s * 0.8, s * 0.55)}" fill="${kind === 'diamond' ? color : '#ffffff'}" stroke="${color}" stroke-width="${kind === 'diamond' ? sw * 0.3 : sw}" stroke-linejoin="round"/>`;
+    case 'square': return `<polygon points="${p(0, -s * 0.45)} ${p(0, s * 0.45)} ${p(-s * 0.9, s * 0.45)} ${p(-s * 0.9, -s * 0.45)}" fill="${color}"/>`;
+    case 'cross': { const c = (dx, dy) => p(-s * 0.5 + dx, dy).split(','); const [x1, y1] = c(-s * 0.42, -s * 0.42), [x2, y2] = c(s * 0.42, s * 0.42), [x3, y3] = c(-s * 0.42, s * 0.42), [x4, y4] = c(s * 0.42, -s * 0.42); return `<path d="M${x1} ${y1} L${x2} ${y2} M${x3} ${y3} L${x4} ${y4}" stroke="${color}" stroke-width="${sw + 0.6}" stroke-linecap="round"/>`; }
     default: return '';
   }
 }
@@ -236,12 +267,12 @@ function arrowHead(kind, tip, from, color, sw) {
 function connectorSvg(o, objects, forExport) {
   if (o.style === 'zoom' && typeof zoomWedgeSvg === 'function') return zoomWedgeSvg(o, objects);
   const [a, b] = connectorEnds(o, objects);
-  const color = o.color || '#333', sw = o.width || 2;
+  const color = o.color || '#333', sw = o.width || 2, hsz = o.headSize || 1;
   const cp = connectorControl(o, a, b);
-  // Shorten the line so it doesn't poke through heads.
+  // Shorten the line so it doesn't poke through closed heads.
   const inset = (pt, toward, kind) => {
-    if (kind !== 'arrow') return pt;
-    const d = Math.hypot(toward.x - pt.x, toward.y - pt.y) || 1, k = Math.min((6 + sw * 2.2) * 1.2, d / 2) / d;
+    if (!HEAD_INSET[kind]) return pt;
+    const d = Math.hypot(toward.x - pt.x, toward.y - pt.y) || 1, k = Math.min(headScale(sw, hsz) * HEAD_INSET[kind], d / 2) / d;
     return { x: pt.x + (toward.x - pt.x) * k, y: pt.y + (toward.y - pt.y) * k };
   };
   let d, tanA, tanB, mid;
@@ -256,7 +287,7 @@ function connectorSvg(o, objects, forExport) {
     else if (startH) { corner1 = corner2 = { x: b.x, y: a.y }; }
     else { corner1 = corner2 = { x: a.x, y: b.y }; }
     const a2 = inset(a, corner1, o.tail), b2 = inset(b, corner2, o.head);
-    d = `M${a2.x} ${a2.y} L${corner1.x} ${corner1.y} L${corner2.x} ${corner2.y} L${b2.x} ${b2.y}`;
+    d = o.radius > 0 ? roundedPolyline([a2, corner1, corner2, b2], o.radius) : `M${a2.x} ${a2.y} L${corner1.x} ${corner1.y} L${corner2.x} ${corner2.y} L${b2.x} ${b2.y}`;
     tanA = corner1; tanB = corner2; mid = { x: (corner1.x + corner2.x) / 2, y: (corner1.y + corner2.y) / 2 };
   } else if (cp) {
     const a2 = inset(a, cp, o.tail), b2 = inset(b, cp, o.head);
@@ -270,7 +301,7 @@ function connectorSvg(o, objects, forExport) {
   let s = '';
   if (!forExport) s += `<path d="${d}" stroke="transparent" stroke-width="${sw + 12}" fill="none"/>`;
   s += `<path d="${d}" stroke="${color}" stroke-width="${sw}" fill="none" stroke-linecap="round"${dashAttr(o, sw)}/>`;
-  s += arrowHead(o.head, b, tanB, color, sw) + arrowHead(o.tail, a, tanA, color, sw);
+  s += arrowHead(o.head, b, tanB, color, sw, hsz) + arrowHead(o.tail, a, tanA, color, sw, hsz);
   if (o.label) {
     const fs = o.labelSize || 13;
     const m = measureText(o.label, fs, 'sans', false, o.labelItalic);
@@ -582,7 +613,7 @@ function renderParts(o, objects, forExport) {
         const { heads } = cycleGeometry(o, o.w, o.h);
         if (heads && o.stroke && o.stroke !== 'none') inner += `<path d="${heads}" fill="${o.stroke}" stroke="${o.stroke}" stroke-width="${Math.min(1, (o.strokeWidth ?? 2) * 0.3)}" stroke-linejoin="round"/>`;
       }
-      if (o.label) inner += textSvg(o.label, { fontSize: o.labelSize || 16, color: o.labelColor || '#222', bold: o.labelBold, w: o.w, h: o.h, align: 'center', vcenter: true });
+      if (o.label) inner += textSvg(o.label, { fontSize: o.labelSize || 16, color: o.labelColor || '#222', bold: o.labelBold, italic: o.labelItalic, family: o.labelFamily, w: o.w, h: o.h, align: 'center', vcenter: true });
       break;
     }
     case 'rect':
@@ -592,7 +623,7 @@ function renderParts(o, objects, forExport) {
       const paint = fillPaint(o, geom);
       const common = `fill="${paint.fill}" stroke="${o.stroke || 'none'}" stroke-width="${o.strokeWidth ?? 2}"${dash}`;
       inner = (paint.defs ? `<defs>${paint.defs}</defs>` : '') + geom.replace('/>', ` ${common}/>`) + paint.overlay;
-      if (o.label) inner += textSvg(o.label, { fontSize: o.labelSize || 16, color: o.labelColor || '#222', bold: o.labelBold, w: o.w, h: o.h, align: 'center', vcenter: true });
+      if (o.label) inner += textSvg(o.label, { fontSize: o.labelSize || 16, color: o.labelColor || '#222', bold: o.labelBold, italic: o.labelItalic, family: o.labelFamily, w: o.w, h: o.h, align: 'center', vcenter: true });
       break;
     }
     case 'text':

@@ -217,7 +217,7 @@ function backdropSvg(o, objects) {
   const behind = objectsBehind(o, objects);
   if (!behind.length) return '';
   const rx = o.type === 'rect' ? o.radius || 0 : 0;
-  const shape = o.type === 'ellipse' ? `<ellipse cx="${o.w / 2}" cy="${o.h / 2}" rx="${o.w / 2}" ry="${o.h / 2}"/>` : o.type === 'shape' ? `<path d="${shapePath(o.kind, o.w, o.h)}"/>` : `<rect width="${o.w}" height="${o.h}" rx="${rx}"/>`;
+  const shape = o.type === 'ellipse' ? `<ellipse cx="${o.w / 2}" cy="${o.h / 2}" rx="${o.w / 2}" ry="${o.h / 2}"/>` : o.type === 'shape' ? `<path d="${shapePath(o.kind, o.w, o.h, o)}"/>` : `<rect width="${o.w}" height="${o.h}" rx="${rx}"/>`;
   return `<defs><clipPath id="bdc-${o.id}">${shape}</clipPath><filter id="bdf-${o.id}" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="${fmt4(o.backdropBlur)}"/></filter></defs><g clip-path="url(#bdc-${o.id})"><g filter="url(#bdf-${o.id})"><g transform="${inverseTransform(o)}">${behind.map((x) => renderObjectString(x, objects, true)).join('')}</g></g></g>`;
 }
 const _renderPartsD4 = renderParts;
