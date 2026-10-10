@@ -1066,6 +1066,7 @@
       ['Insert into a pathway', 'Drag an icon or shape from the library onto a line between two objects: it goes into the path (A → new → B) and both lines keep their style. Drag a line style from the Shapes tab onto a line to restyle it, or onto the page to draw one.'],
       ['Connect and select pathways', 'Select several objects, right-click › Connect in order to join them with arrows in reading order. Select connected (right-click or Arrange › Lines) selects everything linked to the selection through lines, so a whole pathway moves together. Tab / Shift+Tab steps through objects one at a time.'],
       ['Quick add and paste here', 'Press / over the canvas and type to add an icon right where the pointer is (arrow keys to choose, Enter to add). Right-click empty canvas › Paste here pastes at that spot; ⇧⌘V pastes in place.'],
+      ['Formulas, units and symbols', 'Select text, right-click › Format chemical formulas (H2O → H₂O, Ca2+ → Ca²⁺, SO42- → SO₄²⁻), or the H₂O button in the text bar while typing. Tidy units & symbols turns 10 um into 10 µm, 5ug/ml into 5 µg/mL, 37 C into 37 °C, +/- into ±, and -> into →.'],
       ['Right-click menus', 'Right-click the canvas for picture menus of tools, shapes, line styles and brushes; right-click a toolbar button for its variants.']);
   }
 
