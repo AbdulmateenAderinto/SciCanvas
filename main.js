@@ -345,6 +345,7 @@ function buildMenu() {
         { label: 'Present Slides', accelerator: 'CmdOrCtrl+Enter', click: send('present') },
         { type: 'separator' },
         { label: 'Help', accelerator: 'F1', click: send('help') },
+        { label: 'What’s New', click: send('whatsNew') },
         { role: 'toggleDevTools' },
         { role: 'togglefullscreen' },
       ],
