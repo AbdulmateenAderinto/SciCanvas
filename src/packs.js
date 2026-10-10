@@ -218,7 +218,7 @@ const FIELD_CATS = {
   'Molecular biology': ['Molecules', 'Nucleic acids', 'Genetics', 'Lab apparatus', 'Lab'],
   'Plant biology': ['Plants Algae', 'Organisms'],
   Chemistry: ['Chemistry', 'Amino-Acids', 'Molecular modelling'],
-  'Animal models': ['Animals', 'Organisms', 'Procedures'],
+  'Animal models': ['Animals', 'Organisms', 'Procedures', 'Refined · Model organisms'],
 };
 // The built-in icons' search entries, built once (rebuilt only if icons are added later).
 let nativeSearchCache = null;
@@ -246,6 +246,8 @@ function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
   else if (cat === 'Recent') { const rec = getRecentIcons(); all = rec.map((k) => all.find((i) => i.key === k)).filter(Boolean); }
   else if (cat === 'Soft style') all = all.filter((i) => i.category && i.category.startsWith('Soft'));
   else if (cat === 'Refined') all = all.filter((i) => i.category && i.category.startsWith('Refined'));
+  else if (cat.startsWith('lib:')) { const id = cat.slice(4); all = all.filter((i) => (id === 'builtin' ? i.native : i.pack === id)); }
+  else if (cat.startsWith('phylo:')) { const [g, clade] = cat.slice(6).split('|'); all = all.filter((i) => i.pack === 'phylopic' && phyloGroup(i) === g && (!clade || i.category === clade)); }
   else if (cat !== 'All') all = all.filter((i) => i.category === cat);
   // PhyloPic silhouettes rank after illustrated icons unless the search is their own (scientific) name.
   const scored = [];
@@ -269,6 +271,18 @@ function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
 function bestIconFor(query) {
   const r = searchIcons(query, { limit: 1 });
   return r.items[0] || null;
+}
+// PhyloPic's ~4,500 clades sorted into about 20 everyday groups (mammals, birds, insects, plants…): src/phylogroups.js
+// lists each image by the first 8 hex digits of its id.
+let phyloGroupMap = null;
+function phyloGroup(it) {
+  if (!it || it.pack !== 'phylopic') return null;
+  if (it.group) return it.group;
+  if (!phyloGroupMap) {
+    phyloGroupMap = new Map();
+    for (const [g, ids] of Object.entries(globalThis.PHYLO_GROUPS || {})) for (const id of ids.split(' ')) phyloGroupMap.set(id, g);
+  }
+  return (it.group = phyloGroupMap.get(String(it.file).slice(0, 8)) || 'Other organisms');
 }
 function allCategories() {
   const cats = new Set(ICONS.map((i) => i.cat));

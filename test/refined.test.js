@@ -15,7 +15,7 @@ test('reference biology templates are present (refined6.js)', () => {
   const names = new Set(refined.map((i) => i.name));
   for (const n of ['Activated macrophage', 'Degranulating mast cell', 'B cell with antibodies', 'Lymph node', 'TNF receptor', 'Cytokine storm', 'Melanoma', 'Liver cancer', 'Breast ductal cancer',
     'Mouse (sitting)', 'Mouse (dorsal)', 'Mouse with organs', 'Rat (sitting)', 'Buckyball', 'Quantum dot nanocrystal', 'Polymersome', 'Protein (ball)', 'Polypeptide']) assert.ok(names.has(n), n);
-  assert.ok(refined.filter((i) => i.cat === 'Refined · Animal models').length >= 8);
+  assert.ok(refined.filter((i) => i.cat === 'Refined · Model organisms').length >= 8);
 });
 
 test('refined icons draw valid, stable SVG built from named parts', () => {

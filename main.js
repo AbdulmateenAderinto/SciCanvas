@@ -22,6 +22,7 @@ function createWindow() {
     minHeight: 640,
     title: 'SciCanvas',
     backgroundColor: '#f4f5f7',
+    ...(!app.isPackaged && process.platform !== 'darwin' ? { icon: path.join(__dirname, 'build', 'icon.png') } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -577,7 +578,14 @@ ipcMain.handle('list-packs', () => {
     for (const id of fs.readdirSync(root)) {
       const f = path.join(root, id, 'pack.json');
       if (!fs.existsSync(f) || packs.some((p) => p.id === id)) continue;
-      try { const pack = JSON.parse(fs.readFileSync(f, 'utf8')); pack.id = id; pack.base = pathToFileURL(path.join(root, id, 'svg')).href; packs.push(pack); } catch { /* skip broken pack */ }
+      try {
+        const pack = JSON.parse(fs.readFileSync(f, 'utf8')); pack.id = id; pack.base = pathToFileURL(path.join(root, id, 'svg')).href;
+        // A few downloaded files are empty (0 bytes) and would show as blank tiles; small icons are listed as 0 KB too,
+        // so only those entries are checked on disk.
+        const empty = (ic) => { try { return !fs.statSync(path.join(root, id, 'svg', ic.file)).size; } catch { return true; } };
+        pack.icons = (pack.icons || []).filter((ic) => ic.kb > 0 || !empty(ic));
+        packs.push(pack);
+      } catch { /* skip broken pack */ }
     }
   }
   return packs;
@@ -763,6 +771,15 @@ ipcMain.handle('pending-open', () => {
   return { path: file, content: fs.readFileSync(file, 'utf8') };
 });
 
-app.whenReady().then(createWindow);
+// Run from the project folder (npm start), the app is the stock Electron.app, so the Dock, app switcher and About
+// box would show Electron's logo. Installed builds already carry the SciCanvas icon.
+const DEV_ICON = path.join(__dirname, 'build', 'icon.png');
+app.whenReady().then(() => {
+  if (!app.isPackaged && fs.existsSync(DEV_ICON)) {
+    if (process.platform === 'darwin' && app.dock) app.dock.setIcon(nativeImage.createFromPath(DEV_ICON));
+    app.setAboutPanelOptions({ applicationName: 'SciCanvas', applicationVersion: app.getVersion(), iconPath: DEV_ICON });
+  }
+  createWindow();
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

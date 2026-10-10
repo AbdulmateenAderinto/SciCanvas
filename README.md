@@ -20,6 +20,7 @@ library → canvas → relationships → data → review → export.
 - **Line legend**: right-click the page › Insert line legend adds one sample of each kind of line on the page, with names you can edit.
 - **Equations**: right-click the page › Insert equation (LaTeX)… renders LaTeX and chemistry (`\ce{…}`) offline with MathJax; double-click an equation to edit it.
 - **Gene & protein names**: right-click the page › Gene & protein names… lists every gene/protein symbol in the page's text, guesses gene or protein from the nearby words, and sets italics and human or mouse capitalisation once you've checked them.
+- **Library dropdowns**: pick a library, then a category; PhyloPic's ~4,500 clades are sorted into about 20 groups (mammals, birds, insects, plants, fungi…) with the clades of a group in a third dropdown. Searching keeps the chosen library or group.
 - **PhyloPic in the Refined style**, illustrated icons first in search, and ten Refined model organisms (see the icon table).
 
 **New in 1.2**
