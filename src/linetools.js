@@ -1204,6 +1204,19 @@
           if (best < 1) o.labelSize = Math.max(6, Math.floor(fs * best * 10) / 10);
         } });
       }
+      // Icons and photos stretched out of proportion.
+      const squashed = [];
+      const walkS = (os) => { for (const o of os) {
+        if (o.hidden) continue;
+        let ar = null;
+        if (o.type === 'icon' && typeof iconAspect === 'function' && !o.warp) ar = iconAspect(o.iconId);
+        if (o.type === 'image' && o.nw && o.nh && !o.clip) { const c = o.crop || {}; ar = (o.nw * (1 - (c.l || 0) - (c.r || 0))) / (o.nh * (1 - (c.t || 0) - (c.b || 0))); }
+        if (ar && o.w > 4 && o.h > 4 && Math.abs(Math.log((o.w / o.h) / ar)) > 0.08) squashed.push([o, ar]);
+        if (o.children) walkS(o.children);
+      } };
+      walkS(list);
+      if (squashed.length) r.issues.push({ sev: 'warn', kind: 'Layout', msg: `${squashed.length} icon${squashed.length > 1 ? 's or photos are' : ' or photo is'} stretched out of proportion (e.g. ${nameOf(squashed[0][0])}).`, id: squashed[0][0].id, fixLabel: 'Restore proportions',
+        fix: () => { for (const [o, ar] of squashed) { const cy = o.y + o.h / 2; o.h = o.w / ar; o.y = cy - o.h / 2; } } });
       // Text running into other text.
       const texts = list.filter((o) => o.type === 'text' && !o.hidden && String(o.text || '').trim());
       const tb = texts.map((o) => bounds(o, list));
