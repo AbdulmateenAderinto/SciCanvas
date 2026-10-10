@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('native', {
   listPacks: () => ipcRenderer.invoke('list-packs'),
   readPackIcon: (pack, file) => ipcRenderer.invoke('read-pack-icon', { pack, file }),
   contextMenu: (items) => ipcRenderer.send('context-menu', items),
+  editRole: (role) => ipcRenderer.send('edit-role', role),
   pubchemLookup: (name) => ipcRenderer.invoke('pubchem-lookup', name),
   listVersions: (file) => ipcRenderer.invoke('list-versions', file),
   readVersion: (file, id) => ipcRenderer.invoke('read-version', { file, id }),

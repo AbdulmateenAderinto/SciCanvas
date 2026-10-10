@@ -632,6 +632,8 @@ ipcMain.on('context-menu', (e, items) => {
   });
   Menu.buildFromTemplate(build(items)).popup({ window: w });
 });
+// Cut / Copy / Paste from the picture menus (ctxmenu.js), the same as the native menu's edit roles.
+ipcMain.on('edit-role', (e, role) => { if (['cut', 'copy', 'paste'].includes(role)) e.sender[role](); });
 ipcMain.handle('install-pack', async (e, id) => {
   // Bundled packs (app folder) are updated in place when writable; otherwise install to userData.
   const root = app.isPackaged ? path.join(app.getPath('userData'), 'iconpacks') : bundledPacks();
