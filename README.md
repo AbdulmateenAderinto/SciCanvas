@@ -3,9 +3,18 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.3
+## Version 1.5
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.5**
+- **Edit text right on the canvas**: double-click text (or a shape's or line's label) and type into the text itself, in its own font, size, colour and alignment, with coloured, bold, italic, underlined, struck-through, superscript and subscript words shown as they are. No more white box or formatting codes like `{#e8743b|…}`; the formatting bar works on the words you select, typing shortcuts (\alpha → α, -> → →) still work, and clicking away or Esc finishes.
+- **Text colours**: the colour menu in the text bar now has 70 colours (greys plus 10 hues in 6 shades), your recent text colours, and More colours… for any colour.
+
+**New in 1.4**
+- **More room to draw**: drag the bar on the inner edge of the left (Library) or right (Properties) panel to make it narrower or wider; drag it closed, double-click it or click its arrow to hide the panel, and click or drag the tab on the window edge to bring it back. ⌘\ (Ctrl+\) hides or shows both. The drawing stays put while panels move, and the app remembers your layout.
+- **Crop shapes**: while cropping, choose Rectangle, Rounded, Circle (squares the frame) or Custom, which lets you draw your own outline around the part to keep. The chosen shape is outlined inside the frame, and it works on rotated and flipped objects.
+- **Right-click menu closes when you click elsewhere**, including the grey area around the page (before, only Esc closed it there).
 
 **New in 1.3**
 - **Selection box like BioRender**: grab the blue outline anywhere to move an object; round dots at the corners resize it (icons and pictures keep their proportions; hold Shift to free them), white pills on the top and bottom stretch it up and down, and pills on the sides stretch it left and right. Before, the side handles of icons and pictures resized the whole thing.

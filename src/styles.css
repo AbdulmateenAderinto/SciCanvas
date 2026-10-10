@@ -437,3 +437,46 @@ button.aimenu span { color: var(--muted); font-size: 11.5px; }
 .cp-title { margin-top: 8px; font-size: 10px; color: #6b7280; }
 .cp-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
 input[type="color"].cp-open { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---------- Resizable / hideable side panels (panels.js) ---------- */
+#left, #right { flex: none; min-width: 0; }
+#left.panel-hidden, #right.panel-hidden { display: none !important; }
+.panel-grip { position: relative; flex: none; width: 7px; margin: 0 -3px; z-index: 20; cursor: col-resize; touch-action: none; }
+.panel-grip::after { content: ''; pointer-events: none; z-index: 0; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px; background: transparent; transition: background .12s; }
+.panel-grip:hover::after, body.panel-resizing .panel-grip::after { background: var(--accent); width: 2px; left: 2.5px; }
+.panel-grip-btn { position: absolute; z-index: 1; top: 50%; left: 50%; width: 16px; height: 36px; margin: -18px 0 0 -8px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: #6b7280; font-size: 13px; line-height: 1; opacity: 0; transition: opacity .12s; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.panel-grip:hover .panel-grip-btn { opacity: 1; }
+.panel-grip-btn:hover { color: var(--accent); border-color: var(--accent); }
+body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none !important; }
+.panel-tab { position: absolute; top: 50%; z-index: 9; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 3px; transform: translateY(-50%); background: #fff; border: 1px solid var(--border); color: #4b5563; font-size: 11px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.1); touch-action: none; }
+.panel-tab:hover { color: var(--accent); border-color: var(--accent); }
+.panel-tab-left { left: 0; border-left: none; border-radius: 0 8px 8px 0; }
+.panel-tab-right { right: 0; border-right: none; border-radius: 8px 0 0 8px; }
+.panel-tab-name { writing-mode: vertical-rl; letter-spacing: .3px; }
+.panel-tab-left .panel-tab-name { transform: rotate(180deg); }
+#center:has(.panel-tab-left:not(.hidden)) #tools { left: 30px; }
+
+/* ---------- Crop shape bar (crop.js) ---------- */
+#cropbar { position: absolute; z-index: 9; display: flex; align-items: center; gap: 2px; padding: 4px 6px; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 16px rgba(20,30,50,.16); font-size: 12px; }
+#cropbar .cb-title { color: #6b7280; font-size: 11px; padding: 0 6px 0 2px; white-space: nowrap; }
+#cropbar.drawing .cb-title { color: var(--accent); font-weight: 600; }
+#cropbar button[data-shape] { border: none; background: none; padding: 4px 6px 3px; border-radius: 6px; color: #33404d; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 50px; font-size: 10px; }
+#cropbar button[data-shape]:hover { background: var(--accent-soft); color: var(--accent); }
+#cropbar button[data-shape].on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+#cropbar button[data-act] { padding: 5px 10px; font-size: 12px; }
+#cropbar .cb-sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
+
+/* ---------- Editing text on the canvas (richedit.js) ---------- */
+#richEditor { position: absolute; z-index: 6; margin: 0; background: transparent; border: none; outline: 1.5px solid rgba(59,111,214,.55); outline-offset: 2px; border-radius: 1px; caret-color: currentColor; overflow: visible; box-sizing: content-box; cursor: text; }
+#richEditor:focus { outline: 1.5px solid rgba(59,111,214,.75); }
+#richEditor sup, #richEditor sub { font-size: 70%; line-height: 0; }
+#textEditor.ta-model { opacity: 0 !important; pointer-events: none !important; }
+.tc-pop { padding: 8px; display: flex; flex-direction: column; gap: 3px; background: #fff; }
+.tc-row { display: flex; gap: 3px; }
+.tc-sw { width: 20px; height: 20px; padding: 0; border-radius: 4px; border: 1px solid rgba(0,0,0,.12); cursor: pointer; }
+.tc-sw:hover { transform: scale(1.15); box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--accent); }
+.tc-label { font-size: 10px; color: #6b7280; margin-top: 6px; }
+.tc-foot { margin-top: 8px; display: flex; }
+.tc-more { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; }
+.tc-more:hover { border-color: var(--accent); color: var(--accent); }
+.tc-custom-in { width: 22px; height: 18px; padding: 0; border: none; }

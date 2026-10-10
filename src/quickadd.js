@@ -74,11 +74,13 @@
   const tb = document.getElementById('textbar'), ta = document.getElementById('textEditor');
   if (tb && ta) {
     const b = el('button', { title: 'Format chemical formulas in the selection, or all the text (H2O → H₂O, Ca2+ → Ca²⁺)', onclick: () => {
-      const s0 = ta.selectionStart, s1 = ta.selectionEnd, all = s0 === s1;
+      const rich = globalThis.RichEdit && RichEdit.active(); // on-canvas editing: format the whole text
+      const s0 = rich ? 0 : ta.selectionStart, s1 = rich ? 0 : ta.selectionEnd, all = s0 === s1;
       const part = all ? ta.value : ta.value.slice(s0, s1), done = formatChemistry(part);
       if (done === part) { toast('No formulas found (e.g. H2O, CO2, Ca2+)'); return; }
       ta.value = all ? done : ta.value.slice(0, s0) + done + ta.value.slice(s1);
-      ta.dispatchEvent(new Event('input')); ta.focus();
+      ta.dispatchEvent(new Event('input'));
+      if (rich) RichEdit.reload(); else ta.focus();
     } });
     b.innerHTML = 'H<sub>2</sub>O';
     const sep = [...tb.querySelectorAll('.tb-sep')].pop();

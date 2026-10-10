@@ -68,29 +68,33 @@
   // ---------- Formatting on the focused text box ----------
   const ta = () => $('#textEditor');
   const isEditing = () => typeof editing !== 'undefined' && editing && !ta().classList.contains('hidden');
+  // While editing on the canvas (richedit.js) formatting applies to the words selected there.
+  const RE = () => typeof RichEdit !== 'undefined' && RichEdit.active();
   function wrapSelection(pre, post, placeholder = '') {
+    if (RE()) { RichEdit.wrap(pre, post, placeholder); return; }
     const t = ta(), s = t.selectionStart, e = t.selectionEnd, v = t.value, sel = v.slice(s, e) || placeholder;
     t.value = v.slice(0, s) + pre + sel + post + v.slice(e);
     t.setSelectionRange(s + pre.length, s + pre.length + sel.length);
     t.dispatchEvent(new Event('input'));
     t.focus();
   }
-  const hasSelection = () => ta().selectionEnd > ta().selectionStart;
+  const hasSelection = () => (RE() ? RichEdit.hasSelection() : ta().selectionEnd > ta().selectionStart);
   // Toggle a whole-object property when nothing is selected (text boxes and shape labels name them differently).
   function toggleWhole(prop) {
     const { o, key } = editing, label = key !== 'text';
     const k = label ? { bold: 'labelBold', italic: 'labelItalic', underline: null, strike: null }[prop] : prop;
     if (!k) { toast('Select the words to format'); return; }
-    o[k] = !o[k]; postEdit(o); renderScene(); positionBar(); syncBar();
+    o[k] = !o[k]; postEdit(o); renderScene(); if (RE()) RichEdit.refresh(); positionBar(); syncBar();
   }
   const SPAN = { bold: 'b', italic: 'i', underline: 'u', strike: 's' };
   const format = (prop) => (hasSelection() ? wrapSelection(`{${SPAN[prop]}|`, '}') : toggleWhole(prop));
   const sizeKey = () => (editing.key === 'text' ? 'fontSize' : 'labelSize');
   const familyKey = () => (editing.key === 'text' ? 'family' : 'labelFamily');
-  function setSize(d) { const { o } = editing, k = sizeKey(); o[k] = Math.max(4, Math.min(400, Math.round((o[k] || (o.type === 'connector' ? 13 : 16)) + d))); postEdit(o); renderScene(); ta().style.fontSize = o[k] * state.zoom + 'px'; positionBar(); syncBar(); }
-  function setFamily(k) { const { o } = editing; if (o.type === 'connector') { toast('Connector labels use the default font'); return; } o[familyKey()] = k; postEdit(o); renderScene(); syncBar(); }
-  function setColour(c) { if (hasSelection()) wrapSelection(`{${c}|`, '}'); else { const { o } = editing; o[editing.key === 'text' ? 'color' : 'labelColor'] = c; postEdit(o); renderScene(); } }
+  function setSize(d) { const { o } = editing, k = sizeKey(); o[k] = Math.max(4, Math.min(400, Math.round((o[k] || (o.type === 'connector' ? 13 : 16)) + d))); postEdit(o); renderScene(); ta().style.fontSize = o[k] * state.zoom + 'px'; if (RE()) RichEdit.refresh(); positionBar(); syncBar(); }
+  function setFamily(k) { const { o } = editing; if (o.type === 'connector') { toast('Connector labels use the default font'); return; } o[familyKey()] = k; postEdit(o); renderScene(); if (RE()) RichEdit.refresh(); syncBar(); }
+  function setColour(c) { if (RE() && RichEdit.hasSelection()) { RichEdit.colour(c); return; } if (RE()) { const { o } = editing; o[editing.key === 'text' ? 'color' : 'labelColor'] = c; postEdit(o); renderScene(); RichEdit.refresh(); return; } if (hasSelection()) wrapSelection(`{${c}|`, '}'); else { const { o } = editing; o[editing.key === 'text' ? 'color' : 'labelColor'] = c; postEdit(o); renderScene(); } }
   function clearFormatting() {
+    if (RE()) { RichEdit.clear(); return; }
     const t = ta(), s = t.selectionStart, e = t.selectionEnd, all = s === e;
     const strip = (x) => x.replace(STYLE_SPAN, (m, a, c, b, inner) => inner).replace(/[\^_]\{([^{}]*)\}/g, '$1');
     t.value = all ? strip(t.value) : t.value.slice(0, s) + strip(t.value.slice(s, e)) + t.value.slice(e);
@@ -107,6 +111,9 @@
   const openPop = (anchor, content) => {
     pop.innerHTML = ''; pop.append(content); pop.classList.remove('hidden');
     pop.style.left = anchor.offsetLeft + 'px'; pop.style.top = bar.offsetHeight + 4 + 'px';
+    // Keep it on screen: shift left if it would run past the canvas edge.
+    const sr = stage.getBoundingClientRect(), pr = pop.getBoundingClientRect();
+    if (pr.right > sr.right - 6) pop.style.left = Math.max(-bar.offsetLeft + 6, anchor.offsetLeft - (pr.right - sr.right + 6)) + 'px';
   };
   const closePop = () => pop.classList.add('hidden');
   const fontBtn = b('Font', 'Font', (e) => {
@@ -114,8 +121,28 @@
     openPop(e.currentTarget, list);
   }, 'tb-font');
   const sizeLabel = el('span', { class: 'tb-size' });
-  const colourBtn = b('<span class="tb-a">A</span>', 'Colour (selected words, or the whole text)', (e) => {
-    openPop(e.currentTarget, el('div', { class: 'swatches' }, ...[...SWATCHES, '#000000'].map((c) => el('button', { class: 'swatch', style: `background:${c}`, title: c, onclick: () => { setColour(c); closePop(); } }))));
+  // Text colour: a full palette (10 hues in 6 shades, plus greys), recent colours and any colour via the picker.
+  const PALETTE_HUES = [['#e53935', 'red'], ['#f4511e', 'orange'], ['#fb8c00', 'amber'], ['#fdd835', 'yellow'], ['#7cb342', 'light green'], ['#2e7d32', 'green'], ['#00897b', 'teal'], ['#039be5', 'sky blue'], ['#3949ab', 'indigo'], ['#8e24aa', 'purple']];
+  const mixHex = (a, b, t) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('');
+  const TEXT_PALETTE = [
+    ['#000000', '#222222', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#e0e0e0', '#f3f3f3', '#ffffff'],
+    ...[0.75, 0.5, 0.25].map((t) => PALETTE_HUES.map(([c]) => mixHex(c, '#ffffff', t))),
+    PALETTE_HUES.map(([c]) => c),
+    ...[0.25, 0.5].map((t) => PALETTE_HUES.map(([c]) => mixHex(c, '#000000', t))),
+  ];
+  const RECENT_TEXT = 'scicanvas:recentTextColours';
+  const recentText = () => { try { return JSON.parse(localStorage.getItem(RECENT_TEXT)) || []; } catch { return []; } };
+  const useColour = (c) => { setColour(c); try { localStorage.setItem(RECENT_TEXT, JSON.stringify([c, ...recentText().filter((x) => x !== c)].slice(0, 10))); } catch { /* storage unavailable */ } };
+  const colourBtn = b('<span class="tb-a">A</span>', 'Text colour (selected words, or the whole text)', (e) => {
+    if (RE()) RichEdit.remember();
+    const sw = (c) => el('button', { class: 'tc-sw', style: `background:${c}`, title: c, onclick: () => { useColour(c); closePop(); } });
+    const rec = recentText();
+    const custom = el('input', { type: 'color', value: '#e8743b', class: 'tc-custom-in', oninput: (ev) => useColour(ev.target.value) });
+    openPop(e.currentTarget, el('div', { class: 'tc-pop' },
+      ...TEXT_PALETTE.map((row) => el('div', { class: 'tc-row' }, ...row.map(sw))),
+      rec.length ? el('div', { class: 'tc-label', textContent: 'Recent' }) : null,
+      rec.length ? el('div', { class: 'tc-row' }, ...rec.map(sw)) : null,
+      el('div', { class: 'tc-foot' }, el('label', { class: 'tc-more' }, custom, el('span', { textContent: 'More colours…' })))));
   });
   const symBtn = b('Ω', 'Greek letters and symbols', (e) => openPop(e.currentTarget, el('div', { class: 'symgrid' }, ...SYMBOLS.map((s) => el('button', { textContent: s, onclick: () => { wrapSelection(s, '', ''); const t = ta(); t.setSelectionRange(t.selectionEnd, t.selectionEnd); } })))));
   const boldBtn = b('<b>B</b>', 'Bold (⌘B)', () => format('bold')), italBtn = b('<i>I</i>', 'Italic', () => format('italic'));
@@ -135,12 +162,14 @@
   }
   function positionBar() {
     if (!isEditing()) return;
-    const r = ta().getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const r = (RE() ? $('#richEditor') : ta()).getBoundingClientRect(), sr = stage.getBoundingClientRect();
     const top = r.top - sr.top - bar.offsetHeight - 8;
     bar.style.left = Math.max(6, Math.min(sr.width - bar.offsetWidth - 6, r.left - sr.left)) + 'px';
     bar.style.top = (top < 6 ? r.bottom - sr.top + 8 : top) + 'px';
   }
-  new MutationObserver(() => {
+  new MutationObserver((muts) => {
+    // While editing on the canvas the markup box is only moved or resized: keep any open menu (e.g. colours).
+    if (RE() && muts.every((m) => m.attributeName === 'style')) { requestAnimationFrame(positionBar); return; }
     const on = !ta().classList.contains('hidden') && typeof editing !== 'undefined' && editing;
     bar.classList.toggle('hidden', !on); closePop();
     if (on) { syncBar(); requestAnimationFrame(positionBar); }
