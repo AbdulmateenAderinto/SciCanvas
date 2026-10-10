@@ -2,6 +2,7 @@
 // previews instead of text lists. Each picker drives the original <select> (it sets the value and fires "change"),
 // so applying a choice works exactly as before. Loaded after linetools.js.
 (() => {
+  const icon = (d) => `<svg viewBox="0 0 24 24" width="24" height="24">${d}</svg>`;
   const line = (inner, w = 64, h = 22) => `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${inner}</svg>`;
   const headPic = (kind, start) => {
     const a = { x: 6, y: 11 }, b = { x: 58, y: 11 }, tip = start ? a : b, from = start ? b : a;
@@ -29,6 +30,39 @@
     { test: (s) => has(s, ['triangle', 'diamond', 'hexagon', 'star']) && s.id !== 'shapeKind', pic: (v) => (globalThis.ShapeLib ? ShapeLib.shapeThumb({ kind: v, w: 60, h: 50 }).replace('<svg ', '<svg width="34" height="34" ') : v), popClass: 'shapes' },
     { test: (s) => has(s, ['membrane', 'dna', 'actin', 'vesicles']) && vals(s).length <= 14, pic: brushPic, wide: true },
   ];
+  // Live previews: a small sample object drawn with the option applied (shading, pattern, warp, shadow, fade, taper).
+  let pv = 0;
+  const objPic = (o, w = 64, h = 40) => {
+    o.id = `pv${pv++}`;
+    let inner = '';
+    try { inner = renderObjectString(o, [o], true); } catch (e) { inner = ''; }
+    return `<svg viewBox="${-(w - o.w) / 2} ${-(h - o.h) / 2} ${w} ${h}" width="${w}" height="${h}">${inner}</svg>`;
+  };
+  const sample = {
+    shade: (v) => objPic(Make.ellipse(12, 0, 40, 40, { fill: '#6fa0e0', stroke: '#3d6db0', shade: v }), 64, 44),
+    pattern: (v) => objPic(Make.rect(0, 0, 54, 34, { fill: '#e8eef8', stroke: '#4a6fae', radius: 4, ...(v ? { pattern: { kind: v, color: '#4a6fae' } } : {}) })),
+    warp: (v) => (['free', 'perspective'].includes(v) ? line('<path d="M14 6 L52 3 L58 19 L8 17 Z" fill="#9fc0e8" stroke="#4a6fae"/>') : objPic(Make.rect(0, 0, 54, 26, { fill: '#9fc0e8', stroke: '#4a6fae', radius: 3, pattern: { kind: 'grid', color: '#4a6fae' }, ...(v ? { warp: { kind: v, amount: 0.6 } } : {}) }))),
+    shadow: (v) => objPic(Make.rect(0, 0, 44, 28, { fill: '#ffffff', stroke: '#4a6fae', radius: 4, ...(v ? { shadow: v } : {}) })),
+    fade: (v) => objPic(Make.rect(0, 0, 56, 30, { fill: '#3b6fd6', stroke: 'none', radius: 3, ...(v ? { fade: v } : {}) })),
+    profile: (v) => objPic({ type: 'path', x: 0, y: 0, w: 52, h: 14, rot: 0, closed: false, stroke: '#33475b', strokeWidth: 7, nodes: [{ x: 0, y: 7 }, { x: 52, y: 7 }], ...(v ? { widthProfile: v } : {}) }, 64, 30),
+  };
+  const vlist = (arr) => arr.map(([v]) => v);
+  const capPic = (v) => line(`<line x1="16" y1="11" x2="48" y2="11" stroke="#33475b" stroke-width="9" stroke-linecap="${v}"/><line x1="16" y1="11" x2="48" y2="11" stroke="#9fc0e8" stroke-width="1"/>`);
+  const alignPic = (v) => icon(['M4 6h16', v === 'left' ? 'M4 10h10' : v === 'right' ? 'M10 10h10' : v === 'justify' ? 'M4 10h16' : 'M7 10h10', 'M4 14h16', v === 'left' ? 'M4 18h12' : v === 'right' ? 'M8 18h12' : v === 'justify' ? 'M4 18h16' : 'M6 18h12'].map((d) => `<path d="${d}" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>`).join(''));
+  const listPic = (v) => icon(v === 'none' ? '<path d="M4 7h16M4 12h16M4 17h12" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>' : (v === 'bullet' ? '<circle cx="5" cy="7" r="1.6" fill="#333"/><circle cx="5" cy="12" r="1.6" fill="#333"/><circle cx="5" cy="17" r="1.6" fill="#333"/>' : '<text x="2.5" y="9" font-size="6.5" font-family="sans-serif">1</text><text x="2.5" y="14" font-size="6.5" font-family="sans-serif">2</text><text x="2.5" y="19" font-size="6.5" font-family="sans-serif">3</text>') + '<path d="M9 7h11M9 12h11M9 17h9" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>');
+  const clipPic = (v) => icon(v === 'none' ? '<rect x="3" y="5" width="18" height="14" fill="#9fc0e8"/><path d="M3 15l5-4 4 3 4-5 5 6v4H3z" fill="#4a6fae"/>' : v === 'ellipse' ? '<ellipse cx="12" cy="12" rx="9" ry="8" fill="#9fc0e8" stroke="#4a6fae"/>' : v === 'round' ? '<rect x="3" y="5" width="18" height="14" rx="4" fill="#9fc0e8" stroke="#4a6fae"/>' : '<rect x="3" y="5" width="18" height="14" fill="#9fc0e8" stroke="#4a6fae"/>');
+  KINDS.push(
+    { test: (s) => typeof SHADES !== 'undefined' && same(s, vlist(SHADES)), pic: sample.shade },
+    { test: (s) => typeof PATTERNS !== 'undefined' && same(s, vlist(PATTERNS)), pic: sample.pattern, popClass: 'four' },
+    { test: (s) => has(s, ['arc', 'arch', 'bulge', 'flag']), pic: sample.warp, popClass: 'four' },
+    { test: (s) => same(s, ['', 'soft', 'strong']), pic: sample.shadow },
+    { test: (s) => typeof FADES !== 'undefined' && same(s, vlist(FADES)), pic: sample.fade },
+    { test: (s) => typeof WIDTH_PRESETS !== 'undefined' && same(s, vlist(WIDTH_PRESETS)), pic: sample.profile },
+    { test: (s) => same(s, ['round', 'butt', 'square']), pic: capPic },
+    { test: (s) => same(s, ['left', 'center', 'right']) || same(s, ['left', 'center', 'right', 'justify']), pic: alignPic, compact: false, small: true },
+    { test: (s) => same(s, ['none', 'bullet', 'number']), pic: listPic, small: true },
+    { test: (s) => same(s, ['none', 'ellipse', 'round', 'rect']), pic: clipPic, small: true },
+  );
   let pop = null;
   const close = () => { if (pop) { pop.remove(); pop = null; } };
   document.addEventListener('mousedown', (e) => { if (pop && !e.target.closest('.pp-pop') && !e.target.closest('.pp-btn')) close(); }, true);
@@ -70,7 +104,6 @@
     sel.after(b);
   }
   // The toolbar's own option lists (shape tool, pencil mode, brush path) are 34 px wide: pictures read better there.
-  const icon = (d) => `<svg viewBox="0 0 24 24" width="24" height="24">${d}</svg>`;
   const TOOLBAR = {
     shapeKind: { pic: (v) => (globalThis.ShapeLib ? ShapeLib.shapeThumb({ kind: v, w: 60, h: 50 }) : v), compact: true, popClass: 'shapes' },
     drawMode: { pic: (v) => icon({ free: '<path d="M3 15c3-8 6 4 9-3s5 3 9-5" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round"/>', shape: '<path d="M4 12c0-5 6-8 10-6s7 2 6 7-7 7-11 5-5-2-5-6z" fill="#e8eef8" stroke="#4a6fae" stroke-width="1.5"/>', protein: '<path d="M4 12c0-5 6-8 10-6s7 2 6 7-7 7-11 5-5-2-5-6z" fill="#9fc0e8" stroke="#5b86bd" stroke-width="1.2"/><ellipse cx="9.5" cy="9" rx="3.5" ry="2" fill="#fff" opacity=".55"/>' }[v] || ''), compact: true },
