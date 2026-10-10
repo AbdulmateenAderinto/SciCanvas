@@ -482,6 +482,11 @@ function layerThumb(o, list) {
   layerThumbCache.set(o.id, [key, svgText]);
   return svgText;
 }
+let layerFilter = '';
+function applyLayerFilter(Lp) {
+  const q = layerFilter.trim().toLowerCase();
+  for (const r of Lp.querySelectorAll('.layer')) r.style.display = !q || ((r.querySelector('.lname') || r).textContent || '').toLowerCase().includes(q) ? '' : 'none';
+}
 function renderLayers() {
   const Lp = $('#layers');
   if (Lp.classList.contains('hidden')) { layersShape = null; return; } // drawn when the Layers tab opens
@@ -500,6 +505,10 @@ function renderLayers() {
   Lp.append(el('div', { class: 'btnrow', style: 'margin-bottom:6px' },
     btn('Show all', () => setHidden(false)), btn('Unlock all', () => setLocked(false)),
     el('span', { class: 'note', style: 'margin-left:auto;align-self:center', textContent: 'Drag to reorder' })));
+  // Filter by name (long pages): matching layers stay, the rest hide; groups show if a part matches.
+  const filt = el('input', { type: 'search', placeholder: 'Find a layer…', value: layerFilter, style: 'width:100%;margin-bottom:6px', oninput: (e) => { layerFilter = e.target.value; applyLayerFilter(Lp); } });
+  filt.addEventListener('keydown', (e) => e.stopPropagation());
+  Lp.append(filt);
   const order = list.map((o) => o.id);
   const row = (o, depth, parent) => {
     const isSel = state.sel.includes(o.id);
@@ -563,6 +572,7 @@ function renderLayers() {
   list.forEach((o) => row(o, 0, null));
   const selRow = Lp.querySelector('.layer.sel');
   if (selRow) selRow.scrollIntoView({ block: 'nearest' });
+  if (layerFilter) applyLayerFilter(Lp);
 }
 
 // Draw the layers list when its tab is opened (it isn't kept up to date while hidden).
