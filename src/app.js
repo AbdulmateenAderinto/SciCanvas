@@ -164,7 +164,7 @@ function renderOverlay(extra = '') {
     if (nodeEdit && o.id === nodeEdit.id) continue;
     if (o.type === 'connector') {
       const [a, b] = connectorEnds(o, objs());
-      s += `<path d="M${a.x} ${a.y}L${b.x} ${b.y}" stroke="#3b6fd6" stroke-width="${sw}" stroke-dasharray="${4 / z}" fill="none"/>`;
+      s += `<path d="M${a.x} ${a.y}L${b.x} ${b.y}" stroke="#3b6fd6" stroke-width="${sw}" stroke-dasharray="${4 / z}" fill="none" pointer-events="none"/>`;
       if (sel.length === 1) {
         for (const [k, p] of [['from', a], ['to', b]]) s += `<circle data-handle="${k}" cx="${p.x}" cy="${p.y}" r="${hs * 0.8}" fill="${o[k].id ? '#3b6fd6' : '#fff'}" stroke="#3b6fd6" stroke-width="${sw}" style="cursor:move"/>`;
         if (o.style === 'curved') {
@@ -181,7 +181,8 @@ function renderOverlay(extra = '') {
     }
     const selCol = o.type === 'group' ? '#8a4fff' : '#3b6fd6';
     const tf = `translate(${o.x} ${o.y}) rotate(${o.rot || 0} ${o.w / 2} ${o.h / 2})`;
-    s += `<g transform="${tf}"><rect width="${o.w}" height="${o.h}" fill="none" stroke="${selCol}" stroke-width="${sw}"${sel.length > 1 ? ` stroke-dasharray="${4 / z}"` : ''}/>`;
+    s += `<g transform="${tf}"><rect data-move-id="${o.id}" width="${o.w}" height="${o.h}" fill="none" stroke="transparent" stroke-width="${10 / z}" pointer-events="stroke" style="cursor:move"/>`;
+    s += `<rect width="${o.w}" height="${o.h}" fill="none" stroke="${selCol}" stroke-width="${sw}" pointer-events="none"${sel.length > 1 ? ` stroke-dasharray="${4 / z}"` : ''}/>`;
     if (sel.length === 1 && !o.locked) {
       let handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
       if (o.type === 'text') handles = ['nw', 'ne', 'se', 'sw'];
@@ -534,8 +535,9 @@ $$('#tools button[data-tool]').forEach((b) => b.addEventListener('click', () => 
 // ---------- Pointer interaction ----------
 let drag = null, spaceDown = false;
 const hitObject = (target) => {
-  const el = target.closest && target.closest('#scene > g[data-id]');
-  const o = el && byId(el.dataset.id);
+  // The selection outline in the overlay counts as its object, so it can be grabbed and dragged too.
+  const el = target.closest && (target.closest('#scene > g[data-id]') || target.closest('[data-move-id]'));
+  const o = el && byId(el.dataset.id || el.dataset.moveId);
   return o && !o.locked ? o : null;
 };
 function objectAtPoint(cx, cy, excludeId) {
