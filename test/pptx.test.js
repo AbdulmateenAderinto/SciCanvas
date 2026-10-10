@@ -110,3 +110,38 @@ test('bent connectors start, turn and end where the app draws them', () => {
     }
   }
 });
+
+test('design-tool fills, warps, typography and effects export natively, the rest as pictures', async () => {
+  const { Make } = A;
+  const r1 = Make.rect(10, 10, 120, 60, { fill: '#4a7fd6', fillSpec: { kind: 'linear', x1: 0, y1: 0.5, x2: 1, y2: 0.5, stops: [{ at: 0, color: '#ffffff' }, { at: 0.5, color: '#4a7fd6' }, { at: 1, color: '#123456', alpha: 0.5 }] } });
+  const e1 = Make.ellipse(150, 10, 80, 80, { fill: '#d64545', fillSpec: { kind: 'radial', cx: 0.4, cy: 0.4, r: 0.5, stops: [{ at: 0, color: '#ffffff' }, { at: 1, color: '#d64545' }] }, innerGlow: { color: '#ffffff', size: 6 } });
+  const pat = Make.rect(250, 10, 80, 60, { fill: '#eeeeee', pattern: { kind: 'hatch', color: '#333333' }, fillAlpha: 0.5 });
+  const tex = Make.rect(350, 10, 80, 60, { fill: '#eeeeee', pattern: { kind: 'granules' } });
+  const warped = Make.rect(10, 120, 120, 60, { fill: '#5ec962', warp: { kind: 'arc', amount: 0.5 } });
+  const persp = Make.ellipse(150, 120, 80, 60, { fill: '#5ec962', warp: { kind: 'perspective', corners: [[0.2, 0], [0.8, 0], [1, 1], [0, 1]] } });
+  const radii = Make.rect(250, 120, 80, 60, { fill: '#cccccc', radii: [0, 12, 0, 12] });
+  const blurred = Make.ellipse(350, 120, 60, 60, { fill: '#cccccc', depthBlur: 4 });
+  const cut = Make.ellipse(10, 220, 80, 80, { fill: '#f2b8a0', cut: { kind: 'wedge', cx: 0.5, cy: 0.5, a0: -90, sweep: 90 } });
+  const text = Make.text('Wrapped text in two columns', 150, 220, { boxW: 160, columns: 2, tracking: 0.05, lineHeight: 1.5, smallCaps: true, align: 'justify' });
+  const label = Make.text('Nucleus', 350, 260, { leader: { target: r1.id, u: 0.5, v: 0.5 } });
+  const page = { width: 600, height: 400, background: '#ffffff', objects: [r1, e1, pat, tex, warped, persp, radii, blurred, cut, text, label] };
+  const r = await build([page]);
+  const [xml] = await checkDeck(r.base64, 'design tools');
+  assert.match(xml, /<a:gs pos="50000"><a:srgbClr val="4A7FD6">(<\/a:srgbClr>)?<\/a:gs><a:gs pos="100000"><a:srgbClr val="123456"><a:alpha val="50000"\/>/, 'multi-stop linear gradient with stop alpha');
+  assert.match(xml, /<a:lin ang="0" scaled="0"\/>/, 'gradient direction kept');
+  assert.match(xml, /<a:path path="circle"><a:fillToRect l="40000" t="40000" r="60000" b="60000"\/>/, 'radial gradient centre kept');
+  assert.match(xml, /<a:innerShdw blurRad="\d+" dist="0"/, 'inner glow as an inner shadow');
+  assert.match(xml, /<a:pattFill prst="wdUpDiag"><a:fgClr><a:srgbClr val="333333"><a:alpha val="40000"\/>[\s\S]*?<a:bgClr><a:srgbClr val="EEEEEE"><a:alpha val="50000"/, 'pattern as a PowerPoint pattern fill, with fill opacity');
+  assert.match(xml, /numCol="2" spcCol="\d+"/, 'text columns');
+  assert.match(xml, /spc="\d+"/, 'letter spacing');
+  assert.match(xml, /cap="small"/, 'small caps');
+  assert.match(xml, /algn="just"/, 'justified');
+  assert.match(xml, /wrap="square"/, 'text box wraps');
+  assert.match(xml, /name="Leader: [^"]*"[\s\S]*?<a:tailEnd type="oval"/, 'leader line with a dot on the target');
+  const shapes = [...xml.matchAll(/<p:sp>[\s\S]*?<\/p:sp>/g)].map((m) => m[0]);
+  assert.ok(shapes.filter((s) => s.includes('<a:custGeom>') && s.includes('5EC962')).length === 2, 'warped rectangle and ellipse stay native shapes with a bent outline');
+  assert.equal(r.pictures['textured fills'], 1);
+  assert.equal(r.pictures['blurred or grainy objects'], 1);
+  assert.equal(r.pictures.cutaways, 1);
+  assert.equal(r.pictures['warped objects'], undefined, 'no warped shape needed a picture');
+});

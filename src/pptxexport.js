@@ -125,36 +125,84 @@ function pptFontFace(family) {
   return stack.split(',')[0].replace(/["']/g, '').trim();
 }
 // Markup text (^{sup}, _{sub}, {b#c|spans}, newlines) → <a:p> paragraphs. fontPx is in slide pixels.
-function paragraphsXml(text, { fontPx = 16, color = '#222222', family = 'sans', bold, italic, underline, strike, align = 'left', alpha = 1 }) {
+// Typography from the design tools: tracking (× font size), lineHeight (× font size), paraSpacing (slide px after
+// each paragraph), smallCaps.
+function paragraphsXml(text, { fontPx = 16, color = '#222222', family = 'sans', bold, italic, underline, strike, align = 'left', alpha = 1, tracking, lineHeight, paraSpacing, smallCaps }) {
   const face = xmlEsc(pptFontFace(family));
   const sz = Math.min(400000, Math.max(100, Math.round(fontPx * 75))); // px → hundredths of a point
-  const lnSpc = `<a:lnSpc><a:spcPts val="${Math.max(100, Math.round(fontPx * 1.25 * 75))}"/></a:lnSpc>`;
-  const algn = align === 'center' ? 'ctr' : align === 'right' ? 'r' : 'l';
+  const lnSpc = `<a:lnSpc><a:spcPts val="${Math.max(100, Math.round(fontPx * (lineHeight || 1.25) * 75))}"/></a:lnSpc>${paraSpacing > 0 ? `<a:spcAft><a:spcPts val="${Math.round(paraSpacing * 75)}"/></a:spcAft>` : ''}`;
+  const algn = align === 'center' ? 'ctr' : align === 'right' ? 'r' : align === 'justify' ? 'just' : 'l';
+  const spc = tracking ? ` spc="${Math.round(tracking * fontPx * 75)}"` : '';
   const rPr = (seg, extra = '') => {
     const b = bold || seg.bold, i = italic || seg.italic;
-    return `<a:rPr lang="en-US" sz="${sz}"${b ? ' b="1"' : ''}${i ? ' i="1"' : ''}${underline ? ' u="sng"' : ''}${strike ? ' strike="sngStrike"' : ''}${seg.s ? ` baseline="${seg.s > 0 ? 30000 : -25000}"` : ''} dirty="0"${extra}>${solidFill(seg.color || color, alpha)}<a:latin typeface="${face}"/><a:cs typeface="${face}"/></a:rPr>`;
+    return `<a:rPr lang="en-US" sz="${sz}"${b ? ' b="1"' : ''}${i ? ' i="1"' : ''}${underline ? ' u="sng"' : ''}${strike ? ' strike="sngStrike"' : ''}${smallCaps ? ' cap="small"' : ''}${spc}${seg.s ? ` baseline="${seg.s > 0 ? 30000 : -25000}"` : ''} dirty="0"${extra}>${solidFill(seg.color || color, alpha)}<a:latin typeface="${face}"/><a:cs typeface="${face}"/></a:rPr>`;
   };
   return splitSpanLines(String(text ?? '')).split('\n').map((line) => {
     const runs = parseMarkup(line).filter((g) => g.t).map((g) => `<a:r>${rPr(g)}<a:t>${xmlEsc(g.t)}</a:t></a:r>`).join('');
     return `<a:p><a:pPr algn="${algn}">${lnSpc}</a:pPr>${runs}<a:endParaRPr lang="en-US" sz="${sz}" dirty="0"/></a:p>`;
   }).join('');
 }
-function txBodyXml(paras, { anchor = 't', insets = [0, 0, 0, 0], autofit = false } = {}) {
+function txBodyXml(paras, { anchor = 't', insets = [0, 0, 0, 0], autofit = false, wrap = false, cols = 1, colGap = 0 } = {}) {
   const [l, t, r, b] = insets.map(emu);
-  return `<p:txBody><a:bodyPr wrap="none" lIns="${l}" tIns="${t}" rIns="${r}" bIns="${b}" anchor="${anchor}" rtlCol="0">${autofit ? '<a:spAutoFit/>' : '<a:noAutofit/>'}</a:bodyPr><a:lstStyle/>${paras}</p:txBody>`;
+  return `<p:txBody><a:bodyPr wrap="${wrap ? 'square' : 'none'}" lIns="${l}" tIns="${t}" rIns="${r}" bIns="${b}"${cols > 1 ? ` numCol="${cols}" spcCol="${emu(colGap)}"` : ''} anchor="${anchor}" rtlCol="0">${autofit ? '<a:spAutoFit/>' : '<a:noAutofit/>'}</a:bodyPr><a:lstStyle/>${paras}</p:txBody>`;
 }
 
 // ---------- Fill, line and effects ----------
+// The figure's light direction (design tools), in compass degrees, or null.
+const figLight = () => (typeof figureLight === 'function' ? figureLight() : null);
+const lightDir = (deg) => { const a = (deg * Math.PI) / 180; return { lx: Math.sin(a), ly: -Math.cos(a) }; };
+const pct = (v) => Math.round(Math.max(0, Math.min(1, v)) * 100000);
+// Patterns PowerPoint has a preset for; the biological textures go in as pictures instead.
+const PATT = { dots: 'pct20', cross: 'diagCross', hatch: 'wdUpDiag', checks: 'lgCheck', grid: 'lgGrid', waves: 'wave', bricks: 'horzBrick' };
+function pattPreset(p) {
+  if (p.kind !== 'stripes') return PATT[p.kind] || null;
+  const a = (((Math.round((p.angle || 0) / 45) * 45) % 180) + 180) % 180;
+  return { 0: 'wdHorz', 45: 'dkDnDiag', 90: 'wdVert', 135: 'dkUpDiag' }[a];
+}
+// Fill-editor gradient (fillSpec) → <a:gradFill>. Linear stops are re-spread over the shape along the gradient's
+// direction (PowerPoint always runs a linear gradient edge to edge); radial ones grow from the centre point.
+function specGradXml(s, w, h, alpha) {
+  const stops = [...s.stops].sort((a, b) => a.at - b.at);
+  const gs = (pos, st) => `<a:gs pos="${pct(pos)}">${clrXml(st.color, alpha * (st.alpha ?? 1))}</a:gs>`;
+  if (s.kind === 'radial') {
+    const cx = s.cx ?? 0.5, cy = s.cy ?? 0.5, k = Math.min(1, (s.r ?? 0.5) / Math.SQRT1_2);
+    let list = stops.map((st) => gs(st.at * k, st)).join('');
+    if (k < 0.999) list += gs(1, stops[stops.length - 1]);
+    return `<a:gradFill rotWithShape="1"><a:gsLst>${list}</a:gsLst><a:path path="circle"><a:fillToRect l="${pct(cx)}" t="${pct(cy)}" r="${pct(1 - cx)}" b="${pct(1 - cy)}"/></a:path></a:gradFill>`;
+  }
+  const x1 = (s.x1 ?? 0) * w, y1 = (s.y1 ?? 0) * h, x2 = (s.x2 ?? 1) * w, y2 = (s.y2 ?? 0) * h;
+  const L = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / L, uy = (y2 - y1) / L;
+  const proj = [[0, 0], [w, 0], [w, h], [0, h]].map(([x, y]) => x * ux + y * uy), lo = Math.min(...proj), span = Math.max(...proj) - lo || 1;
+  const at = (t) => (x1 * ux + y1 * uy + t * L - lo) / span;
+  const ang = Math.round(((((Math.atan2(uy, ux) * 180) / Math.PI) % 360) + 360) % 360 * 60000);
+  return `<a:gradFill rotWithShape="1"><a:gsLst>${stops.map((st) => gs(at(st.at), st)).join('')}</a:gsLst><a:lin ang="${ang}" scaled="0"/></a:gradFill>`;
+}
 function fillXml(o, alpha) {
   const base = pptColor(o.fill);
   if (!base) return '<a:noFill/>';
+  alpha *= o.fillAlpha ?? 1;
+  if (o.fillSpec && (o.fillSpec.stops || []).length >= 2) return specGradXml(o.fillSpec, o.w || 1, o.h || 1, alpha);
+  if (o.pattern && pattPreset(o.pattern)) {
+    const p = o.pattern, fg = p.color || Color.dark('#' + base.hex.toLowerCase(), 0.35);
+    return `<a:pattFill prst="${pattPreset(p)}"><a:fgClr>${clrXml(fg, alpha * (p.opacity ?? 0.8))}</a:fgClr><a:bgClr>${clrXml(base, alpha)}</a:bgClr></a:pattFill>`;
+  }
   if (o.fill2 && o.fill2 !== 'none' && pptColor(o.fill2)) {
     return `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0">${clrXml(base, alpha)}</a:gs><a:gs pos="100000">${clrXml(o.fill2, alpha)}</a:gs></a:gsLst><a:lin ang="${o.gradDir === 'h' ? 0 : 5400000}" scaled="0"/></a:gradFill>`;
   }
   const hex = '#' + base.hex.toLowerCase(), shade = o.shade || 'flat';
-  if (shade === 'linear') return `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0">${clrXml(Color.light(hex, 0.45), alpha)}</a:gs><a:gs pos="100000">${clrXml(Color.dark(hex, 0.25), alpha)}</a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>`;
+  const deg = figLight(), L = deg == null ? null : lightDir(deg);
+  if (shade === 'linear') {
+    const ang = L ? Math.round(((((Math.atan2(-L.ly, -L.lx) * 180) / Math.PI) % 360) + 360) % 360 * 60000) : 5400000;
+    return `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0">${clrXml(Color.light(hex, 0.45), alpha)}</a:gs><a:gs pos="100000">${clrXml(Color.dark(hex, 0.25), alpha)}</a:gs></a:gsLst><a:lin ang="${ang}" scaled="0"/></a:gradFill>`;
+  }
   if (shade === 'soft' || shade === 'gloss') {
-    return `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0">${clrXml(Color.light(hex, 0.55), alpha)}</a:gs><a:gs pos="55000">${clrXml(hex, alpha)}</a:gs><a:gs pos="100000">${clrXml(Color.dark(hex, 0.3), alpha)}</a:gs></a:gsLst><a:path path="circle"><a:fillToRect l="38000" t="32000" r="62000" b="68000"/></a:path></a:gradFill>`;
+    const cx = L ? 0.5 + 0.17 * L.lx : 0.38 + 0.12, cy = L ? 0.5 + 0.2 * L.ly : 0.32 + 0.18;
+    const rect = L ? `l="${pct(cx)}" t="${pct(cy)}" r="${pct(1 - cx)}" b="${pct(1 - cy)}"` : 'l="38000" t="32000" r="62000" b="68000"';
+    return `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0">${clrXml(Color.light(hex, 0.55), alpha)}</a:gs><a:gs pos="55000">${clrXml(hex, alpha)}</a:gs><a:gs pos="100000">${clrXml(Color.dark(hex, 0.3), alpha)}</a:gs></a:gsLst><a:path path="circle"><a:fillToRect ${rect}/></a:path></a:gradFill>`;
+  }
+  if (shade === 'rim') {
+    const cx = 0.5 - 0.1 * (L ? L.lx : 0), cy = 0.5 - 0.1 * (L ? L.ly : 0);
+    return `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0">${clrXml(Color.dark(hex, 0.12), alpha)}</a:gs><a:gs pos="75000">${clrXml(hex, alpha)}</a:gs><a:gs pos="100000">${clrXml(Color.light(hex, 0.6), alpha)}</a:gs></a:gsLst><a:path path="circle"><a:fillToRect l="${pct(cx)}" t="${pct(cy)}" r="${pct(1 - cx)}" b="${pct(1 - cy)}"/></a:path></a:gradFill>`;
   }
   return solidFill(base, alpha);
 }
@@ -166,13 +214,23 @@ function lineXml(color, widthPx, { dash, alpha = 1, head, tail, cap } = {}) {
   const end = (tag, kind) => (LINE_END[kind] ? `<a:${tag} type="${LINE_END[kind]}" w="${size}" len="${size}"/>` : '');
   return `<a:ln w="${emu(widthPx)}"${cap ? ` cap="${cap}"` : ''}>${solidFill(color, alpha)}${DASH[dash] ? `<a:prstDash val="${DASH[dash]}"/>` : ''}<a:round/>${end('headEnd', tail)}${end('tailEnd', head)}</a:ln>`;
 }
+// Glow, inner glow / inner shading and drop shadow, in the order DrawingML wants them.
 function effectsXml(o, k = 1) {
-  if (o.glow) { const c = pptColor(o.glow); if (c) return `<a:effectLst><a:glow rad="${emu((o.glowSize || 6) * 2 * k)}">${clrXml(c, 0.95)}</a:glow></a:effectLst>`; }
+  let out = '';
+  if (o.glow) { const c = pptColor(o.glow); if (c) out += `<a:glow rad="${emu((o.glowSize || 6) * 2 * k)}">${clrXml(c, 0.95)}</a:glow>`; }
+  const deg = figLight(), L = deg == null ? { lx: -0.6, ly: -0.8 } : lightDir(deg);
+  const dirOf = (dx, dy) => Math.round(((((Math.atan2(dy, dx) * 180) / Math.PI) % 360) + 360) % 360 * 60000);
+  if (o.innerGlow && pptColor(o.innerGlow.color)) out += `<a:innerShdw blurRad="${emu((o.innerGlow.size ?? 6) * 2 * k)}" dist="0" dir="0">${clrXml(o.innerGlow.color, 0.9)}</a:innerShdw>`;
+  else if (o.shade === 'inner' && !o.fillSpec && pptColor(o.fill)) {
+    const m = Math.min(o.w || 0, o.h || 0);
+    out += `<a:innerShdw blurRad="${emu(Math.max(4, m * 0.16) * k)}" dist="${emu(Math.max(2, m * 0.06) * k)}" dir="${dirOf(-L.lx, -L.ly)}">${clrXml(Color.dark('#' + pptColor(o.fill).hex.toLowerCase(), 0.45), 0.8)}</a:innerShdw>`;
+  }
   if (o.shadow) {
     const strong = o.shadow === 'strong';
-    return `<a:effectLst><a:outerShdw blurRad="${emu((strong ? 12 : 6) * k)}" dist="${emu((strong ? 6.3 : 3.6) * k)}" dir="${strong ? 4290000 : 3960000}" algn="tl" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="${strong ? 35000 : 22000}"/></a:srgbClr></a:outerShdw></a:effectLst>`;
+    const dir = deg == null ? (strong ? 4290000 : 3960000) : dirOf(-L.lx, -L.ly);
+    out += `<a:outerShdw blurRad="${emu((strong ? 12 : 6) * k)}" dist="${emu((strong ? 6.3 : 3.6) * k)}" dir="${dir}" algn="tl" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="${strong ? 35000 : 22000}"/></a:srgbClr></a:outerShdw>`;
   }
-  return '';
+  return out ? `<a:effectLst>${out}</a:effectLst>` : '';
 }
 function xfrmXml(box, { rot, flipH, flipV, tag = 'a:xfrm' } = {}) {
   const r = rot ? Math.round((((rot % 360) + 360) % 360) * 60000) : 0;
@@ -189,7 +247,42 @@ const slidePt = (T, p) => ({ x: T.ox + p.x * T.sx, y: T.oy + p.y * T.sy });
 const slideK = (T) => Math.sqrt(Math.abs(T.sx * T.sy));
 
 // Which objects PowerPoint gets as native shapes (and how a connector glues to them: rectangle-style or ellipse sites).
+// Warped rectangles, ellipses, closed shapes and drawn paths keep a native outline: the warp is applied to the
+// outline itself. Returns { segs, x, y, w, h } in the object's local pixels (the warped box can outgrow the
+// original), or null when the object has no outline to bend.
+function warpOutline(o) {
+  if (!o.warp || !o.warp.kind || !(o.w > 0 && o.h > 0)) return null;
+  if (typeof warpFn !== 'function' || typeof flattenSegs !== 'function' || typeof parsePathD !== 'function') return null;
+  if (o.label || (o.pattern && o.pattern.kind)) return null; // the label and pattern would stay straight
+  let d;
+  if (o.type === 'path' && o.nodes && o.nodes.length >= 2 && !o.tube && !o.pathText && !o.blur) d = nodesToD(scaledNodes(o), o.closed);
+  else if (['rect', 'ellipse', 'shape'].includes(o.type)) d = localOutlineD(o);
+  if (!d) return null;
+  const subs = flattenSegs(parsePathD(d), Math.max(0.6, Math.max(o.w, o.h) / 220), warpFn(o));
+  const pts = subs.flatMap((sb) => sb.pts);
+  if (!pts.length || pts.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+  const x = Math.min(...pts.map((p) => p.x)), y = Math.min(...pts.map((p) => p.y));
+  const w = Math.max(...pts.map((p) => p.x)) - x, h = Math.max(...pts.map((p) => p.y)) - y;
+  const segs = [];
+  for (const sb of subs) {
+    sb.pts.forEach((p, i) => segs.push({ t: i ? 'L' : 'M', p: [p.x - x, p.y - y] }));
+    if (sb.closed) segs.push({ t: 'Z' });
+  }
+  return { segs, x, y, w: Math.max(w, 0.5), h: Math.max(h, 0.5), closed: subs.some((sb) => sb.closed) };
+}
+// Design-tool looks PowerPoint can't draw on a shape: these objects go in as pictures.
+function pictureOnly(o) {
+  if (o.type === 'connector') return null;
+  if (o.cut && o.cut.kind) return 'cutaways';
+  if (o.grain > 0 || o.depthBlur > 0 || o.backdropBlur > 0) return 'blurred or grainy objects';
+  if (o.halo && o.halo.color) return 'halo outlines';
+  if (o.pattern && o.pattern.kind && (!pattPreset(o.pattern) || (o.fillSpec && (o.fillSpec.stops || []).length >= 2))) return 'textured fills';
+  if (o.warp && o.warp.kind && !warpOutline(o)) return 'warped objects';
+  if (o.type === 'text' && o.wrapAround) return 'text wrapped around objects';
+  return null;
+}
 function nativeKind(o) {
+  if (pictureOnly(o)) return null;
   if (o.erase && o.erase.length) return null;
   if (o.clipPath || (o.clip && o.clip !== 'none' && o.type !== 'image')) return null;
   if (o.blend && o.blend !== 'normal') return null;
@@ -256,8 +349,13 @@ async function objectsXml(objects, T, ctx, alpha = 1) {
 async function objectXml(o, objects, T, ctx, ids, alpha) {
   const id = ids.get(o.id), name = o.name || `${o.type} ${id}`;
   const a = alpha * (o.opacity != null ? o.opacity : 1), k = slideK(T);
+  return leaderXml(o, objects, T, ctx, a) + (await shapeXml(o, objects, T, ctx, ids, id, name, a, k)); // the app draws the leader behind
+}
+async function shapeXml(o, objects, T, ctx, ids, id, name, a, k) {
   const kind = nativeKind(o);
   if (!kind) return pictureXml(o, objects, T, ctx, id, name, a);
+  const wo = kind === 'sp' && warpOutline(o);
+  if (wo) return warpedXml(o, wo, T, id, name, a, k);
   const box = slideBox(T, o.x, o.y, o.w, o.h);
   const common = { box, rot: o.rot, flipH: !!o.flipX, flipV: !!o.flipY };
   const sw = (o.strokeWidth ?? 2) * k, dash = o.dashStyle || (o.dash ? 'dashed' : 'solid');
@@ -265,7 +363,7 @@ async function objectXml(o, objects, T, ctx, ids, alpha) {
   switch (o.type) {
     case 'rect': {
       const r = Math.min(o.radius || 0, Math.min(o.w, o.h) / 2);
-      const geom = r > 0 ? prstGeom('roundRect', (r / Math.min(o.w, o.h)) * 100000) : prstGeom('rect');
+      const geom = Array.isArray(o.radii) && typeof roundRectD === 'function' ? custGeomXml([{ xml: segsToPathXml(parseSvgPath(roundRectD(o.w, o.h, o.radii)), T.sx, T.sy) }], box.w, box.h) : r > 0 ? prstGeom('roundRect', (r / Math.min(o.w, o.h)) * 100000) : prstGeom('rect');
       return spXml(id, name, { ...common, geom, fill: fillXml(o, a), line: lineXml(o.stroke, sw, { dash, alpha: a }), effects: effectsXml(o, k), txBody: label() });
     }
     case 'ellipse':
@@ -295,8 +393,10 @@ async function objectXml(o, objects, T, ctx, ids, alpha) {
       const pad = o.bg ? [4, 2] : [0, 0];
       const b = slideBox(T, o.x - pad[0], o.y - pad[1], o.w + 2 * pad[0], o.h + 2 * pad[1]);
       const ins = [2 * k + pad[0] * T.sx, pad[1] * T.sy, 2 * k + pad[0] * T.sx, pad[1] * T.sy];
-      const paras = paragraphsXml(displayText(o), { fontPx: o.fontSize * k, color: o.color, family: o.family, bold: o.bold, italic: o.italic, underline: o.underline, strike: o.strike, align: o.align, alpha: a });
-      return spXml(id, name, { ...common, box: b, geom: o.bg ? prstGeom('roundRect', (4 / Math.min(b.w, b.h)) * 100000) : prstGeom('rect'), fill: solidFill(o.bg, a), line: '<a:ln><a:noFill/></a:ln>', effects: effectsXml(o, k), txBody: txBodyXml(paras, { insets: ins }), txBox: !o.bg });
+      const paras = paragraphsXml(displayText(o), { fontPx: o.fontSize * k, color: o.color, family: o.family, bold: o.bold, italic: o.italic, underline: o.underline, strike: o.strike, align: o.align, alpha: a, tracking: o.tracking, lineHeight: o.lineHeight, paraSpacing: (o.paraSpacing || 0) * k, smallCaps: o.smallCaps });
+      const boxed = o.boxW > 0, cols = boxed ? Math.max(1, Math.min(6, o.columns || 1)) : 1;
+      const body = txBodyXml(paras, { insets: ins, wrap: boxed, anchor: o.boxH > 0 ? { middle: 'ctr', bottom: 'b' }[o.valign] || 't' : 't', cols, colGap: cols > 1 ? (o.gutter ?? (o.fontSize || 16) * 1.2) * k : 0 });
+      return spXml(id, name, { ...common, box: b, geom: o.bg ? prstGeom('roundRect', (4 / Math.min(b.w, b.h)) * 100000) : prstGeom('rect'), fill: solidFill(o.bg, a), line: '<a:ln><a:noFill/></a:ln>', effects: effectsXml(o, k), txBody: body, txBox: !o.bg });
     }
     case 'table': return tableXml(o, T, id, name, a);
     case 'image': return imageXml(o, T, ctx, id, name, a);
@@ -311,6 +411,41 @@ async function objectXml(o, objects, T, ctx, ids, alpha) {
     case 'connector': return connectorXml(o, objects, T, id, name, a, ids, ctx);
   }
   return '';
+}
+
+// A warped shape: its bent outline as custom geometry, in a box grown to fit, turning about the same centre.
+function warpedXml(o, wo, T, id, name, a, k) {
+  let cx = wo.x + wo.w / 2, cy = wo.y + wo.h / 2;
+  if (o.flipX) cx = o.w - cx;
+  if (o.flipY) cy = o.h - cy;
+  const c = rotPt({ x: o.x + cx, y: o.y + cy }, { x: o.x + o.w / 2, y: o.y + o.h / 2 }, o.rot || 0);
+  const box = slideBox(T, c.x - wo.w / 2, c.y - wo.h / 2, wo.w, wo.h);
+  const filled = o.type === 'path' ? !!o.closed : !(o.type === 'shape' && OPEN_SHAPES.has(o.kind));
+  const geom = custGeomXml([{ xml: segsToPathXml(wo.segs, T.sx, T.sy), fill: filled }], box.w, box.h);
+  const sw = (o.strokeWidth ?? 2) * k, dash = o.dashStyle || (o.dash ? 'dashed' : 'solid');
+  const line = lineXml(o.stroke || (filled ? null : '#333333'), sw, { dash, alpha: a * (o.type === 'path' ? o.strokeOpacity ?? 1 : 1) });
+  return spXml(id, name, { box, rot: o.rot, flipH: !!o.flipX, flipV: !!o.flipY, geom, fill: filled ? fillXml({ ...o, w: wo.w, h: wo.h }, a) : '<a:noFill/>', line, effects: effectsXml(o, k) });
+}
+// A label's leader line (design tools) → its own native line, ending in a dot on what it points at.
+function leaderXml(o, objects, T, ctx, alpha) {
+  if (!o.leader || o.type === 'connector' || typeof leaderSvg !== 'function') return '';
+  const svg = leaderSvg(o, objects || []);
+  const m = svg.match(/<path d="([^"]+)"/);
+  if (!m) return '';
+  const pts = parseSvgPath(m[1]).map((sg) => {
+    const p = sg.p || [];
+    const q = [];
+    for (let i = 0; i < p.length; i += 2) { const w = localToPage(o, { x: p[i], y: p[i + 1] }); q.push(w.x, w.y); }
+    return { t: sg.t, p: q };
+  });
+  const all = pts.flatMap((sg) => sg.p), xs = all.filter((_, i) => i % 2 === 0), ys = all.filter((_, i) => i % 2 === 1);
+  if (!xs.length) return '';
+  const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 || 0.5, h = Math.max(...ys) - y0 || 0.5;
+  const segs = pts.map((sg) => ({ t: sg.t, p: sg.p.map((v, i) => v - (i % 2 ? y0 : x0)) }));
+  const box = slideBox(T, x0, y0, w, h), k = slideK(T), Ld = o.leader;
+  const geom = custGeomXml([{ xml: segsToPathXml(segs, T.sx, T.sy), fill: false }], box.w, box.h, { sites: false });
+  const line = lineXml(Ld.color || '#444444', (Ld.width || 1.2) * k, { dash: Ld.dash ? 'dashed' : null, alpha, head: Ld.dot === false ? null : 'dot', cap: 'rnd' });
+  return spXml(ctx.nextId++, `Leader: ${o.name || 'label'}`, { box, geom, fill: '<a:noFill/>', line });
 }
 
 function connectorXml(o, objects, T, id, name, alpha, ids, ctx) {
@@ -459,14 +594,21 @@ function flattenNestedSvg(s) {
 const PICTURE_KIND = { icon: 'icons', brush: 'brushes', chart: 'charts', protocol: 'protocol strips', text: 'curved text', image: 'images with scale bars or masks', path: 'tube / blurred paths' };
 async function pictureXml(o, objects, T, ctx, id, name, alpha) {
   const k = slideK(T);
-  const pad = Math.max(6, (o.size || 0) * 1.5, (o.strokeWidth || 0) * 2, o.type === 'icon' ? Math.max(o.w, o.h) * 0.08 : 0);
-  const solo = { ...o, x: pad, y: pad, rot: 0, flipX: false, flipY: false, opacity: 1, shadow: null, glow: null, link: null };
+  const warpGrow = o.warp && o.warp.kind ? Math.max(o.w, o.h) * 0.6 : 0;
+  const pad = Math.max(6, (o.size || 0) * 1.5, (o.strokeWidth || 0) * 2, o.type === 'icon' ? Math.max(o.w, o.h) * 0.08 : 0, (o.depthBlur || 0) * 3, o.halo ? (o.halo.width ?? 2.5) + 2 : 0, warpGrow);
+  const solo = { ...o, x: pad, y: pad, rot: 0, flipX: false, flipY: false, opacity: 1, shadow: null, glow: null, link: null, leader: null };
   const mini = { width: o.w + 2 * pad, height: o.h + 2 * pad, background: '#ffffff', objects: [solo] };
+  // A frosted panel blurs what is behind it: bake that backdrop in as an image under the panel.
+  if (o.backdropBlur > 0 && typeof backdropSvg === 'function') {
+    const bd = backdropSvg(o, objects || []);
+    solo.backdropBlur = 0;
+    if (bd) mini.objects.unshift({ id: `${o.id}-bd`, type: 'image', x: pad, y: pad, w: o.w, h: o.h, rot: 0, src: 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${o.w}" height="${o.h}" viewBox="0 0 ${o.w} ${o.h}">${bd}</svg>`))) });
+  }
   const box = slideBox(T, o.x - pad, o.y - pad, o.w + 2 * pad, o.h + 2 * pad);
-  const label = PICTURE_KIND[o.type] || (o.type === 'group' ? 'masked groups' : `${o.type} objects`);
+  const label = pictureOnly(o) || PICTURE_KIND[o.type] || (o.type === 'group' ? 'masked groups' : `${o.type} objects`);
   ctx.pictures[label] = (ctx.pictures[label] || 0) + 1;
   let svg = pageSvgString(mini, { transparent: true });
-  const officeSafe = !/<filter|<mask|<textPath|mix-blend|<foreignObject/.test(svg);
+  const officeSafe = !/<filter|<mask|<pattern|<textPath|mix-blend|<foreignObject/.test(svg) && !(o.backdropBlur > 0);
   const scale = Math.max(1, Math.min(4, 2400 / Math.max(box.w, box.h))) * Math.max(1, k);
   const png = ctx.rasterize ? await ctx.rasterize(mini, scale) : null;
   let svgRid = null, rid;

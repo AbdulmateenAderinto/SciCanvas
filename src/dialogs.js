@@ -479,7 +479,7 @@ function openExportDialog() {
       ? `Output: ${Math.round(p.width * sc)} × ${Math.round(p.height * sc)} px → ${win.toFixed(2)} × ${hin.toFixed(2)} in at ${dpi.value} DPI.` + (sc < want - 1e-6 ? ` Capped to ${Math.round((sc * p.width) / win)} DPI (canvas size limit) — use PDF for very large prints.` : '') + ' Imported bitmaps keep their own resolution; upscaling cannot add detail.'
       : fmt.value === 'pdf' ? 'Vector PDF: shapes, text and icons stay sharp at any size. Embedded photos/structures stay at their original resolution.'
       : fmt.value === 'pptx' ? (pptMode.value === 'editable'
-        ? `PowerPoint: one slide per page (${state.doc.pages.length}). Shapes, text, tables, arrows and groups stay editable; arrows stay glued to what they connect. Icons, brushes and charts go in as vector pictures (Convert to Shape in PowerPoint edits them).`
+        ? `PowerPoint: one slide per page (${state.doc.pages.length}). Shapes, text, tables, arrows and groups stay editable, with their gradients, patterns, warps and text spacing; arrows stay glued to what they connect. Icons, brushes and charts go in as vector pictures (Convert to Shape in PowerPoint edits them).`
         : `PowerPoint: one slide per page (${state.doc.pages.length}), each a high-resolution picture of the page. Looks exactly as on screen, but nothing is editable.`)
       : 'SVG: fully vector and editable in Illustrator / Inkscape. Fonts are referenced, not embedded.';
   };

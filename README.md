@@ -11,6 +11,7 @@ library → canvas → relationships → data → review → export.
 - **The whole NIH BioArt collection built in**: 4,821 images from all 958 entries of NIAID's BioArt Source (bioart.niaid.nih.gov), in every version BioArt offers (colours, black and white, views), so a search shows all of them next to the other libraries. They're public domain except the Human Reference Atlas images (CC BY); File › Credits adds NIH's credit line.
 - **Organs drawn from professional medical artwork**: 75 organ, tissue and disease icons now use Servier Medical Art, Reactome and DBCLS illustrations (heart, lungs, brain, liver, kidney, gut, glands, bones, vessels, disease views such as infarct, stroke, pneumonia, aneurysm, DVT and pulmonary embolism), plus new Larynx, Aorta, Heart conduction system, Pulmonary embolism and Brain (horizontal section) icons. Classic icon style keeps the earlier drawings.
 - **One shaded finish for every built-in icon**, matching the reference illustrations (Classic turns it off).
+- **PowerPoint export keeps the design tools**: fill-editor gradients, patterns, fill opacity, inner glow, warped and perspective shapes, per-corner radii, text box columns and spacing, and label leader lines stay editable in PowerPoint; textures, blurs, halos and cutaways go in as pictures.
 - **About 26,800 icons in all**: 2,154 built-in, the four icon libraries (about 19,900) and NIH BioArt (4,821).
 
 **New in 1.1**
@@ -65,7 +66,7 @@ Icon libraries live in `assets/iconpacks/` (about 640 MB in total). Reinstall or
 Anyone with write access to the repo can publish; GitHub builds the installers (`.github/workflows/build.yml`).
 
 1. Bump `"version"` in `package.json` and `package-lock.json` (for example `npm version 1.0.2 --no-git-tag-version`) in a pull request and merge it once its checks pass. Pull requests that touch `package.json` also run a test build of every installer.
-2. On GitHub: **Releases › Draft a new release**. Type the tag (`v1.0.2`, matching the version), choose **Create new tag** on `main`, add a title and notes, and click **Publish release**.
+2. On GitHub: **Releases › Draft a new release**. Type the tag (`v1.0.2`, matching the version), choose **Create new tag** on `main`, add a title and notes, and click **Publish release**. Or run **Actions › Publish release** with the version: it tags `main`, publishes the release and starts the installer builds.
 3. A few minutes later the Windows `.exe` and both Mac `.dmg` files appear on the release (progress is under the **Actions** tab). Each build is started once as a smoke test before it's attached.
 
 Only releases whose tag starts with `v` (like `v1.1.0`) get installers; others, such as the `icon-libraries` release, are left alone. The build downloads the icon libraries from that `icon-libraries` release (`iconpacks.tar.gz`) and puts them inside the installers. To refresh them: run `npm run icons`, then `COPYFILE_DISABLE=1 tar -czf iconpacks.tar.gz -C assets iconpacks` (on a Mac, `COPYFILE_DISABLE=1` keeps hidden `._` files out) and replace the file on that release.
@@ -178,7 +179,7 @@ Searching "mouse" also finds *Mus musculus*, because common names map to the sci
 
 **Export**
 - PNG/JPEG at up to 600 DPI (written into the file), transparent PNG, SVG, multi-page vector PDF, and PowerPoint (.pptx).
-- PowerPoint export is editable: shapes, text, tables, drawn paths and groups become native PowerPoint objects, and arrows become connectors glued to the shapes they join, so they follow when you move things on the slide. Icons, brushes, charts and protocol strips go in as vector SVG pictures (right-click › Convert to Shape in PowerPoint to edit them). Choose "Picture of each page" for an exact, non-editable copy.
+- PowerPoint export is editable: shapes, text, tables, drawn paths and groups become native PowerPoint objects, and arrows become connectors glued to the shapes they join, so they follow when you move things on the slide. Fill-editor gradients, simple patterns, fill opacity, inner glow, per-corner radii, warped and perspective shapes, label leader lines and text box settings (wrapping, columns, letter and line spacing, small caps) stay native too. Icons, brushes, charts and protocol strips go in as vector SVG pictures, and textures, blurs, grain, halos, cutaways and warped icons or text go in as pictures (right-click › Convert to Shape in PowerPoint to edit them). Choose "Picture of each page" for an exact, non-editable copy.
 - Option to export only the current selection.
 - Copy as image (⇧⌘C) for pasting into slides.
 
