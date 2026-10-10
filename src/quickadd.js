@@ -121,6 +121,27 @@
       .replace(/(^|[\s(,;])([pPnN])\s*(<=|>=|[<>=≤≥])\s*(\.?\d[\d.]*(?:e-?\d+)?)/g, (m, pre, v, op, num) => `${pre}{i|${v}} ${op.replace('<=', '≤').replace('>=', '≥')} ${num.startsWith('.') ? '0' + num : num}`);
   }
   globalThis.tidyUnits = tidyUnits;
+  // Species names in italics: common model organisms, plus every binomial in the PhyloPic library (and its
+  // abbreviated form, E. coli). Already-italic or formatted names are left alone.
+  const MODEL_SPECIES = ['Escherichia coli', 'Saccharomyces cerevisiae', 'Schizosaccharomyces pombe', 'Mus musculus', 'Rattus norvegicus', 'Homo sapiens', 'Drosophila melanogaster', 'Caenorhabditis elegans', 'Danio rerio', 'Arabidopsis thaliana', 'Xenopus laevis', 'Xenopus tropicalis', 'Bacillus subtilis', 'Staphylococcus aureus', 'Pseudomonas aeruginosa', 'Mycobacterium tuberculosis', 'Plasmodium falciparum', 'Gallus gallus', 'Macaca mulatta', 'Sus scrofa', 'Bos taurus', 'Oryza sativa', 'Zea mays', 'Nicotiana benthamiana', 'Chlamydomonas reinhardtii', 'Dictyostelium discoideum', 'Candida albicans', 'Streptococcus pneumoniae', 'Salmonella enterica', 'Listeria monocytogenes', 'Vibrio cholerae', 'Toxoplasma gondii', 'Trypanosoma brucei', 'Aspergillus fumigatus', 'Neurospora crassa', 'Physcomitrella patens', 'Hydra vulgaris', 'Nematostella vectensis', 'Ciona intestinalis', 'Oryzias latipes'];
+  let speciesSet = null;
+  function speciesNames() {
+    if (speciesSet) return speciesSet;
+    speciesSet = new Set(MODEL_SPECIES);
+    for (const it of (typeof Packs !== 'undefined' && Packs.all) || []) if (it.pack === 'phylopic' && /^[A-Z][a-z]+ [a-z]{3,}$/.test(it.name)) speciesSet.add(it.name);
+    return speciesSet;
+  }
+  function italicSpecies(text) {
+    const names = speciesNames(), genera = new Map();
+    for (const n of names) { const [g, sp] = n.split(' '); genera.set(`${g[0]}. ${sp}`, true); }
+    return text.replace(/(\{[^|{}]*\|[^{}]*\})|\b([A-Z][a-z]+|[A-Z]\.)\s([a-z]{3,})\b/g, (m, span, g, sp) => {
+      if (span) return m; // inside existing formatting
+      const full = `${g} ${sp}`;
+      return names.has(full) || genera.has(full) ? `{i|${full}}` : m;
+    });
+  }
+  globalThis.italicSpecies = italicSpecies;
+
   ARRANGE_COMMANDS.tidyUnits = () => {
     const list = selected().filter((o) => o.type === 'text' || o.label);
     if (!list.length) { toast('Select text (or shapes with labels) to tidy'); return; }
@@ -128,16 +149,16 @@
     let n = 0;
     for (const o of list) for (const k of ['text', 'label']) {
       if (typeof o[k] !== 'string') continue;
-      const v = tidyUnits(o[k]);
+      const v = italicSpecies(tidyUnits(o[k]));
       if (v !== o[k]) { o[k] = v; n++; if (typeof postEdit === 'function') postEdit(o); }
     }
     render({ props: true });
-    toast(n ? 'Units and symbols tidied' : 'Nothing to tidy');
+    toast(n ? 'Units, symbols and species names tidied' : 'Nothing to tidy');
   };
   const prevMenu3 = contextMenuTemplate;
   contextMenuTemplate = function () {
     const t = prevMenu3();
-    if (selected().some((o) => o.type === 'text' || o.label)) t.push({ label: 'Tidy units & symbols (µm, °C, ±, →)', cmd: 'tidyUnits' });
+    if (selected().some((o) => o.type === 'text' || o.label)) t.push({ label: 'Tidy units, symbols & species (µm, °C, ±, E. coli)', cmd: 'tidyUnits' });
     return t;
   };
 

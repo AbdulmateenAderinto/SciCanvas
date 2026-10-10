@@ -58,3 +58,11 @@ test('version comparison for update checks', () => {
 test('workflow steps', () => {
   assert.equal(JSON.stringify(A.globals.parseSteps('Isolate > Stain → Analyse\nReport')), JSON.stringify(['Isolate', 'Stain', 'Analyse', 'Report']));
 });
+
+test('species names are italicised (full and abbreviated), other words left alone', () => {
+  const f = A.globals.italicSpecies;
+  assert.equal(f('Infected with Escherichia coli and S. aureus'), 'Infected with {i|Escherichia coli} and {i|S. aureus}');
+  assert.equal(f('Mus musculus vs Homo sapiens'), '{i|Mus musculus} vs {i|Homo sapiens}');
+  assert.equal(f('The mouse model'), 'The mouse model');
+  assert.equal(f('{i|E. coli} already'), '{i|E. coli} already');
+});
