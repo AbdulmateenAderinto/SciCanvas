@@ -597,7 +597,11 @@ function renderParts(o, objects, forExport) {
   switch (o.type) {
     case 'icon': {
       const { markup, vb } = iconMarkup(o);
-      inner = `<svg class="ls-${o.id}" width="${o.w}" height="${o.h}" viewBox="${vb}" preserveAspectRatio="none" overflow="${ICON_MAP[o.iconId] ? 'visible' : 'hidden'}">${markup}</svg>`;
+      // Cropped icons (crop.js) show part of their view box, as cropped pictures do; nothing outside it is drawn.
+      const c = o.crop, cropped = c && (c.l || c.t || c.r || c.b);
+      let box = vb;
+      if (cropped) { const [x, y, w, h] = String(vb).split(/[\s,]+/).map(Number); box = `${x + c.l * w} ${y + c.t * h} ${Math.max(1e-3, (1 - c.l - c.r) * w)} ${Math.max(1e-3, (1 - c.t - c.b) * h)}`; }
+      inner = `<svg class="ls-${o.id}" width="${o.w}" height="${o.h}" viewBox="${box}" preserveAspectRatio="none" overflow="${ICON_MAP[o.iconId] && !cropped ? 'visible' : 'hidden'}">${markup}</svg>`;
       break;
     }
     case 'path':

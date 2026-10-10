@@ -3,11 +3,15 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.2
+## Version 1.3
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
 
-**New since 1.2 (on main, in the next release)**
+**New in 1.3**
+- **Selection box like BioRender**: grab the blue outline anywhere to move an object; round dots at the corners resize it (icons and pictures keep their proportions; hold Shift to free them), white pills on the top and bottom stretch it up and down, and pills on the sides stretch it left and right. Before, the side handles of icons and pictures resized the whole thing.
+- **Crop** icons and pictures on the canvas: click **Crop** in the floating bar (or right-click › Crop, or Properties › Crop on canvas), drag the frame's corners and sides to trim, drag inside to move the drawing under the frame, then press Enter or click outside (Esc cancels). Works on rotated and flipped objects; double-click a cropped object to change its crop, or Remove crop to undo it. Crops export to SVG, PNG, PDF and PowerPoint.
+- **New colour picker** for every colour box: drag freely in the colour square and hue bar, type hex or RGB, use the eyedropper, swatches and recent colours. The browser's own popup closed itself whenever the panel behind it redrew, which made it hard or impossible to use.
+- **Buttons say what they do**: the tools on the left and the floating bar above a selection now have names under their icons (Select, Text, Rectangle, Flip, Crop, Duplicate, Lock, Delete…), and Help, Settings, Favourites, Hide / Lock in Layers and the colour eyedropper are spelled out.
 - **Shapes tab** (beside Library and Uploads): about 60 shapes to click or drag onto the page (polygons, stars, trapezoid, ring, pie, block arc, frame, crescent, heart, teardrop, lightning, block / double / notched / curved / four-way arrows, speech and oval callouts, ribbons, flowchart symbols, cube, cone, pyramid, brackets, wavy and zigzag lines), with **Shape options** in Properties for points, sides, slant, thickness, tail position and more.
 - **Line styles** in the same tab: activation, inhibition (⊣), binding, open / concave / half arrows, double-headed, dashed and dotted, curved, elbow and rounded elbow. Pick one and drag between objects, or click one with connectors selected to restyle them. New line ends: concave, half arrow, open circle, diamond, open diamond, square and cross, with a head-size slider; elbows get rounded corners and a handle to drag the bend.
 - **Text formatting bar** while typing on the canvas: font, size, bold, italic, underline, strikethrough, superscript, subscript, colour, Greek letters and symbols, clear formatting (⌘B / ⌘U). Properties gains per-word underline, strikethrough, x² and x₂.

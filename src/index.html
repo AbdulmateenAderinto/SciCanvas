@@ -33,8 +33,8 @@
     </div>
     <div class="tb-group right">
       <button data-cmd="copyImage" title="Copy selection / page as image (⇧⌘C)">Copy</button>
-      <button data-cmd="help" title="Help (F1)">?</button>
-      <button data-cmd="settings" title="Settings (⌘,)">⚙</button>
+      <button data-cmd="help" title="Help (F1)">? Help</button>
+      <button data-cmd="settings" title="Settings (⌘,)">⚙ Settings</button>
       <button data-cmd="present" title="Present (⌘↵)">▶ Present</button>
     </div>
   </header>
@@ -43,9 +43,9 @@
     <aside id="left">
       <div class="tabs"><button class="tab active" data-ltab="library">Library</button><button class="tab" data-ltab="uploads">Uploads</button></div>
       <div id="lib-library" class="lpane">
-        <div class="searchrow"><input id="search" type="search" placeholder="Search ~26,800 icons (antibody, neuron, stroke, X-ray…)" /><button id="smartBtn" title="Smart search — describe what you need in plain words (uses AI)">✦</button></div>
+        <div class="searchrow"><input id="search" type="search" placeholder="Search ~26,800 icons (antibody, neuron, stroke, X-ray…)" /><button id="smartBtn" title="Smart search — describe what you need in plain words (uses AI)">✦ AI</button></div>
         <div id="smartNote" class="note hidden"></div>
-        <div id="cats"><button data-cat="All">All</button><button data-cat="★ Favorites">★</button><button data-cat="Recent">Recent</button><button data-cat="Refined" title="Refined icons: cells, instruments, neuroscience, engineering and more">Refined</button><button data-cat="Soft style" title="Soft-style proteins, complexes and cells">Soft</button><button data-cat="Suggested" title="Icons related to what's in your figure">For you</button></div>
+        <div id="cats"><button data-cat="All">All</button><button data-cat="★ Favorites" title="Your favourite icons">★ Favourites</button><button data-cat="Recent">Recent</button><button data-cat="Refined" title="Refined icons: cells, instruments, neuroscience, engineering and more">Refined</button><button data-cat="Soft style" title="Soft-style proteins, complexes and cells">Soft</button><button data-cat="Suggested" title="Icons related to what's in your figure">For you</button></div>
         <div id="catRow"><select id="catSel" title="Library"></select><select id="catSel2" class="hidden" title="Category"></select><select id="catSel3" class="hidden" title="Clade"></select></div>
         <div id="libBanner" class="hidden"></div>
         <div id="icongrid"></div>
@@ -227,5 +227,8 @@
   <script src="ctxmenu.js"></script>
   <script src="textfmt.js"></script>
   <script src="linetools.js"></script>
+  <script src="crop.js"></script>
+  <script src="colorpicker.js"></script>
+  <script src="uilabels.js"></script>
 </body>
 </html>
