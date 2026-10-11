@@ -3,9 +3,13 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.7
+## Version 1.8
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.8**
+- **Add your own pictures to the Library**: Library › *＋ Add images…* (or drop PNG / JPG / SVG / WebP / GIF files onto the Library, or right-click a picture on the page › *Add picture to Library…*). Each picture gets a **Name**, **Related words** and **Tags** (and an optional group), and is saved in My icons on this computer; Library search finds it by all three. Pictures are trimmed of empty transparent edges and kept at up to 2,000 px.
+- **Rename and re-tag any icon**: right-click an icon in the Library (or on the page) › *Edit name & tags…*. Your name, related words and tags replace the icon's own in the Library and in search, and rank just below a name match; *Reset to original* undoes it. Saved on this computer.
 
 **New in 1.7**
 - **Add your own icon libraries**: Library › *Libraries…* › *Add a library from a folder…* copies a folder of icons you have the rights to use (a `pack.json` plus an `svg/` folder) onto this computer, e.g. pictures exported from your own subscription. It appears in Library search with its own credit line and stays through updates; *Remove* takes it out again. Libraries added this way are never part of the app download or this repository.

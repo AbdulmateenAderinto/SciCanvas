@@ -1,7 +1,9 @@
-// What's new (v1.7; the 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
+// What's new (v1.8; the 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
 (() => {
-  const VERSION = '1.7';
+  const VERSION = '1.8';
   const ITEMS = [
+    ['Add your own pictures to the Library', 'Library › ＋ Add images… (or drop picture files onto the Library, or right-click a picture on the page › Add picture to Library…). Give each one a name, related words (other names people might search for) and tags (topic, project, figure…), and an optional group. Search finds them by all three. They are saved in My icons on this computer.'],
+    ['Rename and re-tag any icon', 'Right-click any icon in the Library (or an icon on the page) › Edit name & tags…. Change its name, add related words, or replace its tags; search uses yours from then on. Reset to original undoes it.'],
     ['Add your own icon libraries', 'Library › Libraries… › Add a library from a folder: pick a folder of icons you have the rights to use (pack.json + svg folder), for example pictures exported from your own subscription. It is copied onto this computer only, shows up in Library search like any other library, and can be removed again there.'],
     ['More figure icons', 'Germinal-centre B cells as a group of three and a B cell with GC markers; a GFP histogram with a “high” gate, a 96-well plate with GFP-positive clones, puromycin selection, and a trace-only Sanger chromatogram for small sizes.'],
     ['Straight lines with Shift', 'Hold Shift while drawing or dragging a line end to keep it level, upright or at 45°, even over a shape: the line attaches where it meets the edge. Shift also lines up nodes in Edit Points.'],

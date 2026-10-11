@@ -31,12 +31,44 @@ async function loadPacks() {
   Packs.all = [];
   for (const p of Packs.list) {
     for (const ic of p.icons) {
-      Packs.all.push({ ...ic, pack: p.id, key: `pack:${p.id}/${ic.file}`, url: `${p.base}/${encodeURIComponent(ic.file)}`, hay: `${ic.name} ${ic.category} ${ic.author} ${ic.tags || ''}`.toLowerCase() });
+      Packs.all.push({ ...ic, ownRelated: ic.related || '', pack: p.id, key: `pack:${p.id}/${ic.file}`, url: `${p.base}/${encodeURIComponent(ic.file)}` });
     }
   }
+  relabelIcons();
   Packs.byKey = new Map(Packs.all.map((i) => [i.key, i]));
   Packs.loaded = true;
 }
+
+// ---------- Your names, related words and tags for icons (v1.8) ----------
+// Library › right-click an icon › Edit name & tags. Stored per computer as { key: { name, related, tags } }; the tags
+// typed there replace the icon's own. Pictures you add to the Library keep theirs in My icons' pack.json.
+const ICON_LABELS_KEY = 'scicanvas:iconLabels';
+const getIconLabels = () => lsGet(ICON_LABELS_KEY, {});
+function setIconLabels(key, lab) {
+  const all = getIconLabels();
+  if (lab) all[key] = lab; else delete all[key];
+  lsSet(ICON_LABELS_KEY, all);
+  relabelIcons();
+}
+// Sets an entry's shown name and search text from its own data and any labels you gave it. Words you chose (related
+// words and tags you typed, or anything in My icons) rank just below a name match in search.
+function labelEntry(e, lab) {
+  if (e.origName === undefined) { e.origName = e.name; e.origTags = e.tags || ''; }
+  e.name = (lab && lab.name) || e.origName;
+  e.tags = lab && lab.tags != null ? lab.tags : e.origTags;
+  e.related = (lab && lab.related) || e.ownRelated || '';
+  e.edited = !!lab;
+  e.extra = e.edited || e.pack === 'mine' ? ` ${e.related} ${e.tags} `.toLowerCase() : '';
+  e.hay = `${e.name} ${e.category || ''} ${e.author || ''} ${e.tags} ${e.related}`.toLowerCase();
+  return e;
+}
+function relabelIcons() {
+  const L = getIconLabels();
+  for (const e of Packs.all) labelEntry(e, L[e.key]);
+  nativeSearchCache = null;
+}
+// The search entry for any icon key (built-in id or pack:…), or null.
+const iconEntry = (key) => (Packs.byKey && Packs.byKey.get(key)) || nativeSearchList().find((i) => i.key === key) || null;
 
 // ---------- Colour helpers ----------
 const NAMED = { black: '#000000', white: '#ffffff', red: '#ff0000', green: '#008000', blue: '#0000ff', yellow: '#ffff00', gray: '#808080', grey: '#808080', orange: '#ffa500', purple: '#800080', none: 'none' };
@@ -223,7 +255,10 @@ const FIELD_CATS = {
 // The built-in icons' search entries, built once (rebuilt only if icons are added later).
 let nativeSearchCache = null;
 function nativeSearchList() {
-  if (!nativeSearchCache || nativeSearchCache.n !== ICONS.length) nativeSearchCache = { n: ICONS.length, list: ICONS.map((i) => ({ native: true, id: i.id, key: i.id, name: i.name, category: i.cat, hay: `${i.name} ${i.tags} ${i.cat}`.toLowerCase(), license: 'built-in' })) };
+  if (!nativeSearchCache || nativeSearchCache.n !== ICONS.length) {
+    const L = getIconLabels();
+    nativeSearchCache = { n: ICONS.length, list: ICONS.map((i) => labelEntry({ native: true, id: i.id, key: i.id, name: i.name, category: i.cat, tags: i.tags || '', license: 'built-in' }, L[i.id])) };
+  }
   return nativeSearchCache.list;
 }
 // Library thumbnail for a built-in icon, drawn once and reused.
@@ -257,7 +292,7 @@ function searchIcons(query, { cat = 'All', limit = 240, field } = {}) {
     const score = (ws) => {
       let s = 0;
       for (const w of ws) {
-        if (name === w) s += 6; else if (name.startsWith(w)) s += 4; else if (name.includes(w)) s += 3; else if (it.hay.includes(w)) s += 1; else return -1;
+        if (name === w) s += 6; else if (name.startsWith(w)) s += 4; else if (name.includes(w)) s += 3; else if (it.extra && it.extra.includes(w)) s += 2; else if (it.hay.includes(w)) s += 1; else return -1;
       }
       return s;
     };

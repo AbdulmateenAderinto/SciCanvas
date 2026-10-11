@@ -696,15 +696,17 @@ ipcMain.handle('remove-pack', (_e, id) => removeImportedPack(path.join(app.getPa
 
 // "My icons": drawings and AI-generated icons the user saves into their own library.
 const myIconsDir = () => path.join(app.getPath('userData'), 'iconpacks', 'mine');
-ipcMain.handle('save-user-icon', (_e, { name, svg, tags }) => {
-  if (typeof svg !== 'string' || !svg.startsWith('<svg') || svg.length > 5e6) throw new Error('Invalid icon');
+ipcMain.handle('save-user-icon', (_e, { name, svg, tags, related, category }) => {
+  // Drawings, AI icons and (v1.8) pictures added to the Library, which can be a few MB once embedded.
+  if (typeof svg !== 'string' || !svg.startsWith('<svg') || svg.length > 30e6) throw new Error('Invalid icon');
   const dir = myIconsDir();
   fs.mkdirSync(path.join(dir, 'svg'), { recursive: true });
   const f = path.join(dir, 'pack.json');
   const pack = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { name: 'My icons', icons: [] };
-  const file = `icon-${Date.now().toString(36)}.svg`;
+  const file = `icon-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.svg`; // unique when several are saved at once
   fs.writeFileSync(path.join(dir, 'svg', file), svg);
-  pack.icons.unshift({ file, kb: Math.round(svg.length / 1024), name: String(name || 'My icon').slice(0, 80), category: 'My icons', license: 'own', author: 'You', tags: String(tags || '') });
+  const group = String(category || '').trim().slice(0, 60);
+  pack.icons.unshift({ file, kb: Math.round(svg.length / 1024), name: String(name || 'My icon').slice(0, 120), category: group ? `My icons · ${group}` : 'My icons', license: 'own', author: 'You', tags: String(tags || '').slice(0, 2000), related: String(related || '').slice(0, 2000) });
   fs.writeFileSync(f, JSON.stringify(pack));
   return file;
 });
