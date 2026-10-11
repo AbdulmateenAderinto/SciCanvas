@@ -322,7 +322,7 @@
 
   // Sanger chromatogram as shown for ABI (.ab1) files: four overlaid traces (A green, C blue, G black, T red)
   // with evenly spaced peaks and base calls above them.
-  S('Sanger chromatogram (ABI trace)', CAT.dna, 'Sanger sequencing chromatogram electropherogram trace ab1 ABI four-colour peaks base calls capillary', [160, 72], (r) => {
+  const chromatogram = (calls) => (r) => {
     const seq = 'GACTTGCAGTCAATG', COL = { A: '#1f9d3a', C: '#2457c5', G: '#222222', T: '#d62728' };
     const x0 = 8, dx = 10, base = 64, n = seq.length;
     const peaks = [...seq].map((b, i) => ({ b, x: x0 + 4 + i * dx, h: 26 + r() * 22, w: 2.6 + r() * 0.8 }));
@@ -338,9 +338,12 @@
       }
       s += line(d, COL[b], 1.3);
     }
-    peaks.forEach((p) => { s += txt(p.x, 9.5, p.b, 8, COL[p.b]); });
+    if (calls) peaks.forEach((p) => { s += txt(p.x, 9.5, p.b, 8, COL[p.b]); });
     return s;
-  }, '#222222');
+  };
+  S('Sanger chromatogram (ABI trace)', CAT.dna, 'Sanger sequencing chromatogram electropherogram trace ab1 ABI four-colour peaks base calls capillary', [160, 72], chromatogram(true), '#222222');
+  // Without the base letters, for small sizes where they would print as specks.
+  S('Sanger chromatogram (trace only)', CAT.dna, 'Sanger sequencing chromatogram electropherogram trace ab1 ABI four-colour peaks capillary small', [160, 72], chromatogram(false), '#222222');
 
   // =====================================================================================
   // Retroviral transduction with a GFP reporter
@@ -423,6 +426,31 @@
     ['b220', 'gl7', 'fas', 'b220', 'gl7', 'fas'].forEach((k, i) => { s += `<g transform="rotate(${30 + i * 60} 50 50)">${MARK[k]}</g>`; });
     return s;
   }, '#3e6db5');
+
+  // Flat lab-step icons to sit with the rest of this set: a GFP histogram with a "high" gate, a 96-well plate seen
+  // from above with a few GFP-positive clones, and puromycin selection (resistant cell survives, sensitive cell dies).
+  S('GFP histogram with high gate', CAT.imm, 'GFP histogram flow cytometry gate GFP-high sort selection reporter fluorescence positive negative', [100, 72], () => {
+    const curve = (mu, sd, amp) => (x) => amp * Math.exp(-(((x - mu) / sd) ** 2) / 2);
+    const neg = curve(30, 7, 38), pos = curve(68, 9, 30), base = 66;
+    const pts = (fn, a, b) => { let d = `M${a} ${base}`; for (let x = a; x <= b; x += 1) d += ` L${x} ${f(base - fn(x))}`; return d + ` L${b} ${base} Z`; };
+    let s = path(pts(neg, 12, 50), '#d3dae1', { oc: '#9aa6b2', w: 1.2 }) + path(pts(pos, 44, 94), '#8fd39b', { oc: '#3f9e48', w: 1.2 });
+    s += line(`M10 6 V${base} H96`, '#5b6168', 1.4);
+    s += line('M62 18 V12 H94 V18', '#2f8f47', 2.2); // the gate (labels belong in the figure, not the icon)
+    return s;
+  }, '#3f9e48');
+  S('96-well plate (top view, flat)', CAT.seq, '96-well plate microplate top view limiting dilution subcloning clones wells', [120, 88], (r) => {
+    let s = rr(4, 6, 112, 78, 7, '#eef2f5', { oc: '#9aa6b2', w: 1.4 });
+    const pick = new Set(Array.from({ length: 9 }, () => Math.floor(r() * 96)));
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 12; col++) {
+      const k = row * 12 + col, x = 14 + col * 8.4, y = 15 + row * 8.6;
+      s += `<circle cx="${f(x)}" cy="${f(y)}" r="3.1" fill="${pick.has(k) ? '#8fd39b' : '#ffffff'}" stroke="${pick.has(k) ? '#3f9e48' : '#b7c1cb'}" stroke-width="0.9"/>`;
+    }
+    return s;
+  }, '#9aa6b2');
+  S('Puromycin selection (flat)', CAT.imm, 'puromycin selection antibiotic resistant cells survive sensitive cells die stable transduced clones', [120, 70], () => {
+    const ic = ICON_MAP['s-antibiotic-selection'];
+    return ic ? (ic.classicDraw || ic.draw)('#3f9e48') : '';
+  }, '#3f9e48');
 
   // Flat like BioRender: mark these as finished so iconfinish.js does not add its shadow bands and light streaks.
   // The two soft B-cell icons stay unfinished, so they are shaded exactly like the im-bcell they are drawn from.
