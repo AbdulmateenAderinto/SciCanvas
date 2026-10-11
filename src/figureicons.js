@@ -520,7 +520,7 @@
     // PD-1 on the T cell, PD-L1 on the tumour cell, anti-PD-L1 antibody in between
     s += tubes([[[44, 116], [78, 116]]], 5, TG, { ow: 1 }) + ball(86, 116, 9, TG, { w: 1.2 });
     s += tubes([[[216, 116], [196, 116]]], 5, '#e8843b', { ow: 1 }) + ball(186, 116, 9, '#e8843b', { w: 1.2 }) + ball(168, 116, 9, '#f2a65e', { w: 1.2 });
-    s += igY(132, 116, 0, 1.25, '#2457c5');
+    s += igY(144, 116, 0, 1.25, '#2457c5');
     return s;
   }, '#3f9e48');
 
@@ -574,6 +574,33 @@
     for (let x = 160; x <= 190; x += 6) s += txt(x, 34, 'A', 6, RNA);
     return s;
   }, '#3fb6a8');
+
+  // NK cell: a large granular lymphocyte, lavender, with a kidney-shaped nucleus, red cytotoxic granules and CD16
+  // (FcγRIII) Fc receptors around the membrane, the receptors antibody-coated targets engage in ADCC.
+  S('NK cell (CD16, cytotoxic granules)', CAT.imm, 'NK cell natural killer large granular lymphocyte CD16 FcγRIII Fc receptor perforin granzyme cytotoxic granules ADCC', [110, 110], (r) => {
+    let s = '';
+    for (let k = 0; k < 9; k++) {
+      const a = (k / 9) * Math.PI * 2 + 0.2, p = (rad) => [55 + rad * Math.cos(a), 55 + rad * Math.sin(a)];
+      s += tube([p(36), p(46)], 2.6, '#5a3f9a', { ow: 0.8 });
+      const [hx, hy] = p(49), n = [-Math.sin(a) * 2.6, Math.cos(a) * 2.6];
+      s += ball(hx + n[0], hy + n[1], 3.2, '#6f52b8', { w: 0.8 }) + ball(hx - n[0], hy - n[1], 3.2, '#8b6fd0', { w: 0.8 });
+    }
+    s += glob(55, 55, 38, 37, '#d6c9f0', r, { amp: 0.035, oc: '#7a5cc0' });
+    s += path('M38 40 C46 30 64 32 66 44 C68 52 60 54 58 60 C56 70 44 72 38 64 C32 58 32 48 38 40 Z', '#9c7fd6', { oc: '#6a4fb0', w: 1.4 });
+    [[72, 52], [76, 62], [68, 70], [80, 46], [62, 78], [74, 74], [70, 40]].forEach(([x, y]) => { s += ball(x, y, 2.7, '#d64545', { w: 0.7 }); });
+    s += `<ellipse cx="40" cy="30" rx="10" ry="4" fill="#ffffff" opacity=".4" transform="rotate(-30 40 30)"/>`;
+    return s;
+  }, '#8b6fd0');
+
+  // C1q: six globular heads on collagen-like stalks gathered into a stem, the "bouquet of tulips"; heads face left to
+  // bind the Fc of antibodies on a target.
+  S('Complement C1q (bouquet)', CAT.imm, 'complement C1q bouquet of tulips classical pathway globular heads collagen stalk Fc binding', [110, 92], () => {
+    const heads = [[20, 12], [14, 27], [11, 42], [11, 54], [14, 68], [20, 82]];
+    let s = tube([[104, 47], [70, 47]], 9, '#3f9e48', { ow: 1.1 });
+    heads.forEach(([x, y]) => { s += tube([[70, 47], [48, 47 + (y - 47) * 0.55], [x + 8, y]], 2.8, '#4caf50', { ow: 0.8 }); });
+    heads.forEach(([x, y]) => { s += ell(x, y, 8, 6.5, '#7fcf86', 0, { oc: '#2f8f47', w: 1.2 }); });
+    return s;
+  }, '#3f9e48');
 
   // Flat like BioRender: mark these as finished so iconfinish.js does not add its shadow bands and light streaks.
   // The two soft B-cell icons stay unfinished, so they are shaded exactly like the im-bcell they are drawn from.
