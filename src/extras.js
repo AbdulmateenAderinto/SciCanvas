@@ -29,7 +29,7 @@ function renderLibrary() {
   foot.innerHTML = '';
   foot.append(el('span', { textContent: `${total.toLocaleString()} icon${total === 1 ? '' : 's'}` }));
   if (total > items.length) foot.append(btn(`Show more (${(total - items.length).toLocaleString()})`, () => { libLimit += LIB_MORE; renderLibrary(); }));
-  foot.append(el('div', { class: 'btnrow' }, btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog), iconStyleButton()));
+  foot.append(el('div', { class: 'btnrow' }, globalThis.MyLibrary ? Object.assign(btn('＋ Add images…', () => MyLibrary.pickFiles()), { title: 'Add your own pictures to the Library, with a name, related words and tags (or drop picture files here). Right-click any icon to edit its name and tags.' }) : '', btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog), iconStyleButton()));
   foot.append(el('div', { class: 'note', style: 'margin-top:4px' }, `${(ICONS.length + Packs.all.length).toLocaleString()} icons from ${Packs.list.filter((p) => p.id !== 'mine').length + 1} libraries (CC0 / CC BY / MIT${Packs.list.some((p) => p.imported) ? ', plus your own libraries' : ''}). Non-commercial icons are marked NC. File › Credits drafts your attributions.`));
 }
 // ---------- Library / category / clade pickers ----------
@@ -407,6 +407,7 @@ function openCreditsDialog() {
 // ---------- Help ----------
 const HELP = [
   ['Add icons', 'Search the library on the left (built-in + Bioicons). Click to add at the centre, or drag onto the canvas. ☆ marks favourites; “Recent” shows what you used.'],
+  ['Your own pictures in the Library', 'Library › ＋ Add images… (or drop picture files onto the Library, or right-click a picture on the page › Add picture to Library…). Give each a name, related words and tags; search finds it by all three. Right-click any icon in the Library › Edit name & tags… to rename or re-tag it (Reset to original undoes it).'],
   ['Recolour an icon', 'Select it. Built-in icons have a Colour; library icons have a Tint (colour overlay). “Colour layers” lists every colour in the icon — recolour or hide each one (e.g. make a nucleus transparent).'],
   ['Replace an icon', 'Select it, click “Replace icon…”, then click a different icon in the library. Size and position are kept.'],
   ['Group / edit inside a group', 'Select several objects and press ⌘G. Double-click a group to edit its parts in place; click outside or press Esc to regroup.'],
