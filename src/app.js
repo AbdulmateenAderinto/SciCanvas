@@ -18,7 +18,7 @@ if (!window.native) {
     pubchemLookup: async (name) => { const r = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/IsomericSMILES,SMILES,MolecularFormula,MolecularWeight,IUPACName/JSON`); if (!r.ok) throw new Error('Not found'); const p = (await r.json()).PropertyTable.Properties[0]; return { cid: p.CID, smiles: p.IsomericSMILES || p.SMILES, formula: p.MolecularFormula, mw: p.MolecularWeight, iupac: p.IUPACName }; },
     packCatalog: async () => [],
     listTemplates: async () => [], saveTemplate: none, deleteTemplate: none, exportTemplate: none, importTemplate: async () => 0,
-    listVersions: async () => [], readVersion: none, watchFile() {}, onFileChanged() {}, readFile: none, pickFolder: none, listFolder: none, makeFolder: none, reveal: none, onOpenFile() {}, pendingOpen: none, installPack: none, saveUserIcon: none, deleteUserIcon: none,
+    listVersions: async () => [], readVersion: none, watchFile() {}, onFileChanged() {}, readFile: none, pickFolder: none, listFolder: none, makeFolder: none, reveal: none, onOpenFile() {}, pendingOpen: none, installPack: none, importPack: none, removePack: none, saveUserIcon: none, deleteUserIcon: none,
     readPackIcon: async (pack, file) => (await fetch(`../assets/iconpacks/${pack}/svg/${encodeURIComponent(file)}`)).text(),
     getSettings: async () => ({ hasApiKey: false, author: '', field: '' }), saveSettings: none, copyImage: none, openPath: none, aiGenerate: none,
     onPackProgress() {}, pickFolderPath: none, ttsVoices: async () => [], ttsExport: none,

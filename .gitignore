@@ -8,3 +8,6 @@ dist/
 .claude/
 .DS_Store
 *.log
+# Icon libraries exported from your own subscriptions (e.g. BioRender) stay on your own computer
+BioRender library*/
+*biorender*/

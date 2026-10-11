@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('native', {
   gpuStatus: () => ipcRenderer.invoke('gpu-status'),
   packCatalog: () => ipcRenderer.invoke('pack-catalog'),
   installPack: (id) => ipcRenderer.invoke('install-pack', id),
+  importPack: () => ipcRenderer.invoke('import-pack'),
+  removePack: (id) => ipcRenderer.invoke('remove-pack', id),
   saveUserIcon: (icon) => ipcRenderer.invoke('save-user-icon', icon),
   deleteUserIcon: (file) => ipcRenderer.invoke('delete-user-icon', file),
   onPackProgress: (fn) => ipcRenderer.on('pack-progress', (_e, p) => fn(p)),

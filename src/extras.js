@@ -30,7 +30,7 @@ function renderLibrary() {
   foot.append(el('span', { textContent: `${total.toLocaleString()} icon${total === 1 ? '' : 's'}` }));
   if (total > items.length) foot.append(btn(`Show more (${(total - items.length).toLocaleString()})`, () => { libLimit += LIB_MORE; renderLibrary(); }));
   foot.append(el('div', { class: 'btnrow' }, btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog), iconStyleButton()));
-  foot.append(el('div', { class: 'note', style: 'margin-top:4px' }, `${(ICONS.length + Packs.all.length).toLocaleString()} icons from ${Packs.list.filter((p) => p.id !== 'mine').length + 1} libraries (CC0 / CC BY / MIT). Non-commercial icons are marked NC. File › Credits drafts your attributions.`));
+  foot.append(el('div', { class: 'note', style: 'margin-top:4px' }, `${(ICONS.length + Packs.all.length).toLocaleString()} icons from ${Packs.list.filter((p) => p.id !== 'mine').length + 1} libraries (CC0 / CC BY / MIT${Packs.list.some((p) => p.imported) ? ', plus your own libraries' : ''}). Non-commercial icons are marked NC. File › Credits drafts your attributions.`));
 }
 // ---------- Library / category / clade pickers ----------
 // One long list of every category (PhyloPic alone has ~4,500 clades) becomes three short ones: the library, then its

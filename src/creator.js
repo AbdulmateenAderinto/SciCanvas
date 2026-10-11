@@ -154,9 +154,34 @@ async function openLibrariesDialog() {
     mineGrid.append(el('div', { class: 'icon-cell' }, el('img', { src: entry.url }), el('span', { textContent: ic.name }),
       btn('Delete', async () => { if (!confirm(`Delete “${ic.name}” from My icons?`)) return; await window.native.deleteUserIcon(ic.file); await loadPacks(); renderLibrary(); openLibrariesDialog(); }, 'danger')));
   }
+  // Libraries added from a folder (e.g. pictures exported from a subscription you hold): kept on this computer only.
+  const own = Packs.list.filter((p) => p.imported);
+  const ownNote = el('span', { class: 'note' });
+  const ownList = el('div');
+  for (const p of own) {
+    ownList.append(el('div', { class: 'libcard' },
+      el('div', { style: 'flex:1' }, el('b', { textContent: p.name || p.id }),
+        el('div', { class: 'note', textContent: `✓ ${p.icons.length.toLocaleString()} icons · on this computer only` })),
+      btn('Remove', async () => {
+        if (!confirm(`Remove “${p.name || p.id}” from SciCanvas? Figures that already use its icons keep them; your original folder isn't touched.`)) return;
+        await window.native.removePack(p.id); await loadPacks(); renderLibrary(); openLibrariesDialog();
+      }, 'danger')));
+  }
+  const addOwn = btn('Add a library from a folder…', async () => {
+    addOwn.disabled = true; ownNote.textContent = 'Copying…';
+    try {
+      const r = await window.native.importPack();
+      if (!r) { ownNote.textContent = ''; addOwn.disabled = false; return; }
+      await loadPacks(); renderLibrary(); openLibrariesDialog();
+      toast(`Added ${r.count.toLocaleString()} icons from “${r.name}”${r.skipped ? ` (${r.skipped} missing files skipped)` : ''} — search for them in the Library`);
+    } catch (e) { ownNote.textContent = 'Couldn’t add it: ' + e.message.replace(/^Error invoking remote method[^:]*: (Error: )?/, ''); addOwn.disabled = false; }
+  }, 'primary');
   openModal('Icon libraries', el('div', { style: 'max-width:760px' },
     el('div', { class: 'note', style: 'margin-bottom:10px' }, `${total.toLocaleString()} icons available: ${ICONS.length} built-in + ${Packs.list.map((p) => `${p.icons.length.toLocaleString()} ${p.name || p.id}`).join(' + ')}.`),
     list,
+    el('h3', { class: 'dlg-sub', textContent: `Your libraries (${own.length})` }),
+    el('div', { class: 'note', style: 'margin-bottom:6px' }, 'Add a folder of icons you have the rights to use — for example pictures exported from your own subscription. It needs a pack.json and an svg folder inside. The library is copied onto this computer only (it is not part of the app download) and stays through updates.'),
+    ownList, el('div', { class: 'row', style: 'gap:8px;align-items:center' }, addOwn, ownNote),
     el('h3', { class: 'dlg-sub', textContent: `My icons (${mine ? mine.icons.length : 0})` }),
     mine && mine.icons.length ? mineGrid : el('div', { class: 'note', textContent: 'Draw something (pencil / pen), select it and choose “Save as icon”, or create icons with AI.' }),
     el('h3', { class: 'dlg-sub', textContent: 'More sources (manual import)' }),
@@ -164,5 +189,5 @@ async function openLibrariesDialog() {
       el('a', { href: 'https://bioart.niaid.nih.gov', target: '_blank', textContent: 'NIAID NIH BIOART (public domain)' }), ' · ',
       el('a', { href: 'https://smart.servier.com', target: '_blank', textContent: 'Servier Medical Art (CC BY 4.0)' }), ' · ',
       el('a', { href: 'https://scidraw.io', target: '_blank', textContent: 'SciDraw (CC BY)' }), ' · ',
-      el('a', { href: 'https://togotv.dbcls.jp/en/pics.html', target: '_blank', textContent: 'TogoTV (CC BY 4.0)' }), '. BioRender’s own library is proprietary and cannot be imported.')));
+      el('a', { href: 'https://togotv.dbcls.jp/en/pics.html', target: '_blank', textContent: 'TogoTV (CC BY 4.0)' }), '.')));
 }

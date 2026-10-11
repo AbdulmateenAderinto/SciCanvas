@@ -1,7 +1,9 @@
-// What's new (v1.6): a short tour of the features added since 1.5, shown once after updating and from Help.
+// What's new (v1.7; the 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
 (() => {
-  const VERSION = '1.6';
+  const VERSION = '1.7';
   const ITEMS = [
+    ['Add your own icon libraries', 'Library › Libraries… › Add a library from a folder: pick a folder of icons you have the rights to use (pack.json + svg folder), for example pictures exported from your own subscription. It is copied onto this computer only, shows up in Library search like any other library, and can be removed again there.'],
+    ['More figure icons', 'Germinal-centre B cells as a group of three and a B cell with GC markers; a GFP histogram with a “high” gate, a 96-well plate with GFP-positive clones, puromycin selection, and a trace-only Sanger chromatogram for small sizes.'],
     ['Straight lines with Shift', 'Hold Shift while drawing or dragging a line end to keep it level, upright or at 45°, even over a shape: the line attaches where it meets the edge. Shift also lines up nodes in Edit Points.'],
     ['Reshape text boxes', 'Drag the side handles of any text: left and right set the width and the words re-wrap, top and bottom set the height. Corners still scale the font.'],
     ['New figure icons', 'Peyer’s patch, germinal centre and GC B cell, realistic lab mice (C57BL/6, albino, agouti), nanopore sequencers and flow cells, PacBio-, Illumina- and capillary sequencers, a Sanger chromatogram and retroviral transduction with GFP — search the Library for them.'],

@@ -4,6 +4,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs');
 const { installPack, catalog } = require('./scripts/packs');
+const { importPackFolder, removeImportedPack } = require('./scripts/importpack');
 
 let win;
 
@@ -682,6 +683,16 @@ ipcMain.handle('install-pack', async (e, id) => {
   const root = app.isPackaged ? path.join(app.getPath('userData'), 'iconpacks') : bundledPacks();
   return installPack(id, root, (d, n) => { if (d % 20 === 0 || d === n) e.sender.send('pack-progress', { id, done: d, total: n }); });
 });
+
+// Icon libraries added from a folder ("Icon libraries › Add a library from a folder…"): a folder holding pack.json and an
+// svg/ folder, e.g. pictures exported from a subscription you hold. It is copied into <userData>/iconpacks/<id>, so it
+// stays on this computer only and survives app updates.
+ipcMain.handle('import-pack', async (e) => {
+  const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender) || win, { title: 'Choose an icon library folder (it has pack.json and an svg folder inside)', properties: ['openDirectory'] });
+  if (r.canceled || !r.filePaths[0]) return null;
+  return importPackFolder(r.filePaths[0], path.join(app.getPath('userData'), 'iconpacks'));
+});
+ipcMain.handle('remove-pack', (_e, id) => removeImportedPack(path.join(app.getPath('userData'), 'iconpacks'), id));
 
 // "My icons": drawings and AI-generated icons the user saves into their own library.
 const myIconsDir = () => path.join(app.getPath('userData'), 'iconpacks', 'mine');

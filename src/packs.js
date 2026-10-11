@@ -8,7 +8,7 @@ const LICENSE_NAMES = {
   'cc-by-sa-3.0': 'CC BY-SA 3.0', 'cc-by-sa-4.0': 'CC BY-SA 4.0', mit: 'MIT', bsd: 'BSD', own: 'Your own',
   'cc-by-nc-3.0': 'CC BY-NC 3.0 (non-commercial)', 'cc-by-nc-4.0': 'CC BY-NC 4.0 (non-commercial)',
   'cc-by-nc-sa-3.0': 'CC BY-NC-SA 3.0 (non-commercial)', 'cc-by-nc-sa-4.0': 'CC BY-NC-SA 4.0 (non-commercial)',
-  'cc-by': 'CC BY',
+  'cc-by': 'CC BY', biorender: 'BioRender licence',
 };
 const needsAttribution = (lic) => !!lic && !['cc-0', 'pd', 'own', 'mit', 'built-in'].includes(lic);
 const isNonCommercial = (lic) => /-nc/.test(lic || '');
@@ -321,9 +321,13 @@ function creditsText(doc) {
   for (const a of icons) (byPack[a.pack] ||= []).push(a);
   for (const [pack, list] of Object.entries(byPack)) {
     if (pack === 'mine') continue;
-    const attrib = list.filter((a) => needsAttribution(a.license));
-    const free = list.length - attrib.length;
-    const label = PACK_LABEL[pack] || pack;
+    // Pictures exported from a BioRender subscription: BioRender asks for "Created in BioRender (BioRender.com)".
+    const br = list.filter((a) => a.license === 'biorender');
+    if (br.length) lines.push(`${[...new Set(br.map((a) => a.name))].join(', ')}: created in BioRender (BioRender.com).`);
+    if (br.length === list.length) continue;
+    const attrib = list.filter((a) => needsAttribution(a.license) && a.license !== 'biorender');
+    const free = list.length - attrib.length - br.length;
+    const label = PACK_LABEL[pack] || (Packs.list.find((p) => p.id === pack) || {}).name || pack;
     if (attrib.length) {
       const byAuthor = {};
       for (const a of attrib) (byAuthor[`${a.attribution || a.author} (${LICENSE_NAMES[a.license] || a.license})`] ||= new Set()).add(a.name);
