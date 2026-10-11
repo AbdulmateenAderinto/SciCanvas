@@ -3,9 +3,13 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.6
+## Version 1.7
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.7**
+- **Add your own icon libraries**: Library › *Libraries…* › *Add a library from a folder…* copies a folder of icons you have the rights to use (a `pack.json` plus an `svg/` folder) onto this computer, e.g. pictures exported from your own subscription. It appears in Library search with its own credit line and stays through updates; *Remove* takes it out again. Libraries added this way are never part of the app download or this repository.
+- **More figure icons**: germinal-centre B cells as a group of three, a B cell with GC markers, a GFP histogram with a "high" gate, a 96-well plate with GFP-positive clones, puromycin selection, and a trace-only Sanger chromatogram.
 
 **New in 1.6**
 - **Reshape text boxes by dragging**: the side handles of any text set the box width (words re-wrap) and height; the corners still scale the font.
