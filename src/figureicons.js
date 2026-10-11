@@ -497,6 +497,84 @@
     return s;
   }, '#3b5d73');
 
+  // ---------- Slide-level schematics: immune synapse with checkpoint blockade, labelled antigen, FACS sorter, RT ----------
+  // A Y-shaped IgG drawn with the soft tubes: arms (Fab) towards `deg`, at (x, y) the hinge, `k` the scale.
+  const igY = (x, y, deg, k, c) => {
+    const t = (deg * Math.PI) / 180, u = [Math.cos(t), Math.sin(t)], n = [-u[1], u[0]], P = (a, b) => [x + u[0] * a + n[0] * b, y + u[1] * a + n[1] * b];
+    return tubes([[P(0, 0), P(-14 * k, 0)], [P(0, 0), P(11 * k, -9 * k)], [P(0, 0), P(11 * k, 9 * k)]], 4.2 * k, c, { ow: 1 })
+      + tubes([[P(3 * k, -5 * k), P(11 * k, -13 * k)], [P(3 * k, 5 * k), P(11 * k, 13 * k)]], 2.8 * k, mix(c, '#ffffff', 0.4), { ow: 0.8 });
+  };
+  // Immune synapse: T cell (left) and tumour cell (right) membranes; TCR on the T cell engages peptide–MHC-I on the
+  // tumour cell; PD-1 faces PD-L1, and an anti-PD-L1 antibody sits on PD-L1 so the inhibitory signal is blocked.
+  S('Immune synapse with checkpoint blockade', CAT.imm, 'immune synapse checkpoint blockade immunotherapy PD-1 PD-L1 anti-PD-L1 antibody TCR MHC class I peptide T cell tumour cell killing', [260, 160], () => {
+    const TG = '#3f9e48', TGL = '#bfe3c0', TU = '#d6584a', TUL = '#f6cfcc';
+    let s = rr(-4, -4, 46, 168, 0, '#e8f5e8', { oc: '#e8f5e8', w: 0.1 }) + rr(218, -4, 46, 168, 0, '#fbe9e7', { oc: '#fbe9e7', w: 0.1 });
+    s += rr(36, -4, 10, 168, 3, TGL, { oc: TG, w: 1.4 }) + rr(214, -4, 10, 168, 3, TUL, { oc: TU, w: 1.4 });
+    // TCR (α light, β dark green) from the T cell membrane, its tips on the peptide; MHC class I from the tumour membrane
+    // (α3 stalk, α1/α2 groove holding the peptide) with β2-microglobulin
+    s += tubes([[[44, 32], [80, 32], [104, 34]]], 7, '#2f8f47', { ow: 1.1 }) + tubes([[[44, 52], [80, 52], [104, 50]]], 7, '#7fc97f', { ow: 1.1 });
+    s += ell(112, 35, 9, 7, '#2f8f47', 0, { w: 1.2 }) + ell(112, 49, 9, 7, '#7fc97f', 0, { w: 1.2 });
+    s += tubes([[[216, 42], [176, 42]]], 7, '#e3b86a', { ow: 1.1 }) + ball(184, 60, 7, '#c9a24a', { w: 1 });
+    s += ell(158, 34, 15, 9, '#e8c27a', 0, { w: 1.2 }) + ell(158, 50, 15, 9, '#e8c27a', 0, { w: 1.2 });
+    s += rr(118, 37, 28, 10, 5, '#d64545', { w: 1 });
+    // PD-1 on the T cell, PD-L1 on the tumour cell, anti-PD-L1 antibody in between
+    s += tubes([[[44, 116], [78, 116]]], 5, TG, { ow: 1 }) + ball(86, 116, 9, TG, { w: 1.2 });
+    s += tubes([[[216, 116], [196, 116]]], 5, '#e8843b', { ow: 1 }) + ball(186, 116, 9, '#e8843b', { w: 1.2 }) + ball(168, 116, 9, '#f2a65e', { w: 1.2 });
+    s += igY(132, 116, 0, 1.25, '#2457c5');
+    return s;
+  }, '#3f9e48');
+
+  // Fluorescently labelled antigen: a lumpy multi-domain protein, a flexible linker and a glowing fluorophore.
+  S('Fluorescently labelled antigen', CAT.imm, 'fluorescently labelled antigen fluorophore conjugate tetramer probe bait staining sorting antigen-specific', [100, 110], (r) => {
+    const PC = '#8b5cc6';
+    let s = '';
+    [[50, 30, 13, PC], [36, 22, 11, '#a383d6'], [64, 20, 11, '#7a4bb8'], [34, 40, 11, '#7a4bb8'], [66, 40, 12, '#a383d6'], [50, 14, 10, '#9a72d0'], [50, 46, 11, '#9a72d0']]
+      .forEach(([x, y, rad, c]) => { s += ball(x + (r() - 0.5) * 2, y + (r() - 0.5) * 2, rad, c, { w: 1.2 }); });
+    s += line('M50 56 C44 64 58 70 50 78', '#3d4248', 2);
+    s += `<circle cx="50" cy="92" r="17" fill="#b6f05a" opacity=".22" data-flat="1"/><circle cx="50" cy="92" r="12.5" fill="#b6f05a" opacity=".35" data-flat="1"/>`;
+    s += ball(50, 92, 9, '#7ed321', { oc: '#4f9a10', w: 1.2 }) + `<circle cx="47" cy="89" r="2.6" fill="#ffffff" opacity=".7"/>`;
+    return s;
+  }, '#8b5cc6');
+
+  // FACS sorter: sample funnel feeding cells in single file past the laser (scatter to the detector), the stream
+  // breaking into droplets, charged deflection plates sending droplets left or right into collection tubes.
+  S('FACS sorter (nozzle, laser, plates, tubes)', CAT.seq, 'FACS fluorescence-activated cell sorting sorter nozzle laser detector deflection plates droplets collection tubes flow cytometry', [180, 210], (r) => {
+    const PU = '#b77bd6', GR = '#5fbf6a', GY = '#c3ccd5';
+    let s = path('M58 6 H122 L104 58 V76 H76 V58 Z', '#e6f3fb', { oc: '#7d8996', w: 1.6 });
+    [[72, 16, PU], [90, 14, GR], [108, 18, PU], [80, 30, GR], [98, 32, PU], [88, 46, GR]].forEach(([x, y, c]) => { s += ball(x, y, 5, c, { w: 1 }); });
+    s += rr(84, 74, 12, 30, 3, '#e6f3fb', { oc: '#7d8996', w: 1.4 });
+    s += ball(90, 82, 3.6, GR, { w: 0.8 }) + ball(90, 94, 3.6, PU, { w: 0.8 });
+    // laser and detector
+    s += rr(6, 84, 34, 12, 3, '#59636e', { w: 1 }) + line('M40 90 L86 90', '#e8843b', 3) + line('M40 90 L86 90', '#f2c94c', 1.2);
+    s += line('M94 90 L146 80 M94 90 L146 100', '#f2c94c', 1.4, { dash: '3 2' }) + rr(146, 74, 26, 32, 4, '#3d4248', { w: 1 }) + rr(150, 80, 18, 20, 2, '#2bb3c0', { oc: '#1d8090', w: 0.8 });
+    // droplets breaking off, plates, deflected streams
+    s += ball(90, 112, 4, GR, { w: 0.8 }) + ball(90, 124, 4, PU, { w: 0.8 });
+    s += `<g transform="rotate(14 54 140)">${rr(48, 118, 12, 46, 3, '#3a6fc4', { w: 1 })}</g><g transform="rotate(-14 126 140)">${rr(120, 118, 12, 46, 3, '#d64545', { w: 1 })}</g>`;
+    s += txt(54, 146, '−', 13, '#ffffff') + txt(126, 146, '+', 12, '#ffffff');
+    [[80, 140, PU], [70, 156, PU], [61, 172, PU]].forEach(([x, y, c]) => { s += ball(x, y, 4, c, { w: 0.8 }); });
+    [[100, 140, GR], [110, 156, GR], [119, 172, GR]].forEach(([x, y, c]) => { s += ball(x, y, 4, c, { w: 0.8 }); });
+    s += ball(90, 150, 2.6, GY, { w: 0.6 }) + ball(90, 166, 2.6, GY, { w: 0.6 });
+    // collection tubes
+    const tubeAt = (x, c) => path(`M${x - 13} 180 V198 C${x - 13} 208 ${x + 13} 208 ${x + 13} 198 V180 Z`, '#f3f7fa', { oc: '#8a96a3', w: 1.4 }) + rr(x - 15, 176, 30, 6, 2, '#cfd6dd', { w: 1 }) + ball(x - 4, 198, 3.6, c, { w: 0.8 }) + ball(x + 5, 194, 3.6, c, { w: 0.8 });
+    s += tubeAt(52, PU) + tubeAt(128, GR);
+    return s;
+  }, '#3a6fc4');
+
+  // Reverse transcription: reverse transcriptase moving along the mRNA from an oligo-dT primer at the poly(A) tail,
+  // leaving the new cDNA strand paired with the RNA behind it (an RNA:DNA hybrid); arrow = direction of synthesis.
+  S('Reverse transcription (mRNA to cDNA)', CAT.dna, 'reverse transcription reverse transcriptase RT mRNA cDNA first strand synthesis oligo-dT primer poly(A) RNA:DNA hybrid', [200, 92], () => {
+    const RNA = '#9b59b6', DNAc = '#2457c5';
+    const wave = (x0, x1, y, amp = 3) => { let d = `M${x0} ${y}`; for (let x = x0; x <= x1; x += 4) d += ` L${x} ${f(y + amp * Math.sin((x - x0) / 7))}`; return d; };
+    let s = line(wave(6, 194, 40), RNA, 3.2);
+    for (let x = 110; x < 186; x += 6) s += line(`M${x} ${f(40 + 3 * Math.sin((x - 6) / 7) + 3)} V58`, '#b9c3cc', 1.4);
+    s += line(wave(110, 186, 62, 2), DNAc, 3.2);
+    s += rr(176, 56, 14, 8, 3, '#7fb2e5', { oc: DNAc, w: 1 });                    // oligo-dT primer at the poly(A) tail
+    s += glob(102, 50, 24, 18, '#3fb6a8', K.rng(7), { amp: 0.08 }) + `<ellipse cx="94" cy="42" rx="7" ry="4" fill="#ffffff" opacity=".35"/>`;
+    s += arrow(88, 14, 50, 14, '#3d4248', 2);
+    for (let x = 160; x <= 190; x += 6) s += txt(x, 34, 'A', 6, RNA);
+    return s;
+  }, '#3fb6a8');
+
   // Flat like BioRender: mark these as finished so iconfinish.js does not add its shadow bands and light streaks.
   // The two soft B-cell icons stay unfinished, so they are shaded exactly like the im-bcell they are drawn from.
   NAMES.delete('Germinal-centre B cells (group)'); NAMES.delete('Germinal-centre B cell (soft, with markers)');
