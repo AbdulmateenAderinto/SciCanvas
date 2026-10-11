@@ -452,6 +452,51 @@
     return ic ? (ic.classicDraw || ic.draw)('#3f9e48') : '';
   }, '#3f9e48');
 
+  // Antibody-secreting cell in BioRender's manner (plasma cell, myeloma, hybridoma): a ruffled outline, a large
+  // nucleus with the segmented "cartwheel" chromatin, and stacked rough ER on one side. Recolourable, so one drawing
+  // serves for a plasma cell (blue), myeloma (orange), hybridoma (red) or a coloured hybridoma library; the second
+  // version wears its own antibodies, some on the membrane and some just released.
+  const secretor = (c, r, withAb) => {
+    const body = mix(c, '#ffffff', 0.22), edge = Color.dark(c, 0.42), nuc = Color.dark(c, 0.18), chrom = Color.dark(c, 0.5), er = Color.dark(c, 0.36);
+    const pts = []; const ph = r() * 6;
+    for (let i = 0; i < 64; i++) { const a = (i / 64) * Math.PI * 2, k = 1 + 0.045 * Math.sin(9 * a + ph) + 0.03 * Math.sin(5 * a + 1.3) + 0.04 * Math.sin(2 * a); pts.push([60 + 44 * k * Math.cos(a), 52 + 37 * k * Math.sin(a)]); }
+    let s = '';
+    if (withAb) {
+      const Y = (x, y, ang, sc) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)}) scale(${sc})">` + tubes([[[0, 0], [0, -7]], [[0, -7], [-5, -13]], [[0, -7], [5, -13]]], 2.6, Color.dark(c, 0.15), { ow: 0.9 }) + '</g>';
+      for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2 + 0.25, rr0 = k % 3 === 1 ? 62 : 49; s += Y(60 + rr0 * Math.cos(a) * 1.08, 52 + rr0 * Math.sin(a) * 0.95, (a * 180) / Math.PI + 90 + (k % 3 === 1 ? 25 : 0), k % 3 === 1 ? 0.9 : 1); }
+    }
+    s += path(cr(pts, true), body, { oc: edge, w: 1.8 });
+    s += path(cr(pts.map(([x, y]) => [60 + (x - 60) * 0.8 - 6, 52 + (y - 52) * 0.8 - 2]), true), mix(c, '#ffffff', 0.38), { oc: mix(c, '#ffffff', 0.38), w: 0.1, op: 0.55 });
+    // rough ER: stacked, slightly wavy cisternae
+    for (let k = 0; k < 5; k++) { const x = 70 + k * 5.2; s += line(`M${f(x)} ${f(28 + k * 2)} C${f(x + 6)} ${f(40)} ${f(x + 6)} ${f(64)} ${f(x)} ${f(76 - k * 2)}`, er, 2.1); }
+    for (let k = 0; k < 10; k++) s += `<circle cx="${f(68 + r() * 30)}" cy="${f(30 + r() * 44)}" r="0.9" fill="${er}"/>`;
+    // nucleus with cartwheel chromatin
+    s += `<circle cx="44" cy="52" r="20" fill="${nuc}" stroke="${edge}" stroke-width="1.6"/>`;
+    for (let k = 0; k < 7; k++) { const a = (k / 7) * Math.PI * 2 + 0.3, a1 = a - 0.26, a2 = a + 0.26, p = (rad, t) => [44 + rad * Math.cos(t), 52 + rad * Math.sin(t)];
+      const [x0, y0] = p(5, a), [x1, y1] = p(16, a1), [x2, y2] = p(16, a2); s += `<path d="M${f(x0)} ${f(y0)} L${f(x1)} ${f(y1)} Q${f(44 + 18 * Math.cos(a))} ${f(52 + 18 * Math.sin(a))} ${f(x2)} ${f(y2)} Z" fill="${chrom}" stroke="${chrom}" stroke-width="1" stroke-linejoin="round"/>`; }
+    s += `<circle cx="44" cy="52" r="3.4" fill="${chrom}"/>`;
+    return s;
+  };
+  const SECRETOR_TAGS = 'hybridoma plasma cell myeloma antibody-secreting cell ASC rough ER endoplasmic reticulum ruffled BioRender';
+  K.add('Antibody-secreting cell (ruffled)', CAT.imm, SECRETOR_TAGS, '#c45a5a', (c) => secretor(c || '#c45a5a', R('secretor'), false), [120, 104]);
+  NAMES.add('Antibody-secreting cell (ruffled)');
+  K.add('Antibody-secreting cell with antibodies (ruffled)', CAT.imm, SECRETOR_TAGS + ' surface Ig secreted antibodies', '#c45a5a', (c) => `<svg x="0" y="0" width="120" height="104" viewBox="-14 -14 148 132" overflow="visible">${secretor(c || '#c45a5a', R('secretor'), true)}</svg>`, [120, 104]);
+  NAMES.add('Antibody-secreting cell with antibodies (ruffled)');
+
+  // DNA double helix in one colour (both strands one hue, base pairs a lighter tint): for libraries of coloured genes.
+  K.add('DNA double helix (one colour)', CAT.dna, 'DNA double helix one colour single colour gene library VH VL coloured', '#2457c5',
+    (c) => helix(4, 156, 20, 11, 3.2, { w: 3.6, c1: c || '#2457c5', c2: Color.dark(c || '#2457c5', 0.12), pairA: mix(c || '#2457c5', '#ffffff', 0.45), pairB: mix(c || '#2457c5', '#ffffff', 0.6) }), [160, 40]);
+  NAMES.add('DNA double helix (one colour)');
+
+  // Lateral-flow test cassette: control (C) and test (T) lines in the read window, and the sample well (S).
+  S('Lateral flow test cassette', CAT.seq, 'lateral flow test rapid antigen test cassette point-of-care diagnostic control line test line sample well LFA', [64, 120], () => {
+    let s = rr(4, 4, 56, 112, 12, '#3b5d73', { oc: '#26404f', w: 1.6 });
+    s += rr(22, 14, 20, 48, 6, '#f3f6f8', { oc: '#c3ccd5', w: 1 }) + rr(25, 26, 14, 4, 1, '#3a8fd6', { w: 0.6 }) + rr(25, 44, 14, 4, 1, '#3a8fd6', { w: 0.6 });
+    s += txt(13, 31, 'C', 9, '#ffffff') + txt(13, 49, 'T', 9, '#ffffff') + txt(32, 80, 'S', 9, '#ffffff');
+    s += `<circle cx="32" cy="98" r="9" fill="#f3f6f8" stroke="#c3ccd5" stroke-width="1"/><circle cx="32" cy="98" r="5" fill="#3a8fd6"/>`;
+    return s;
+  }, '#3b5d73');
+
   // Flat like BioRender: mark these as finished so iconfinish.js does not add its shadow bands and light streaks.
   // The two soft B-cell icons stay unfinished, so they are shaded exactly like the im-bcell they are drawn from.
   NAMES.delete('Germinal-centre B cells (group)'); NAMES.delete('Germinal-centre B cell (soft, with markers)');
