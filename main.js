@@ -121,6 +121,7 @@ function buildMenu() {
       label: 'Insert',
       submenu: [
         { label: 'Graph…', click: send('graph') },
+        { label: 'Refresh Linked Data', click: send('refreshData') },
         { label: 'Protocol Diagram…', click: send('protocol') },
         { label: 'Chemical Structure…', click: send('chem') },
         { label: 'Protein Structure (PDB)…', click: send('pdb') },
@@ -473,6 +474,16 @@ ipcMain.handle('make-folder', (_e, { dir, name }) => {
   return full;
 });
 ipcMain.handle('reveal', (_e, p) => { if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p); });
+// Linked chart data: the bytes of a data file plus a fingerprint (time, size, SHA-1), so charts can refresh when the
+// file changes and say exactly which version of the data they show. { stat: true } skips the bytes.
+ipcMain.handle('data-file', (_e, file, opts = {}) => {
+  if (typeof file !== 'string' || !/\.(csv|tsv|txt|xlsx|pzfx)$/i.test(file)) throw new Error('Not a data file');
+  if (!fs.existsSync(file)) return { missing: true };
+  const st = fs.statSync(file), buf = fs.readFileSync(file);
+  const out = { mtime: st.mtimeMs, size: st.size, sha1: crypto.createHash('sha1').update(buf).digest('hex') };
+  if (!opts.stat) out.base64 = buf.toString('base64');
+  return out;
+});
 
 // ---------- User templates ----------
 const templatesDir = () => path.join(app.getPath('userData'), 'templates');

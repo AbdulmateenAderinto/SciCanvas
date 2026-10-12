@@ -131,6 +131,7 @@ function openGraphDialog(existing, preset) {
       const wide = GROUP.includes(cfg.kind) ? tidyToWide(text) : null;
       if (wide) text = wide;
       cfg.data = text; data.value = text; update();
+      if (typeof linkDataSource === 'function') await linkDataSource(cfg, f, { wide: !!wide });
       toast(`Imported ${f.name}${wide ? ' (long format converted to one column per group)' : ''}`);
     } catch (err) { toast('Import failed: ' + err.message, 4000); }
     fileIn.value = '';

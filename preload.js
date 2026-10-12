@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('native', {
   listFolder: (dir) => ipcRenderer.invoke('list-folder', dir),
   makeFolder: (dir, name) => ipcRenderer.invoke('make-folder', { dir, name }),
   reveal: (p) => ipcRenderer.invoke('reveal', p),
+  dataFile: (p, opts) => ipcRenderer.invoke('data-file', p, opts),
   listTemplates: () => ipcRenderer.invoke('list-templates'),
   saveTemplate: (t) => ipcRenderer.invoke('save-template', t),
   deleteTemplate: (f) => ipcRenderer.invoke('delete-template', f),
