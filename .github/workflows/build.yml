@@ -134,12 +134,17 @@ jobs:
           if grep -q 'Uncaught' smoke.log; then echo "::error::Script error while loading"; exit 1; fi
           echo "::notice::Mac app: $(find "$APP/Contents/Resources/iconpacks" -type f 2>/dev/null | wc -l | tr -d ' ') bundled icon files"
 
+      # Test builds keep their installers for 3 days only: the repository is private now, and its artifact storage is
+      # small (90 days of ~2 GB per build filled it). A full store doesn't fail the build: the installers were built
+      # and checked above, and releases attach theirs directly (next step).
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'release' && !inputs.tag
+        continue-on-error: true
         with:
           name: SciCanvas-${{ matrix.name }}
           path: ${{ matrix.files }}
           if-no-files-found: error
+          retention-days: 3
       - name: Attach to the release
         if: github.event_name == 'release' || inputs.tag
         shell: bash
