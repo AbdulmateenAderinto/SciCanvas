@@ -82,6 +82,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Import Image…', accelerator: 'CmdOrCtrl+I', click: send('importImage') },
         { label: 'Export…', accelerator: 'CmdOrCtrl+E', click: send('export') },
+        { label: 'Export Deposit Bundle…', click: send('exportBundle') },
         { label: 'Check Figure for Journal…', accelerator: 'Shift+CmdOrCtrl+J', click: send('checkFigure') },
         { label: 'Export for Journal…', click: send('exportJournal') },
         { label: 'Export Animation (MP4 / GIF)…', click: send('exportAnimation') },
@@ -538,6 +539,7 @@ function fileToDataUrl(p) {
 }
 
 // Save an export. `data` is either a base64 data URL (png/jpg) or text (svg).
+ipcMain.handle('app-version', () => app.getVersion());
 ipcMain.handle('export-file', async (_e, { defaultName, ext, data }) => {
   const r = await dialog.showSaveDialog(BrowserWindow.getFocusedWindow() || win, {
     defaultPath: defaultName,

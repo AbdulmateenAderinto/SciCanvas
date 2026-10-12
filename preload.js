@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('native', {
   saveFigure: (args) => ipcRenderer.invoke('save-figure', args),
   pickImages: () => ipcRenderer.invoke('pick-images'),
   exportFile: (args) => ipcRenderer.invoke('export-file', args),
+  appVersion: () => ipcRenderer.invoke('app-version'),
   exportPdf: (args) => ipcRenderer.invoke('export-pdf', args),
   fetchPdb: (id) => ipcRenderer.invoke('fetch-pdb', id),
   openPath: (p) => ipcRenderer.invoke('open-path', p),
