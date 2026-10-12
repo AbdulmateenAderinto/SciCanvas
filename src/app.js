@@ -1645,6 +1645,7 @@ function loadDoc(doc, filePath) {
 async function save(saveAs) {
   let thumb = '';
   try { const p0 = state.doc.pages[0]; thumb = await rasterize(p0, Math.min(1, 320 / Math.max(p0.width, p0.height)), { mime: 'image/jpeg' }); } catch { /* no thumbnail */ }
+  if (typeof embedBuiltinIcons === 'function') embedBuiltinIcons(state.doc);
   const { thumb: _old, ...rest } = state.doc;
   const target = await window.native.saveFigure({ path: state.filePath, content: JSON.stringify({ thumb, ...rest }), saveAs });
   if (target) { state.filePath = target; state.dirty = false; updateTitle(); toast('Saved'); addRecent(target); }

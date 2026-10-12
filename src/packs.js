@@ -198,6 +198,30 @@ function addSvgAsset(name, text) {
 }
 
 // The markup + view box an icon object renders with (native or asset), after colour edits.
+// Figures carry the drawings of the built-in icons they use, as builtin:<id>|<colour> assets rebuilt on every save,
+// so a figure made with a newer SciCanvas still shows its icons in a version that lacks them.
+function embedBuiltinIcons(doc) {
+  const assets = doc.assets || (doc.assets = {});
+  for (const k of Object.keys(assets)) if (k.startsWith('builtin:')) delete assets[k];
+  const walk = (list) => {
+    for (const o of list || []) {
+      if (o.type === 'group') { walk(o.children); continue; }
+      if (o.type !== 'icon' || !ICON_MAP[o.iconId]) continue;
+      const key = `builtin:${o.iconId}|${o.color || ''}`;
+      if (assets[key]) continue;
+      const v = iconViewBox(o.iconId);
+      assets[key] = { svg: normalizeColors(iconSvgInner(o.iconId, o.color)), vb: `0 0 ${v.w} ${v.h}`, vw: v.w, vh: v.h, name: ICON_MAP[o.iconId].name, pack: 'builtin' };
+    }
+  };
+  for (const p of doc.pages || []) walk(p.objects);
+  return doc;
+}
+function builtinCopy(o) {
+  const assets = (typeof state !== 'undefined' && state.doc.assets) || {};
+  if (assets[`builtin:${o.iconId}|${o.color || ''}`]) return assets[`builtin:${o.iconId}|${o.color || ''}`];
+  const k = Object.keys(assets).find((key) => key.startsWith(`builtin:${o.iconId}|`));
+  return k ? assets[k] : null;
+}
 function iconMarkup(o) {
   let markup, vb;
   if (ICON_MAP[o.iconId]) {
@@ -205,7 +229,7 @@ function iconMarkup(o) {
     markup = normalizeColors(iconSvgInner(o.iconId, o.color));
     vb = `0 0 ${v.w} ${v.h}`;
   } else {
-    const a = getAsset(o.iconId);
+    const a = getAsset(o.iconId) || builtinCopy(o);
     if (!a) return { markup: '<rect width="100" height="100" fill="#f3f3f3" stroke="#d64545" stroke-dasharray="6 4"/><text x="50" y="56" font-size="12" text-anchor="middle" fill="#d64545">missing</text>', vb: '0 0 100 100' };
     markup = a.svg; vb = a.vb;
     if (o.tint) markup = applyTint(markup, o.tint);

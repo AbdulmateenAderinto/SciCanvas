@@ -824,6 +824,18 @@ ipcMain.handle('ai-generate', async (_e, { system, prompt, image, schema, docume
 
 // Double-clicking a .scifig file (macOS "open-file"; Windows/Linux pass it on the command line).
 let pendingOpen = process.argv.find((a) => a.endsWith('.scifig')) || null;
+
+// One SciCanvas per profile: a second launch hands its figure to the window that is already open (which asks
+// before discarding unsaved work) instead of starting a second copy that could save over the same file.
+const gotSingleLock = app.requestSingleInstanceLock();
+if (!gotSingleLock) app.quit();
+app.on('second-instance', (_e, argv) => {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.focus();
+  const file = argv.find((a) => a.endsWith('.scifig'));
+  if (file && fs.existsSync(file)) { app.addRecentDocument(file); watchFile(file); win.webContents.send('open-file', { path: file, content: fs.readFileSync(file, 'utf8') }); }
+});
 app.on('open-file', (e, file) => {
   e.preventDefault();
   if (win && !win.isDestroyed()) { app.addRecentDocument(file); watchFile(file); win.webContents.send('open-file', { path: file, content: fs.readFileSync(file, 'utf8') }); }
@@ -840,6 +852,7 @@ ipcMain.handle('pending-open', () => {
 // box would show Electron's logo. Installed builds already carry the SciCanvas icon.
 const DEV_ICON = path.join(__dirname, 'build', 'icon.png');
 app.whenReady().then(() => {
+  if (!gotSingleLock) return;
   if (!app.isPackaged && fs.existsSync(DEV_ICON)) {
     if (process.platform === 'darwin' && app.dock) app.dock.setIcon(nativeImage.createFromPath(DEV_ICON));
     app.setAboutPanelOptions({ applicationName: 'SciCanvas', applicationVersion: app.getVersion(), iconPath: DEV_ICON });
