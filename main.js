@@ -122,6 +122,7 @@ function buildMenu() {
       label: 'Insert',
       submenu: [
         { label: 'Graph…', click: send('graph') },
+        { label: 'Linked Value…', click: send('insertValue') },
         { label: 'Refresh Linked Data', click: send('refreshData') },
         { label: 'Protocol Diagram…', click: send('protocol') },
         { label: 'Chemical Structure…', click: send('chem') },
