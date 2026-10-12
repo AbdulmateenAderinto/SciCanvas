@@ -15,6 +15,10 @@ library → canvas → relationships → data → review → export.
 - **Compare versions**: Version History › *Compare* shows a saved version beside the figure now, outlining what was removed, added and changed, with the changes listed in words.
 - **Review**: the Check tab flags objects running outside their panel (*Move inside*), and "almost aligned" now only reports neighbouring objects of the same kind. View › *Print Size* (⌘⇧P) shows the page at its printed width, with *Calibrate Print Size…* for true millimetres.
 - **AI drafts are reviewed before you see them**: antibodies aimed at their targets and safe layout fixes applied.
+- **Live values in text**: `{=range(reads.csv:Passed)}` shows "911–2,903" straight from the data file (also min, max, mean, median, sum, count, sd, or one cell), and updates when the file changes. Insert › *Linked Value…* builds one with a preview.
+- **Ring around target**: select an icon and a cell › right-click › *Ring around target…* places evenly spaced copies on its surface facing out (receptors) or binding it facing in (antibodies), on the cell's drawn outline.
+- **Figure legends**: Properties › Page › *Figure legend*; the Check tab flags legend letters with no panel, panels the legend never describes, and letters out of reading order.
+- **Colour-vision preview**: View › *Simulate Colour Vision* (deuteranopia, protanopia, tritanopia, greyscale), view only.
 - **Safer files**: only one SciCanvas runs at a time (a second launch hands its figure to the open window), and figures carry the drawings of the built-in icons they use, so they open correctly in versions without those icons.
 
 **New in 1.8**
