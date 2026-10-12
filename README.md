@@ -7,6 +7,16 @@ library → canvas → relationships → data → review → export.
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
 
+**Coming in the next release** (on `main`, not yet in the installers)
+- **Data-linked charts with provenance**: a chart imported from a CSV, TSV, Excel or Prism file stays linked to it (path, time, size, SHA-1) and refreshes when the file changes; Properties › *Data source* shows where the data came from (Refresh, Show in Finder, Unlink), and the Check tab warns if the file goes missing. Insert › *Refresh Linked Data*.
+- **Deposit bundle**: File › *Export Deposit Bundle…* saves one zip with the editable figure, SVG and 300-dpi PNG of each page, copies of the linked data files, `provenance.json` (fingerprints, versions, credits) and a README.
+- **Antibodies know their arms**: select antibodies and a target › right-click › *Dock antibodies on target* turns each to face it with the arm tips on its outline (or *Aim* to only turn them).
+- **Slide builds**: give objects a build step (Properties › *Build*, or right-click › *Build in selection order*); Present mode reveals each step before the next slide, and PowerPoint export turns them into click animations.
+- **Compare versions**: Version History › *Compare* shows a saved version beside the figure now, outlining what was removed, added and changed, with the changes listed in words.
+- **Review**: the Check tab flags objects running outside their panel (*Move inside*), and "almost aligned" now only reports neighbouring objects of the same kind. View › *Print Size* (⌘⇧P) shows the page at its printed width, with *Calibrate Print Size…* for true millimetres.
+- **AI drafts are reviewed before you see them**: antibodies aimed at their targets and safe layout fixes applied.
+- **Safer files**: only one SciCanvas runs at a time (a second launch hands its figure to the open window), and figures carry the drawings of the built-in icons they use, so they open correctly in versions without those icons.
+
 **New in 1.8**
 - **Add your own pictures to the Library**: Library › *＋ Add images…* (or drop PNG / JPG / SVG / WebP / GIF files onto the Library, or right-click a picture on the page › *Add picture to Library…*). Each picture gets a **Name**, **Related words** and **Tags** (and an optional group), and is saved in My icons on this computer; Library search finds it by all three. Pictures are trimmed of empty transparent edges and kept at up to 2,000 px.
 - **Rename and re-tag any icon**: right-click an icon in the Library (or on the page) › *Edit name & tags…*. Your name, related words and tags replace the icon's own in the Library and in search, and rank just below a name match; *Reset to original* undoes it. Saved on this computer.
