@@ -676,6 +676,8 @@ async function buildPptx(pages, { editable = true, PptxGenJS: Pptx, JSZip: Zip, 
     const path = `ppt/slides/slide${i + 1}.xml`, relPath = `ppt/slides/_rels/slide${i + 1}.xml.rels`;
     let xml = await zip.file(path).async('string');
     xml = xml.replace(/(<p:spTree>[\s\S]*?<\/p:grpSpPr>)[\s\S]*?(<\/p:spTree>)/, (m, head, tail) => head + shapes.replace(/\$/g, '$$$$') + tail);
+    const timing = typeof buildTimingXml === 'function' ? buildTimingXml(pages[i]) : ''; // builds → click animations (builds.js)
+    if (timing) xml = xml.replace(/<\/p:sld>\s*$/, timing + '</p:sld>');
     zip.file(path, xml);
     if (ctx.media.length) {
       let rels = await zip.file(relPath).async('string');

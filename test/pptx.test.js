@@ -164,3 +164,15 @@ test('every kind of line from the line tools exports to a valid deck', async () 
   assert.match(slide, /<p:pic>/, 'special lines go in as pictures');
   assert.match(slide, /<p:cxnSp>/, 'plain lines stay native connectors');
 });
+
+test('build steps become click-triggered fade-ins aimed at the right shapes', async () => {
+  const mk = (name, x, build) => Object.assign(A.Make.rect(x, 50, 80, 60), { name, ...(build ? { build } : {}) });
+  const objects = [mk('always', 20), mk('first', 140, 1), mk('second-a', 260, 2), mk('second-b', 380, 2)];
+  const slides = await checkDeck((await build([{ name: 'Builds', width: 600, height: 300, background: '#ffffff', objects }])).base64, 'builds');
+  const xml = slides[0];
+  assert.match(xml, /<p:timing>[\s\S]*<\/p:timing><\/p:sld>/, 'timing at the end of the slide');
+  const nameOf = (id) => (xml.match(new RegExp(`<p:cNvPr id="${id}" name="([^"]*)"`)) || [])[1];
+  const clicks = [...xml.matchAll(/<p:cond delay="indefinite"\/>[\s\S]*?(?=<p:cond delay="indefinite"\/>|<\/p:childTnLst><\/p:cTn><p:prevCondLst>)/g)].map((m) => [...new Set([...m[0].matchAll(/spTgt spid="(\d+)"/g)].map((x) => nameOf(x[1])))]);
+  assert.deepEqual(clicks, [['first'], ['second-a', 'second-b']], 'one click per step, in order');
+  assert.doesNotMatch(xml, new RegExp(`spTgt spid="${(xml.match(/<p:cNvPr id="(\d+)" name="always"/) || [])[1]}"`), 'objects without a step are not animated');
+});
