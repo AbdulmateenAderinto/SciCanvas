@@ -29,7 +29,7 @@ function renderLibrary() {
   foot.innerHTML = '';
   foot.append(el('span', { textContent: `${total.toLocaleString()} icon${total === 1 ? '' : 's'}` }));
   if (total > items.length) foot.append(btn(`Show more (${(total - items.length).toLocaleString()})`, () => { libLimit += LIB_MORE; renderLibrary(); }));
-  foot.append(el('div', { class: 'btnrow' }, globalThis.MyLibrary ? Object.assign(btn('＋ Add images…', () => MyLibrary.pickFiles()), { title: 'Add your own pictures to the Library, with a name, related words and tags (or drop picture files here). Right-click any icon to edit its name and tags.' }) : '', btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), btn('Libraries…', openLibrariesDialog), iconStyleButton()));
+  foot.append(el('div', { class: 'btnrow' }, btn('✦ Create icon with AI', () => openAIIconDialog($('#search').value.trim())), iconStyleButton())); // ＋ Add images and Libraries… are at the top (mylibrary.js)
   foot.append(el('div', { class: 'note', style: 'margin-top:4px' }, `${(ICONS.length + Packs.all.length).toLocaleString()} icons from ${Packs.list.filter((p) => p.id !== 'mine').length + 1} libraries (CC0 / CC BY / MIT${Packs.list.some((p) => p.imported) ? ', plus your own libraries' : ''}). Non-commercial icons are marked NC. File › Credits drafts your attributions.`));
 }
 // ---------- Library / category / clade pickers ----------

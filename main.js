@@ -208,6 +208,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Save Selection as Icon…', click: send('saveIcon') },
         { label: 'Icon Libraries…', click: send('libraries') },
+        { label: 'Add Images to Library…', click: send('addImagesToLibrary') },
       ],
     },
     {
