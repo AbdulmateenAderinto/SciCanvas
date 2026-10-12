@@ -1,7 +1,17 @@
-// What's new (v1.8; the 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
+// What's new (v1.9; the 1.8, 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
 (() => {
-  const VERSION = '1.8';
+  const VERSION = '1.9';
   const ITEMS = [
+    ['Live values in text', 'Type {=range(reads.csv:Passed)} and the text shows the numbers straight from the data file (also min, max, mean, median, sum, count, sd, or one cell); they update when the file changes. Insert › Linked Value… builds one with a preview.'],
+    ['Data-linked charts', 'A chart imported from a CSV, Excel or Prism file stays linked to it and refreshes when the file changes; Properties › Data source shows where its data came from.'],
+    ['Deposit bundle', 'File › Export Deposit Bundle… saves the figure, SVG and 300-dpi PNG of each page, its data files and provenance (fingerprints, versions, credits) in one zip.'],
+    ['Antibodies that point the right way', 'Select antibodies and a target › right-click › Dock antibodies on target. Ring around target… places evenly spaced copies on a cell’s surface or binding it.'],
+    ['Slide builds', 'Give objects a build step (Properties › Build, or right-click › Build in selection order). Present mode reveals each step; PowerPoint export animates them.'],
+    ['Compare versions', 'Version History › Compare shows a saved version beside the figure now, with what was removed, added and changed.'],
+    ['Figure legends', 'Properties › Page › Figure legend. The Check tab flags legend letters with no panel, undescribed panels and letters out of order.'],
+    ['Review and print size', 'The Check tab flags objects running outside their panel; View › Print Size shows the page at its printed width (calibrate once for true millimetres).'],
+    ['Colour-vision preview', 'View › Simulate Colour Vision shows the figure with deuteranopia, protanopia, tritanopia or in greyscale.'],
+    ['Safer files', 'Only one SciCanvas runs at a time, and figures carry the drawings of the icons they use. AI drafts are reviewed (antibodies aimed, layout fixed) before you see them.'],
     ['Add your own pictures to the Library', 'Library › ＋ Add images… (or drop picture files onto the Library, or right-click a picture on the page › Add picture to Library…). Give each one a name, related words (other names people might search for) and tags (topic, project, figure…), and an optional group. Search finds them by all three. They are saved in My icons on this computer.'],
     ['Rename and re-tag any icon', 'Right-click any icon in the Library (or an icon on the page) › Edit name & tags…. Change its name, add related words, or replace its tags; search uses yours from then on. Reset to original undoes it.'],
     ['Add your own icon libraries', 'Library › Libraries… › Add a library from a folder: pick a folder of icons you have the rights to use (pack.json + svg folder), for example pictures exported from your own subscription. It is copied onto this computer only, shows up in Library search like any other library, and can be removed again there.'],
