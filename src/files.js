@@ -32,7 +32,8 @@ async function openVersionHistory() {
           const doc = JSON.parse(await window.native.readVersion(state.filePath, v.id));
           const fp = state.filePath; loadDoc(doc, fp); state.dirty = true; updateTitle(); closeModal(); toast('Version restored — save to keep it');
         }, 'primary'),
-        btn('Open as copy', async () => { const doc = JSON.parse(await window.native.readVersion(state.filePath, v.id)); if (!confirmDiscard()) return; loadDoc(doc, null); state.dirty = true; updateTitle(); closeModal(); }))));
+        btn('Open as copy', async () => { const doc = JSON.parse(await window.native.readVersion(state.filePath, v.id)); if (!confirmDiscard()) return; loadDoc(doc, null); state.dirty = true; updateTitle(); closeModal(); }),
+        btn('Compare', async () => { const doc = JSON.parse(await window.native.readVersion(state.filePath, v.id)); repairDoc(doc); closeModal(); openVersionCompare(doc, when.toLocaleString()); }))));
   }
   openModal('Version history', el('div', { style: 'max-width:900px' },
     el('div', { class: 'note', style: 'margin-bottom:10px' }, `The last 50 saves of “${state.filePath.split(/[\\/]/).pop()}”, newest first. Stored on this computer.`),
