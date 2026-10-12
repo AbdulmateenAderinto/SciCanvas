@@ -134,12 +134,15 @@ jobs:
           if grep -q 'Uncaught' smoke.log; then echo "::error::Script error while loading"; exit 1; fi
           echo "::notice::Mac app: $(find "$APP/Contents/Resources/iconpacks" -type f 2>/dev/null | wc -l | tr -d ' ') bundled icon files"
 
+      # Test builds (no release tag): keep the installers for a day to download and try, not the 90-day default.
+      # Each set is 1-2 GB, and in a private repo they count against the Actions storage allowance.
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'release' && !inputs.tag
         with:
           name: SciCanvas-${{ matrix.name }}
           path: ${{ matrix.files }}
           if-no-files-found: error
+          retention-days: 1
       - name: Attach to the release
         if: github.event_name == 'release' || inputs.tag
         shell: bash
