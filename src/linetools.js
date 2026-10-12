@@ -1245,12 +1245,24 @@
         }
       }
       // Almost aligned: edges or centres 0.5–3 px apart look like a mistake; line them up exactly.
-      const shapes = list.filter((o) => !o.hidden && o.type !== 'connector' && o.type !== 'comment' && !o.rot && !o.locked);
+      // Only like with like: shapes, icons and pictures of the same kind and similar size that share a row (compare tops, centres,
+      // bottoms) or a column (compare lefts, centres, rights). Text and backdrops are left out: comparing everything
+      // with everything flagged hundreds of pairs that were never meant to line up.
+      const shapes = list.filter((o) => !o.hidden && !o.rot && !o.locked && ['icon', 'image', 'rect', 'ellipse', 'shape', 'chart'].includes(o.type) && o.w * o.h < p.width * p.height * 0.15);
       const near = [];
-      const keys = [['x', (o) => o.x], ['centre x', (o) => o.x + o.w / 2], ['right edge', (o) => o.x + o.w], ['y', (o) => o.y], ['centre y', (o) => o.y + o.h / 2], ['bottom edge', (o) => o.y + o.h]];
-      for (let i = 0; i < shapes.length; i++) for (let j = i + 1; j < shapes.length; j++) for (const [nmK, f] of keys) {
-        const d = f(shapes[j]) - f(shapes[i]);
-        if (Math.abs(d) >= 0.5 && Math.abs(d) <= 3) { near.push([shapes[i], shapes[j], nmK, d]); break; }
+      const X = [['x', (o) => o.x], ['centre x', (o) => o.x + o.w / 2], ['right edge', (o) => o.x + o.w]], Y = [['y', (o) => o.y], ['centre y', (o) => o.y + o.h / 2], ['bottom edge', (o) => o.y + o.h]];
+      const span = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+      for (let i = 0; i < shapes.length; i++) for (let j = i + 1; j < shapes.length; j++) {
+        const a = shapes[i], b = shapes[j], big = Math.max(a.w, a.h, b.w, b.h), small = Math.max(1, Math.min(Math.max(a.w, a.h), Math.max(b.w, b.h)));
+        if (big / small > 1.6 || a.type !== b.type) continue;
+        if (span(a.x, a.x + a.w, b.x, b.x + b.w) > 0 && span(a.y, a.y + a.h, b.y, b.y + b.h) > 0) continue; // stacked or nested, not a row
+        const gap = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h));
+        if (gap > 2 * big) continue; // only neighbours: far-apart objects lining up by a pixel is coincidence
+        const row = span(a.y, a.y + a.h, b.y, b.y + b.h) > 0.5 * Math.min(a.h, b.h), col = span(a.x, a.x + a.w, b.x, b.x + b.w) > 0.5 * Math.min(a.w, b.w);
+        for (const [nmK, f] of [...(row ? Y : []), ...(col ? X : [])]) {
+          const d = f(b) - f(a);
+          if (Math.abs(d) >= 0.5 && Math.abs(d) <= 3) { near.push([a, b, nmK, d]); break; }
+        }
       }
       if (near.length) r.issues.push({ sev: 'info', kind: 'Layout', msg: `${near.length} pair${near.length > 1 ? 's' : ''} of objects ${near.length > 1 ? 'are' : 'is'} almost aligned (0.5–3 px off), e.g. ${nameOf(near[0][0])} and ${nameOf(near[0][1])}.`, id: near[0][1].id, fixLabel: 'Line them up',
         fix: () => { const moved = new Set(); for (const [, b, k, d] of near) { if (moved.has(b.id)) continue; moved.add(b.id); if (/x|right/.test(k)) b.x -= d; else b.y -= d; } } });

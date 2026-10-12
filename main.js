@@ -333,6 +333,8 @@ function buildMenu() {
         { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: send('zoomOut') },
         { label: 'Fit to Window', accelerator: 'CmdOrCtrl+0', click: send('zoomFit') },
         { label: 'Zoom to Selection', accelerator: 'CmdOrCtrl+2', click: send('zoomSelection') },
+        { label: 'Print Size', accelerator: 'CmdOrCtrl+Shift+P', click: send('printSize') },
+        { label: 'Calibrate Print Size…', click: send('calibratePrintSize') },
         { label: 'Mini-map', click: send('toggleMinimap') },
         { type: 'separator' },
         { label: 'Toggle Grid', accelerator: "CmdOrCtrl+'", click: send('toggleGrid') },
