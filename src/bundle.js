@@ -63,7 +63,7 @@
   ARRANGE_COMMANDS.exportBundle = async () => {
     try {
       toast('Building deposit bundle…');
-      const { base, zip, provenance } = await buildBundle();
+      const { base, zip, provenance } = await globalThis.buildDepositBundle(); // includes additions such as legends (legend.js)
       const b64 = await zip.generateAsync({ type: 'base64' });
       const out = await window.native.exportFile({ defaultName: `${base} – deposit bundle.zip`, ext: 'zip', data: 'data:application/zip;base64,' + b64 });
       if (out) toast(`Saved deposit bundle: ${provenance.pages.length} page${provenance.pages.length > 1 ? 's' : ''}, ${provenance.data.length} data file${provenance.data.length === 1 ? '' : 's'}`, 4000);
