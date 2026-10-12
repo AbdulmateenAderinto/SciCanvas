@@ -337,6 +337,13 @@ function buildMenu() {
         { label: 'Zoom to Selection', accelerator: 'CmdOrCtrl+2', click: send('zoomSelection') },
         { label: 'Print Size', accelerator: 'CmdOrCtrl+Shift+P', click: send('printSize') },
         { label: 'Calibrate Print Size…', click: send('calibratePrintSize') },
+        { label: 'Simulate Colour Vision', submenu: [
+          { label: 'Normal', click: send('cvd:normal') },
+          { label: 'Deuteranopia (green-weak)', click: send('cvd:deuteranopia') },
+          { label: 'Protanopia (red-weak)', click: send('cvd:protanopia') },
+          { label: 'Tritanopia (blue-weak)', click: send('cvd:tritanopia') },
+          { label: 'Greyscale', click: send('cvd:greyscale') },
+        ] },
         { label: 'Mini-map', click: send('toggleMinimap') },
         { type: 'separator' },
         { label: 'Toggle Grid', accelerator: "CmdOrCtrl+'", click: send('toggleGrid') },
