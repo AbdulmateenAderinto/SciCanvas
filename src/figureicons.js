@@ -236,71 +236,10 @@
     s += rr(16, 76, 40, 5, 2, '#2bb3c0', { oc: '#1d8090', w: 0.7 }) + rr(92, 76, 18, 5, 2, '#5b6168', { w: 0.7 });
     return s;
   }, '#4a5057');
-  // Thermal cycler with the lid open, redrawn as vector art from a reference illustration (the author's): a long
-  // body with a sloped front holding the touchscreen, a recessed 96-well block on the deck, the heated lid standing
-  // open on two hinge arms with its dark pressure plate and heat warning, slanted vents along the side and a grey
-  // base. Drawn in the illustration's own 1312 x 1199 frame and scaled to the icon.
-  S('Thermal cycler (lid open)', CAT.seq, 'PCR machine thermocycler thermal cycler amplification 96-well block heated lid touchscreen', [164, 150], () => {
-    const INK = '#5d6166';
-    const rp = (pts, r = 18) => {                                   // polygon with rounded corners
-      const n = pts.length, cut = (a, b, k) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy), t = Math.min(k, l / 2.2) / l; return [a[0] + dx * t, a[1] + dy * t]; };
-      let d = '';
-      for (let i = 0; i < n; i++) {
-        const cur = pts[i], rr_ = Array.isArray(cur[2]) ? cur[2][0] : (cur[2] ?? r);
-        const a = cut(cur, pts[(i + n - 1) % n], rr_), b = cut(cur, pts[(i + 1) % n], rr_);
-        d += `${i ? 'L' : 'M'}${f(a[0])} ${f(a[1])} Q${f(cur[0])} ${f(cur[1])} ${f(b[0])} ${f(b[1])} `;
-      }
-      return d + 'Z';
-    };
-    const sh = (pts, fill, r, w = 6, stroke = INK) => `<path d="${rp(pts, r)}" fill="${fill}" stroke="${stroke}" stroke-width="${w}" stroke-linejoin="round"/>`;
-    let s = '<g transform="scale(.125)">';
-    // ---- heated lid, back shell (behind the body)
-    s += sh([[688, 136], [784, 58], [1124, 98], [1092, 186], [1010, 228], [1000, 166]], '#8d9196', 20);
-    // ---- base and feet
-    s += sh([[150, 960], [480, 1062], [1046, 930], [1140, 878], [1136, 900], [1052, 948], [522, 1172], [168, 1030]], '#7b7f84', 20);
-    s += sh([[1000, 914], [1078, 892], [1076, 936], [1040, 944]], '#6b6f74', 10);
-    s += sh([[560, 1096], [676, 1062], [674, 1112], [600, 1132]], '#6b6f74', 10);
-    // ---- body: long side face, deck, sloped screen panel, vertical front band
-    s += sh([[480, 950], [700, 652], [1190, 550], [1140, 880], [1046, 930], [520, 1166], [480, 1062]], '#e1e3e6', 26);
-    s += sh([[335, 535, [60]], [600, 474], [1060, 410], [1166, 456], [1190, 550], [700, 652]], '#f6f7f8', 30);
-    s += sh([[335, 535, [70]], [700, 652], [480, 950], [104, 880, [40]]], '#eef0f2', 24);
-    s += sh([[104, 880, [40]], [480, 950], [480, 1062], [130, 966, [40]]], '#f7f8f9', 20);
-    // ---- recess and 96-well block
-    s += sh([[498, 578], [596, 492], [1056, 464], [1080, 520], [1040, 596], [884, 652], [704, 662]], '#cbced2', 30, 3);
-    // ---- heated lid standing in the recess: hinge arms, frame, dark pressure plate, heat warning
-    s += sh([[604, 232], [646, 160], [672, 182], [640, 268]], '#e6e8ea', 14);
-    s += sh([[926, 296], [988, 222], [1014, 246], [1002, 330]], '#e6e8ea', 14);
-    s += sh([[948, 330], [998, 318], [1030, 346], [1030, 540], [978, 552]], '#eceef0', 22);
-    s += sh([[648, 150], [998, 168], [1004, 470], [646, 440]], '#f1f2f4', 28);
-    s += sh([[660, 160], [916, 206], [912, 466], [662, 404]], '#3a3d41', 18, 5, '#26282b');
-    s += sh([[676, 182], [898, 222], [895, 446], [679, 390]], 'none', 12, 4, '#cfd2d6');
-    s += '<path d="M790 258 L832 330 H748 Z" fill="none" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>'
-      + '<path d="M780 316 q-6 -10 0 -20 q6 -10 0 -20 M792 316 q-6 -10 0 -20 q6 -10 0 -20 M804 316 q-6 -10 0 -20 q6 -10 0 -20 M766 322 H814" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>';
-    for (const x of [712, 762, 832]) s += sh([[x, 430], [x + 34, 438], [x + 34, 520], [x, 512]], '#f1f2f4', 6, 3);   // lid hinge tabs
-    // block: a dark tray holding the 8 x 12 wells, smaller than the recess (scaled about its centre)
-    const BC = [704, 584], k = 0.74, bp = (x, y) => [BC[0] + (x - BC[0]) * k, BC[1] + (y - BC[1]) * k];
-    const [b0, b1, b2, b3] = [bp(538, 578), bp(680, 514), bp(878, 592), bp(722, 652)];
-    s += sh([bp(522, 580), bp(680, 500), bp(898, 590), bp(724, 668)], '#45484c', 14, 4, '#2f3134');   // tray rim
-    s += sh([b0, b1, b2, b3], '#5a5e63', 10, 3, '#3d4044');
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 12; c++) {
-      const u = (c + 0.6) / 12.4, v = (r + 0.6) / 8.4;
-      const x = b0[0] + u * (b3[0] - b0[0]) + v * (b1[0] - b0[0]), y = b0[1] + u * (b3[1] - b0[1]) + v * (b1[1] - b0[1]);
-      s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="5" ry="4" fill="#cfd2d6"/>`;
-    }
-    // ---- touchscreen with bezel and glare, status light, USB port
-    s += sh([[196, 796], [336, 620], [568, 702], [432, 896]], '#e5e7ea', 10, 3);
-    s += sh([[234, 800], [346, 656], [546, 736], [426, 882]], '#34373b', 6, 3, '#26282b');
-    s += '<path d="M240 796 L346 660 L470 708 Z" fill="#ffffff" opacity=".08"/>';
-    s += sh([[574, 668], [604, 674], [602, 684], [572, 678]], '#8d9196', 3, 2);
-    s += sh([[334, 982], [390, 998], [390, 1032], [334, 1016]], '#4a4d52', 5, 3) + sh([[348, 996], [376, 1004], [376, 1016], [348, 1008]], '#2a2c2f', 3, 2);
-    // ---- slanted vents along the side
-    for (let c = 0; c < 6; c++) for (let r = 0; r < 7; r++) {
-      const x = 884 + c * 46, y = 950 - c * 34 - r * 30;
-      if (y < 700 - (x - 880) * 0.1 || x > 1140) continue;
-      s += `<path d="M${f(x)} ${f(y)} l30 -22" stroke="#7c8086" stroke-width="5" stroke-linecap="round"/>`;
-    }
-    return s + '</g>';
-  }, '#8d9196');
+  // Thermal cycler with the lid open, traced from the author's reference illustration (tools/trace-icon.py; art in
+  // tracedart.js): the picture's exact outline and proportions in 16 grey tones, in its own 1312 x 1199 frame.
+  S('Thermal cycler (lid open)', CAT.seq, 'PCR machine thermocycler thermal cycler amplification 96-well block heated lid touchscreen', [1312, 1199],
+    () => (globalThis.TRACED_ART && globalThis.TRACED_ART.thermalCycler) || '', '#8d9196');
   // PromethION-style flow cell: long, narrow cartridge with the sensor chip and sample port.
   S('Nanopore flow cell (PromethION-style)', CAT.seq, 'PromethION flow cell FLO-PRO114M R10.4.1 nanopore cartridge sensor chip consumable', [140, 40], () => {
     let s = rr(4, 8, 132, 24, 5, '#3d4248', { oc: '#24282c', w: 1.3 });
