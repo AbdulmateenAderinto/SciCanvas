@@ -236,6 +236,46 @@
     s += rr(16, 76, 40, 5, 2, '#2bb3c0', { oc: '#1d8090', w: 0.7 }) + rr(92, 76, 18, 5, 2, '#5b6168', { w: 0.7 });
     return s;
   }, '#4a5057');
+  // Thermal cycler with the lid open, after current benchtop 96-well cyclers: a white body on a grey skirt, an
+  // angled touchscreen showing a run (orange progress ring, step-shaped temperature profile), the 8 x 12 sample block
+  // on the deck, and the hinged heated lid standing open with its pressure plate facing the viewer. Oblique view:
+  // depth runs up and to the right, so every face is a parallelogram of one tone.
+  S('Thermal cycler (lid open)', CAT.seq, 'PCR machine thermocycler thermal cycler amplification 96-well block heated lid touchscreen', [140, 124], () => {
+    const BODY = '#eef1f4', TOP = '#f8f9fb', SIDE = '#d8dee4', SKIRT = '#b8c1ca', EDGE = '#8f9aa6';
+    let s = '';
+    // heated lid, hinged at the back edge and standing open (drawn first: it sits behind the deck)
+    s += path(poly([[44, 54], [118, 54], [126, 10], [52, 10]]), '#f3f5f8', { oc: EDGE, w: 1.4 });           // underside
+    s += path(poly([[118, 54], [124, 50], [132, 6], [126, 10]]), SIDE, { oc: EDGE, w: 1.2 });                // edge
+    s += path(poly([[58, 46], [108, 46], [114, 17], [64, 17]]), '#cfd5dc', { oc: '#a2acb6', w: 1 });        // pressure plate
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 10; c++) {
+      const u = (c + 0.5) / 10, v = (r + 0.5) / 6;
+      s += `<circle cx="${f(58 + u * 50 + v * 6)}" cy="${f(46 - v * 29)}" r="1.15" fill="#aeb7c0"/>`;
+    }
+    // body: deck (top), right side, front, grey skirt
+    s += path(poly([[12, 70], [36, 54], [124, 54], [100, 70]]), TOP, { oc: EDGE, w: 1.4 });
+    s += rr(70, 52, 8, 4, 1.2, '#9aa4ae', { w: 0.8 }) + rr(96, 52, 8, 4, 1.2, '#9aa4ae', { w: 0.8 });       // hinges
+    s += path(poly([[100, 70], [124, 54], [124, 98], [100, 114]]), SIDE, { oc: EDGE, w: 1.4 });
+    s += path(poly([[12, 70], [100, 70], [100, 114], [12, 114]]), BODY, { oc: EDGE, w: 1.4 });
+    s += path(poly([[12, 106], [100, 106], [100, 114], [12, 114]]), SKIRT, { oc: EDGE, w: 1.2 });
+    s += path(poly([[100, 106], [124, 90], [124, 98], [100, 114]]), '#a5afb9', { oc: EDGE, w: 1.2 });
+    for (let k = 0; k < 4; k++) s += line(`M${f(106 + k * 4.6)} ${f(96 - k * 3)} L${f(106 + k * 4.6)} ${f(84 - k * 3)}`, '#a9b2bc', 1.3);  // side vents
+    // sample block on the deck: a recessed tray with 8 x 12 wells
+    const deck = (u, v) => [12 + u * 88 + v * 24, 70 - v * 16];
+    s += path(poly([deck(0.3, 0.18), deck(0.86, 0.18), deck(0.86, 0.86), deck(0.3, 0.86)]), '#c3cad2', { oc: EDGE, w: 1 });
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 12; c++) {
+      const [x, y] = deck(0.33 + (c / 11) * 0.5, 0.24 + (r / 7) * 0.56);
+      s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="1.25" ry="0.85" fill="#5d5247"/>`;
+    }
+    // touchscreen: dark bezel, navy screen, orange run ring and a three-step temperature profile
+    s += rr(18, 75, 58, 28, 3, '#2a3038', { oc: '#1b1f25', w: 1 });
+    s += rr(21, 78, 52, 22, 1.5, '#1f3f66', { oc: '#16304f', w: 0.6 });
+    s += '<circle cx="31" cy="88" r="5.6" fill="none" stroke="#3a5b82" stroke-width="2"/>'
+      + '<path d="M31 82.4 A5.6 5.6 0 1 1 25.6 89.6" fill="none" stroke="#f0883a" stroke-width="2" stroke-linecap="round"/>';
+    s += line('M40 84 H46 L48 93 H54 L56 88.5 H62 L64 84 H70', '#9ed0ff', 1.3);
+    s += rr(21, 96, 52, 3.6, 0.8, '#2d5d92', { oc: '#2d5d92', w: 0.4 });                                    // button bar
+    s += rr(80, 92, 14, 6, 2, '#d3d9e0', { oc: EDGE, w: 0.8 }) + '<circle cx="87" cy="95" r="1.4" fill="#4f9bd9"/>';  // power key
+    return s;
+  }, '#8f9aa6');
   // PromethION-style flow cell: long, narrow cartridge with the sensor chip and sample port.
   S('Nanopore flow cell (PromethION-style)', CAT.seq, 'PromethION flow cell FLO-PRO114M R10.4.1 nanopore cartridge sensor chip consumable', [140, 40], () => {
     let s = rr(4, 8, 132, 24, 5, '#3d4248', { oc: '#24282c', w: 1.3 });
