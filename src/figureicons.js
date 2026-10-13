@@ -266,7 +266,7 @@
     s += sh([[335, 535, [70]], [700, 652], [480, 950], [104, 880, [40]]], '#eef0f2', 24);
     s += sh([[104, 880, [40]], [480, 950], [480, 1062], [130, 966, [40]]], '#f7f8f9', 20);
     // ---- recess and 96-well block
-    s += sh([[498, 578], [596, 492], [1056, 464], [1080, 520], [1040, 596], [884, 652], [704, 662]], '#d4d7db', 30, 3);
+    s += sh([[498, 578], [596, 492], [1056, 464], [1080, 520], [1040, 596], [884, 652], [704, 662]], '#cbced2', 30, 3);
     // ---- heated lid standing in the recess: hinge arms, frame, dark pressure plate, heat warning
     s += sh([[604, 232], [646, 160], [672, 182], [640, 268]], '#e6e8ea', 14);
     s += sh([[926, 296], [988, 222], [1014, 246], [1002, 330]], '#e6e8ea', 14);
@@ -277,11 +277,15 @@
     s += '<path d="M790 258 L832 330 H748 Z" fill="none" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>'
       + '<path d="M780 316 q-6 -10 0 -20 q6 -10 0 -20 M792 316 q-6 -10 0 -20 q6 -10 0 -20 M804 316 q-6 -10 0 -20 q6 -10 0 -20 M766 322 H814" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>';
     for (const x of [712, 762, 832]) s += sh([[x, 430], [x + 34, 438], [x + 34, 520], [x, 512]], '#f1f2f4', 6, 3);   // lid hinge tabs
-    s += sh([[538, 578], [680, 514], [878, 592], [722, 652]], '#55595e', 12, 4, '#3d4044');
+    // block: a dark tray holding the 8 x 12 wells, smaller than the recess (scaled about its centre)
+    const BC = [704, 584], k = 0.74, bp = (x, y) => [BC[0] + (x - BC[0]) * k, BC[1] + (y - BC[1]) * k];
+    const [b0, b1, b2, b3] = [bp(538, 578), bp(680, 514), bp(878, 592), bp(722, 652)];
+    s += sh([bp(522, 580), bp(680, 500), bp(898, 590), bp(724, 668)], '#45484c', 14, 4, '#2f3134');   // tray rim
+    s += sh([b0, b1, b2, b3], '#5a5e63', 10, 3, '#3d4044');
     for (let r = 0; r < 8; r++) for (let c = 0; c < 12; c++) {
       const u = (c + 0.6) / 12.4, v = (r + 0.6) / 8.4;
-      const x = 538 + u * (722 - 538) + v * (680 - 538), y = 578 + u * (652 - 578) + v * (514 - 578);
-      s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="6.5" ry="5" fill="#c9ccd0"/>`;
+      const x = b0[0] + u * (b3[0] - b0[0]) + v * (b1[0] - b0[0]), y = b0[1] + u * (b3[1] - b0[1]) + v * (b1[1] - b0[1]);
+      s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="5" ry="4" fill="#cfd2d6"/>`;
     }
     // ---- touchscreen with bezel and glare, status light, USB port
     s += sh([[196, 796], [336, 620], [568, 702], [432, 896]], '#e5e7ea', 10, 3);
