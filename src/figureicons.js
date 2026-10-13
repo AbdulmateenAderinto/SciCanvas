@@ -236,44 +236,65 @@
     s += rr(16, 76, 40, 5, 2, '#2bb3c0', { oc: '#1d8090', w: 0.7 }) + rr(92, 76, 18, 5, 2, '#5b6168', { w: 0.7 });
     return s;
   }, '#4a5057');
-  // Thermal cycler with the lid open, after current benchtop 96-well cyclers: a white body on a grey skirt, an
-  // angled touchscreen showing a run (orange progress ring, step-shaped temperature profile), the 8 x 12 sample block
-  // on the deck, and the hinged heated lid standing open with its pressure plate facing the viewer. Oblique view:
-  // depth runs up and to the right, so every face is a parallelogram of one tone.
-  S('Thermal cycler (lid open)', CAT.seq, 'PCR machine thermocycler thermal cycler amplification 96-well block heated lid touchscreen', [140, 124], () => {
+  // Thermal cycler with the lid open, after current benchtop 96-well cyclers: deeper than it is wide, a white body
+  // with soft rounded edges on a grey skirt, a touchscreen on the front showing a run (orange progress ring,
+  // step-shaped temperature profile), the 8 x 12 sample block on the deck, and the hinged heated lid standing open
+  // with its pressure plate facing the viewer. Oblique view: depth runs up and to the right.
+  S('Thermal cycler (lid open)', CAT.seq, 'PCR machine thermocycler thermal cycler amplification 96-well block heated lid touchscreen', [140, 132], () => {
     const BODY = '#eef1f4', TOP = '#f8f9fb', SIDE = '#d8dee4', SKIRT = '#b8c1ca', EDGE = '#8f9aa6';
+    // polygon with rounded corners (radius r, shortened on short edges)
+    const rpoly = (pts, r) => {
+      const n = pts.length, cut = (a, b, k) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy), t = Math.min(k, l / 2) / l; return [a[0] + dx * t, a[1] + dy * t]; };
+      let d = '';
+      for (let i = 0; i < n; i++) {
+        const prev = pts[(i + n - 1) % n], cur = pts[i], next = pts[(i + 1) % n];
+        const a = cut(cur, prev, r), b = cut(cur, next, r);
+        d += `${i ? 'L' : 'M'}${f(a[0])} ${f(a[1])} Q${f(cur[0])} ${f(cur[1])} ${f(b[0])} ${f(b[1])} `;
+      }
+      return d + 'Z';
+    };
+    const W = 66, H = 44, DX = 52, DY = 36, X0 = 8, Y0 = 82;          // front face, depth vector
+    const deck = (u, v) => [X0 + u * W + v * DX, Y0 - v * DY];
     let s = '';
     // heated lid, hinged at the back edge and standing open (drawn first: it sits behind the deck)
-    s += path(poly([[44, 54], [118, 54], [126, 10], [52, 10]]), '#f3f5f8', { oc: EDGE, w: 1.4 });           // underside
-    s += path(poly([[118, 54], [124, 50], [132, 6], [126, 10]]), SIDE, { oc: EDGE, w: 1.2 });                // edge
-    s += path(poly([[58, 46], [108, 46], [114, 17], [64, 17]]), '#cfd5dc', { oc: '#a2acb6', w: 1 });        // pressure plate
-    for (let r = 0; r < 6; r++) for (let c = 0; c < 10; c++) {
-      const u = (c + 0.5) / 10, v = (r + 0.5) / 6;
-      s += `<circle cx="${f(58 + u * 50 + v * 6)}" cy="${f(46 - v * 29)}" r="1.15" fill="#aeb7c0"/>`;
+    const [bl, br] = [deck(0.03, 1), deck(0.97, 1)];
+    s += path(rpoly([[br[0], br[1] + 2], [br[0] + 5, br[1] - 1], [br[0] + 12, br[1] - 45], [br[0] + 7, br[1] - 42]], 2.5), SIDE, { oc: EDGE, w: 1.2 });
+    s += path(rpoly([[bl[0], bl[1] + 2], [br[0], br[1] + 2], [br[0] + 7, br[1] - 42], [bl[0] + 7, bl[1] - 42]], 7), '#f3f5f8', { oc: EDGE, w: 1.4 });
+    s += path(rpoly([[bl[0] + 7, bl[1] - 4], [br[0] - 6, br[1] - 4], [br[0] - 1, br[1] - 36], [bl[0] + 12, bl[1] - 36]], 4), '#cfd5dc', { oc: '#a2acb6', w: 1 });
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 8; c++) {
+      const u = (c + 0.5) / 8, v = (r + 0.5) / 6;
+      const x = bl[0] + 7 + u * (br[0] - bl[0] - 13) + v * 5, y = bl[1] - 4 - v * 32;
+      s += `<circle cx="${f(x)}" cy="${f(y)}" r="1.1" fill="#aeb7c0"/>`;
     }
-    // body: deck (top), right side, front, grey skirt
-    s += path(poly([[12, 70], [36, 54], [124, 54], [100, 70]]), TOP, { oc: EDGE, w: 1.4 });
-    s += rr(70, 52, 8, 4, 1.2, '#9aa4ae', { w: 0.8 }) + rr(96, 52, 8, 4, 1.2, '#9aa4ae', { w: 0.8 });       // hinges
-    s += path(poly([[100, 70], [124, 54], [124, 98], [100, 114]]), SIDE, { oc: EDGE, w: 1.4 });
-    s += path(poly([[12, 70], [100, 70], [100, 114], [12, 114]]), BODY, { oc: EDGE, w: 1.4 });
-    s += path(poly([[12, 106], [100, 106], [100, 114], [12, 114]]), SKIRT, { oc: EDGE, w: 1.2 });
-    s += path(poly([[100, 106], [124, 90], [124, 98], [100, 114]]), '#a5afb9', { oc: EDGE, w: 1.2 });
-    for (let k = 0; k < 4; k++) s += line(`M${f(106 + k * 4.6)} ${f(96 - k * 3)} L${f(106 + k * 4.6)} ${f(84 - k * 3)}`, '#a9b2bc', 1.3);  // side vents
-    // sample block on the deck: a recessed tray with 8 x 12 wells
-    const deck = (u, v) => [12 + u * 88 + v * 24, 70 - v * 16];
-    s += path(poly([deck(0.3, 0.18), deck(0.86, 0.18), deck(0.86, 0.86), deck(0.3, 0.86)]), '#c3cad2', { oc: EDGE, w: 1 });
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 12; c++) {
-      const [x, y] = deck(0.33 + (c / 11) * 0.5, 0.24 + (r / 7) * 0.56);
+    // body: one rounded silhouette in the side tone, then the deck and the front on top of it
+    const F = [[X0, Y0], [X0 + W, Y0], [X0 + W, Y0 + H], [X0, Y0 + H]];
+    s += path(rpoly([F[0], deck(0, 1), deck(1, 1), [X0 + W + DX, Y0 + H - DY], F[2], F[3]], 8), SIDE, { oc: EDGE, w: 1.4 });
+    s += path(rpoly([[X0 + W, Y0 + H - 8], [X0 + W + DX, Y0 + H - DY - 8], [X0 + W + DX, Y0 + H - DY], [X0 + W, Y0 + H]], 3), '#a9b3bd', { oc: EDGE, w: 1 });  // side skirt
+    for (let k = 1; k <= 5; k++) {                                                                     // side vents
+      const x = X0 + W + k * 8, yb = Y0 + H - (k * 8) * DY / DX - 13;
+      s += line(`M${f(x)} ${f(yb)} L${f(x)} ${f(yb - 12)}`, '#aab3bd', 1.4);
+    }
+    s += path(rpoly([F[0], deck(0, 1), deck(1, 1), F[1]], 7), TOP, { oc: EDGE, w: 1.4 });            // deck
+    s += rr(bl[0] + 12, bl[1] - 1, 8, 4, 1.4, '#9aa4ae', { w: 0.8 }) + rr(br[0] - 20, br[1] - 1, 8, 4, 1.4, '#9aa4ae', { w: 0.8 });  // hinges
+    s += rr(X0, Y0, W, H, 8, BODY, { oc: EDGE, w: 1.4 });                                             // front
+    // grey skirt: the bottom of the front, following its rounded corners
+    s += path(`M${X0} ${Y0 + H - 8} H${X0 + W} Q${X0 + W} ${Y0 + H} ${X0 + W - 8} ${Y0 + H} H${X0 + 8} Q${X0} ${Y0 + H} ${X0} ${Y0 + H - 8} Z`, SKIRT, { oc: EDGE, w: 1.2 });
+    // sample block on the deck: a recessed tray with 8 x 12 wells (12 along the depth)
+    s += path(rpoly([deck(0.14, 0.22), deck(0.86, 0.22), deck(0.86, 0.86), deck(0.14, 0.86)], 3), '#c3cad2', { oc: EDGE, w: 1 });
+    for (let r = 0; r < 12; r++) for (let c = 0; c < 8; c++) {
+      const [x, y] = deck(0.2 + (c / 7) * 0.6, 0.28 + (r / 11) * 0.52);
       s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="1.25" ry="0.85" fill="#5d5247"/>`;
     }
     // touchscreen: dark bezel, navy screen, orange run ring and a three-step temperature profile
-    s += rr(18, 75, 58, 28, 3, '#2a3038', { oc: '#1b1f25', w: 1 });
-    s += rr(21, 78, 52, 22, 1.5, '#1f3f66', { oc: '#16304f', w: 0.6 });
-    s += '<circle cx="31" cy="88" r="5.6" fill="none" stroke="#3a5b82" stroke-width="2"/>'
-      + '<path d="M31 82.4 A5.6 5.6 0 1 1 25.6 89.6" fill="none" stroke="#f0883a" stroke-width="2" stroke-linecap="round"/>';
-    s += line('M40 84 H46 L48 93 H54 L56 88.5 H62 L64 84 H70', '#9ed0ff', 1.3);
-    s += rr(21, 96, 52, 3.6, 0.8, '#2d5d92', { oc: '#2d5d92', w: 0.4 });                                    // button bar
-    s += rr(80, 92, 14, 6, 2, '#d3d9e0', { oc: EDGE, w: 0.8 }) + '<circle cx="87" cy="95" r="1.4" fill="#4f9bd9"/>';  // power key
+    s += rr(X0 + 5, Y0 + 5, W - 10, 27, 4, '#2a3038', { oc: '#1b1f25', w: 1 });
+    s += rr(X0 + 8, Y0 + 8, W - 16, 21, 2, '#1f3f66', { oc: '#16304f', w: 0.6 });
+    const cx = X0 + 17, cy = Y0 + 17;
+    s += `<circle cx="${cx}" cy="${cy}" r="5" fill="none" stroke="#3a5b82" stroke-width="1.8"/>`
+      + `<path d="M${cx} ${cy - 5} A5 5 0 1 1 ${f(cx - 4.8)} ${f(cy + 1.4)}" fill="none" stroke="#f0883a" stroke-width="1.8" stroke-linecap="round"/>`;
+    const px = X0 + 26;
+    s += line(`M${px} ${cy - 4} H${px + 6} L${px + 8} ${cy + 4} H${px + 14} L${px + 16} ${cy} H${px + 22} L${px + 24} ${cy - 4} H${px + 30}`, '#9ed0ff', 1.2);
+    s += rr(X0 + 8, Y0 + 25, W - 16, 3.4, 0.8, '#2d5d92', { oc: '#2d5d92', w: 0.4 });                 // button bar
+    s += `<circle cx="${X0 + W - 9}" cy="${Y0 + 36}" r="1.6" fill="#4f9bd9"/>`;                        // power light
     return s;
   }, '#8f9aa6');
   // PromethION-style flow cell: long, narrow cartridge with the sensor chip and sample port.
