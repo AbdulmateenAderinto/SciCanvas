@@ -350,17 +350,20 @@
   // UMI-tagged PCR products: double-stranded amplicons, each carrying a unique molecular identifier (a short
   // coloured block) at both ends, in the colours of three different molecules.
   S('UMI-tagged PCR products', CAT.dna, 'UMI unique molecular identifier tagged amplicons PCR products barcoded molecules consensus', [140, 84], () => {
-    const UMIS = [['#e8843b', '#b45f22'], ['#3fae5a', '#2a7f3e'], ['#8b5cc6', '#6340a0']];
+    // tag colours kept apart from the flow-cell icon's strand colours (green, orange, blue, purple adapters)
+    const UMIS = [['#d6457a', '#a52a5a'], ['#e0b422', '#a8841a'], ['#2aa6a0', '#1d7a76']];
     let s = '';
     UMIS.forEach(([c, o], k) => {
       const y = 14 + k * 24;
       s += rr(30, y, 80, 5, 2.5, '#9fb4c8', { oc: '#6f8aa3', w: 0.9 }) + rr(30, y + 7, 80, 5, 2.5, '#c5d3e0', { oc: '#8aa1b7', w: 0.9 });
       for (let x = 36; x < 108; x += 6) s += line(`M${x} ${y + 5} L${x} ${y + 7}`, '#8aa1b7', 0.7);
       s += rr(10, y, 20, 12, 2.5, c, { oc: o, w: 1 }) + rr(110, y, 20, 12, 2.5, c, { oc: o, w: 1 });
-      s += line(`M14 ${y + 3.5} L26 ${y + 3.5} M14 ${y + 8.5} L26 ${y + 8.5} M114 ${y + 3.5} L126 ${y + 3.5} M114 ${y + 8.5} L126 ${y + 8.5}`, '#ffffff', 0.8, { op: 0.6 });
+      // a short vertical barcode on each tag: the molecule's identifier
+      for (const x0 of [13, 113]) for (const [dx, w] of [[0, 1.4], [3, 0.8], [5.2, 1.8], [8.6, 0.8], [10.8, 1.4], [13.4, 0.8]])
+        s += rr(x0 + dx, y + 2.5, w, 7, 0, '#ffffff', { oc: 'none', w: 0, op: 0.7 });
     });
     return s;
-  }, '#e8843b');
+  }, '#d6457a');
 
   // Capillary (Sanger) sequencer: cabinet with a window onto the capillary array and buffer reservoirs.
   S('Capillary sequencer (Sanger)', CAT.seq, 'Sanger capillary electrophoresis sequencer ABI 3730 3500 genetic analyzer instrument', [100, 100], () => {
