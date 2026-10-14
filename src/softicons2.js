@@ -237,10 +237,10 @@
     // rim collar, hinge strap and the open cap
     t += rr(15, 21, 34, 7, 2.2, CAP, { oc: GLO, w: 1.8 });
     // the cap swings open about the hinge at the rim's right edge: its near corner sits at the hinge, joined to
-    // the rim by a short strap, and its plug faces down towards the tube
+    // the rim by a short strap; its plug (on the underside when closed) now faces back towards the tube
     const HX = 51, HY = 17;
     t += `<path d="M48.6 22.6 C50.6 21.8 51.4 19.6 ${HX} ${HY}" fill="none" stroke="${GLO}" stroke-width="2.6" stroke-linecap="round"/>`;
-    t += `<g transform="rotate(-52 ${HX} ${HY})">` + rr(HX + 5, HY, 15, 3.6, 1.2, '#cfd8e0', { oc: GLO, w: 1.4 })
+    t += `<g transform="rotate(-52 ${HX} ${HY})">` + rr(HX + 5, HY - 10.6, 15, 3.6, 1.2, '#cfd8e0', { oc: GLO, w: 1.4 })
       + rr(HX, HY - 7, 25, 7, 2.6, CAP, { oc: GLO, w: 1.8 }) + `</g>`;
     return `<g transform="translate(0 10)">${t}</g>`;
   });
