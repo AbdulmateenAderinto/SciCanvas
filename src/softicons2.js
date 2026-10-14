@@ -217,7 +217,33 @@
   S('Incubator', LAB, 'CO2 37 °C cell culture', [100, 100], () => rr(8, 8, 84, 86, 6, '#e8edf3', { oc: '#8292a4' }) + rr(16, 16, 68, 64, 4, '#f7f9fb', { oc: '#aab6c4' }) + [36, 56].map((y) => `<path d="M18 ${y} H82" stroke="#aab6c4" stroke-width="2"/>`).join('') + rr(70, 84, 14, 6, 2, '#5f7488') + rr(18, 84, 26, 6, 2, '#7cf2a8'));
   S('Biosafety cabinet', LAB, 'tissue culture hood sterile', [110, 100], () => rr(6, 8, 98, 84, 6, '#e8edf3', { oc: '#8292a4' }) + `<path d="M16 22 H94 L88 64 H22 Z" fill="#e4f1fa" stroke="#8fb3cc" stroke-width="2"/>` + rr(14, 70, 82, 8, 2, '#c7d0db'));
   S('Centrifuge tube (50 mL)', LAB, 'falcon conical tube', [40, 110], () => `<path d="M8 18 h24 v70 l-12 18 l-12 -18 Z" fill="#eef4fa" stroke="#8fb3cc" stroke-width="2.2" stroke-linejoin="round"/>` + rr(6, 6, 28, 14, 3, P.blue) + `<path d="M8 60 h24 v28 l-12 18 l-12 -18 Z" fill="${P.pink}" opacity=".55"/>`);
-  S('Microcentrifuge tube', LAB, 'Eppendorf 1.5 mL', [50, 100], () => `<path d="M12 22 h26 v40 l-13 32 l-13 -32 Z" fill="#eef4fa" stroke="#8fb3cc" stroke-width="2.2" stroke-linejoin="round"/>` + rr(10, 14, 30, 10, 3, '#dfe3e8') + `<path d="M40 16 q10 -12 4 -14" fill="none" stroke="#8fb3cc" stroke-width="2.4"/>` + `<path d="M14 52 h22 v10 l-11 26 l-11 -26 Z" fill="${P.sky}" opacity=".7"/>`);
+  // Microcentrifuge (Eppendorf) tube: a tapered body ending in a rounded conical tip, a rim collar, the flip cap
+  // open on its hinge strap, and liquid with a meniscus holding a few short DNA double helices.
+  S('Microcentrifuge tube', LAB, 'Eppendorf 1.5 mL microcentrifuge tube DNA sample lysate', [68, 108], () => {
+    const GL = '#eef4fa', GLO = '#8fb3cc', CAP = '#dfe6ec';
+    const body = 'M18 26 L46 26 L44.4 60 C43.6 72 38.8 84 33.6 91.2 Q32 93.4 30.4 91.2 C25.2 84 20.4 72 19.6 60 Z';
+    let t = `<path d="${body}" fill="${GL}" stroke="${GLO}" stroke-width="2.2" stroke-linejoin="round"/>`;
+    // liquid: the lower body, with a meniscus
+    const liq = 'M20.6 58 Q32 61.5 43.4 58 L43.1 61 C42.3 72 37.8 83 33.2 89.4 Q32 91 30.8 89.4 C26.2 83 21.7 72 20.9 61 Z';
+    t += `<path d="${liq}" fill="#bfe0f4" stroke="#7fb3d6" stroke-width="1.2" stroke-linejoin="round"/>`;
+    // short DNA double helices in the house style (SoftKit helix, drawn at 4x and scaled down)
+    const helix = (cx, cy, len, ang) => {
+      const k = 0.25, L = len / k;
+      return `<g transform="translate(${f(cx)} ${f(cy)}) rotate(${ang}) scale(${k})">${K.helix(-L / 2, L / 2, 0, 9, len / 6, { w: 4.4 })}</g>`;
+    };
+    t += helix(27.5, 66, 12, -18) + helix(36.5, 72, 11, 24) + helix(31.5, 80.5, 9, -6);
+    // glass highlight
+    t += `<path d="M23 30 L22.4 56" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>`;
+    // rim collar, hinge strap and the open cap
+    t += rr(15, 21, 34, 7, 2.2, CAP, { oc: GLO, w: 1.8 });
+    // the cap swings open about the hinge at the rim's right edge: its near corner sits at the hinge, joined to
+    // the rim by a short strap, and its plug faces down towards the tube
+    const HX = 51, HY = 17;
+    t += `<path d="M48.6 22.6 C50.6 21.8 51.4 19.6 ${HX} ${HY}" fill="none" stroke="${GLO}" stroke-width="2.6" stroke-linecap="round"/>`;
+    t += `<g transform="rotate(-52 ${HX} ${HY})">` + rr(HX + 5, HY, 15, 3.6, 1.2, '#cfd8e0', { oc: GLO, w: 1.4 })
+      + rr(HX, HY - 7, 25, 7, 2.6, CAP, { oc: GLO, w: 1.8 }) + `</g>`;
+    return `<g transform="translate(0 10)">${t}</g>`;
+  });
   S('PCR tube strip', LAB, '8-strip thermocycler tubes', [120, 70], () => Array.from({ length: 6 }, (_, k) => `<path d="M${8 + k * 18} 16 h14 v24 l-7 18 l-7 -18 Z" fill="#eef4fa" stroke="#8fb3cc" stroke-width="1.8" stroke-linejoin="round"/>` + `<path d="M${8 + k * 18} 34 h14 v6 l-7 18 l-7 -18 Z" fill="${[P.green, P.blue, P.orange, P.purple, P.red, P.teal][k]}" opacity=".6"/>`).join('') + rr(6, 8, 110, 8, 3, '#dfe3e8'));
   S('Thermocycler', LAB, 'PCR machine', [110, 80], () => rr(6, 20, 98, 54, 8, '#e8edf3', { oc: '#8292a4' }) + `<path d="M14 20 L24 6 H86 L96 20" fill="#d3dae3" stroke="#8292a4" stroke-width="2.2" stroke-linejoin="round"/>` + rr(16, 34, 40, 24, 4, '#2c3740') + `<path d="M20 52 L28 40 L36 52 L44 40 L52 52" fill="none" stroke="#7cf2a8" stroke-width="2"/>` + rr(66, 36, 28, 8, 3, '#c7d0db') + rr(66, 50, 28, 8, 3, '#c7d0db'));
   S('Sequencer', LAB, 'next-generation sequencing NGS Illumina', [110, 90], () => rr(6, 10, 98, 74, 8, '#e8edf3', { oc: '#8292a4' }) + rr(16, 20, 50, 34, 4, '#2c3740') + [0, 1, 2, 3].map((k) => `<rect x="${20 + k * 11}" y="26" width="8" height="22" fill="${[P.green, P.blue, P.yellow, P.red][k]}" opacity=".85"/>`).join('') + rr(74, 22, 22, 30, 4, '#c7d0db') + rr(16, 62, 80, 10, 3, '#c7d0db'));
