@@ -314,6 +314,27 @@
     return s;
   }, '#9aa6b2');
 
+  // Production-scale short-read sequencer (NovaSeq-style), traced from the author's illustration
+  // (tools/trace-icon.py, colour mode) with a sequencing-run screen on the monitor: flow-cell lanes, per-cycle
+  // quality bars with a Q30 line, and run progress.
+  S('Production sequencer (NovaSeq-style)', CAT.seq, 'Illumina NovaSeq production short-read sequencer sequencing by synthesis flow cell drawer touchscreen run quality instrument', [1974, 1540],
+    () => (globalThis.TRACED_ART && globalThis.TRACED_ART.productionSequencer) || '', '#3b3f45');
+
+  // UMI-tagged PCR products: double-stranded amplicons, each carrying a unique molecular identifier (a short
+  // coloured block) at both ends, in the colours of three different molecules.
+  S('UMI-tagged PCR products', CAT.dna, 'UMI unique molecular identifier tagged amplicons PCR products barcoded molecules consensus', [140, 84], () => {
+    const UMIS = [['#e8843b', '#b45f22'], ['#3fae5a', '#2a7f3e'], ['#8b5cc6', '#6340a0']];
+    let s = '';
+    UMIS.forEach(([c, o], k) => {
+      const y = 14 + k * 24;
+      s += rr(30, y, 80, 5, 2.5, '#9fb4c8', { oc: '#6f8aa3', w: 0.9 }) + rr(30, y + 7, 80, 5, 2.5, '#c5d3e0', { oc: '#8aa1b7', w: 0.9 });
+      for (let x = 36; x < 108; x += 6) s += line(`M${x} ${y + 5} L${x} ${y + 7}`, '#8aa1b7', 0.7);
+      s += rr(10, y, 20, 12, 2.5, c, { oc: o, w: 1 }) + rr(110, y, 20, 12, 2.5, c, { oc: o, w: 1 });
+      s += line(`M14 ${y + 3.5} L26 ${y + 3.5} M14 ${y + 8.5} L26 ${y + 8.5} M114 ${y + 3.5} L126 ${y + 3.5} M114 ${y + 8.5} L126 ${y + 8.5}`, '#ffffff', 0.8, { op: 0.6 });
+    });
+    return s;
+  }, '#e8843b');
+
   // Capillary (Sanger) sequencer: cabinet with a window onto the capillary array and buffer reservoirs.
   S('Capillary sequencer (Sanger)', CAT.seq, 'Sanger capillary electrophoresis sequencer ABI 3730 3500 genetic analyzer instrument', [100, 100], () => {
     let s = rr(8, 6, 84, 88, 5, '#f4f6f8', { oc: '#9aa6b2', w: 1.6 });
