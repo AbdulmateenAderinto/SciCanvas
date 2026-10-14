@@ -320,6 +320,33 @@
   S('Production sequencer (NovaSeq-style)', CAT.seq, 'Illumina NovaSeq production short-read sequencer sequencing by synthesis flow cell drawer touchscreen run quality instrument', [1974, 1540],
     () => (globalThis.TRACED_ART && globalThis.TRACED_ART.productionSequencer) || '', '#3b3f45');
 
+  // Illumina flow cell with clusters: a flat glass plate in three-quarter view and, standing on it, three clusters
+  // of four clonal strands (one colour per cluster), each with purple adapter ends anchored in the surface and
+  // pale stripes for its bases; strands further back stand higher on the plate.
+  S('Flow-cell clusters (Illumina)', CAT.seq, 'Illumina flow cell clusters bridge amplification sequencing by synthesis clonal strands adapters short reads', [150, 80], () => {
+    const ADP = '#8b5cc6', ADPO = '#6340a0', SW = 6;
+    const CL = [['#3fae5a', '#2a7f3e'], ['#e8843b', '#b45f22'], ['#4a9be0', '#2f72b0']];
+    // plate: top face, front edge, right edge
+    let s = path(poly([[4, 64], [132, 64], [146, 54], [18, 54]]), '#e3e7eb', { oc: '#9aa6b2', w: 1.2 });
+    s += path(poly([[4, 64], [132, 64], [132, 72], [4, 72]]), '#c9d0d7', { oc: '#9aa6b2', w: 1.2 });
+    s += path(poly([[132, 64], [146, 54], [146, 62], [132, 72]]), '#b7c0c8', { oc: '#9aa6b2', w: 1.1 });
+    const strand = (x, base, h, [c, o]) => {
+      let t = `<ellipse cx="${f(x + SW / 2)}" cy="${f(base + 0.6)}" rx="5.5" ry="1.7" fill="#000" opacity="0.08"/>`;
+      t += rr(x, base - 8, SW, 8, 1.6, ADP, { oc: ADPO, w: 0.7 });
+      t += rr(x, base - h + 8, SW, h - 16, 1.2, c, { oc: o, w: 0.7 });
+      for (let y = base - h + 11.5; y < base - 9; y += 3.8) t += line(`M${f(x + 1.1)} ${f(y)} L${f(x + SW - 1.1)} ${f(y)}`, '#ffffff', 0.8, { op: 0.55 });
+      t += rr(x, base - h, SW, 8, 1.6, ADP, { oc: ADPO, w: 0.7 });
+      t += line(`M${f(x + 1.6)} ${f(base - h + 2)} L${f(x + 1.6)} ${f(base - h + 5.6)}`, '#ffffff', 0.8, { op: 0.45 });
+      return t;
+    };
+    // within a cluster: back strands first (higher base, drawn behind), heights varied
+    const LAY = [[-11.5, 57, 42], [-4, 61, 48], [3.5, 56, 46], [11, 62, 40]];
+    [[34, 0], [76, 1], [118, 2]].forEach(([cx, k]) => {
+      [...LAY].sort((a, b) => a[1] - b[1]).forEach(([dx, base, h], j) => { s += strand(cx + dx - SW / 2, base, h + (j % 2) * 3 + k * 2, CL[k]); });
+    });
+    return `<g transform="translate(0 -4)">${s}</g>`;
+  }, '#4a9be0');
+
   // UMI-tagged PCR products: double-stranded amplicons, each carrying a unique molecular identifier (a short
   // coloured block) at both ends, in the colours of three different molecules.
   S('UMI-tagged PCR products', CAT.dna, 'UMI unique molecular identifier tagged amplicons PCR products barcoded molecules consensus', [140, 84], () => {
