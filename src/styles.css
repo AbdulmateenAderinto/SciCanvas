@@ -502,3 +502,7 @@ body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user
 .libmenu-item:hover { background: rgba(59,111,214,.1); }
 .libmenu-item.danger { color: #c0392b; }
 #lib-library.lib-drop { outline: 2px dashed var(--accent, #3b6fd6); outline-offset: -6px; background: rgba(59,111,214,.05); }
+
+/* ＋ Add images / Libraries… at the top of the Library (mylibrary.js, 1.9.1) */
+#libtools { display: flex; gap: 6px; margin: -2px 0 8px; }
+#libtools button { flex: 1 1 0; font-size: 12px; padding: 4px 8px; border-radius: 12px; white-space: nowrap; }

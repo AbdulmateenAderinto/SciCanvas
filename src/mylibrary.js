@@ -198,6 +198,17 @@
   function setup() {
     const grid = document.getElementById('icongrid'), pane = document.getElementById('lib-library');
     if (!grid || !pane) return;
+    // "＋ Add images" and "Libraries…" sit at the top of the Library (1.9.1): the grid keeps loading more icons as you
+    // scroll, so buttons at the bottom could never be reached.
+    if (!document.getElementById('libtools')) {
+      const add = el('button', { type: 'button', textContent: '＋ Add images', title: 'Add your own pictures to the Library, with a name, related words and tags (or drop picture files onto the Library). Right-click any icon to edit its name and tags.' });
+      add.addEventListener('click', pickFiles);
+      const libs = el('button', { type: 'button', textContent: 'Libraries…', title: 'Icon libraries: install, update, add a library from a folder, My icons' });
+      libs.addEventListener('click', () => { if (typeof openLibrariesDialog === 'function') openLibrariesDialog(); });
+      const bar = el('div', { id: 'libtools' }, add, libs);
+      const before = document.getElementById('libBanner') || grid;
+      before.parentNode.insertBefore(bar, before);
+    }
     grid.addEventListener('contextmenu', (ev) => {
       const c = ev.target.closest('[data-key]');
       if (!c) return;
@@ -228,6 +239,4 @@
   }
   globalThis.MyLibrary = { pickFiles, addFiles, openAddDialog, openEditDialog, openTileMenu, rasterIcon, nameFromFile, tidy };
   setup();
-  // The Library may have been drawn before this file loaded: redraw it so its footer shows “＋ Add images…”.
-  try { if (typeof renderLibrary === 'function' && document.getElementById('libfoot')) renderLibrary(); } catch { /* drawn again once icons load */ }
 })();

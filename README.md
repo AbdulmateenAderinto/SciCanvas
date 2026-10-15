@@ -3,9 +3,12 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.9
+## Version 1.9.1
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.9.1**
+- **＋ Add images** and **Libraries…** are now at the top of the Library, under the search box (the Library keeps loading more icons as you scroll, so the buttons at the bottom couldn't be reached). Also in the menu: Insert › *Icon Libraries…* and *Add Images to Library…*.
 
 **New in 1.9**
 - **Data-linked charts with provenance**: a chart imported from a CSV, TSV, Excel or Prism file stays linked to it (path, time, size, SHA-1) and refreshes when the file changes; Properties › *Data source* shows where the data came from (Refresh, Show in Finder, Unlink), and the Check tab warns if the file goes missing. Insert › *Refresh Linked Data*.
