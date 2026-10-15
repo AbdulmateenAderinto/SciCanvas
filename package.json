@@ -52,6 +52,7 @@
       "!build/**",
       "!.claude/**",
       "!scripts/setup-electron.sh",
+      "!scripts/install.*",
       "!README.md",
       "!test/**",
       "!eslint.config.js"

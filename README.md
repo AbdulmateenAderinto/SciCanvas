@@ -3,7 +3,7 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.9.1
+## Version 1.9.2
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
 
@@ -118,9 +118,37 @@ SciCanvas 1.0 brings together everything built so far: drawing and design tools 
 - **Layout grids**: per-page columns and rows with gutters and margins, including Nature / Cell, Science and PNAS column presets; objects snap to columns and whole-column widths. Never exported.
 - **More effects**: inner glow, halo outline (keeps labels readable over images), grain, depth-of-field blur, and background blur for frosted panels.
 
+## Install from the terminal
+
+One command downloads the latest release and installs it (run it again to update; installed copies also update themselves).
+
+**Mac** (Terminal): picks the Apple-silicon or Intel build and puts SciCanvas in Applications. Installed this way, it opens without the "unidentified developer" prompt.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AbdulmateenAderinto/SciCanvas/main/scripts/install.sh | bash
+```
+
+**Windows** (PowerShell, no admin rights needed): installs for your user, with Start-menu and desktop shortcuts.
+
+```powershell
+irm https://raw.githubusercontent.com/AbdulmateenAderinto/SciCanvas/main/scripts/install.ps1 | iex
+```
+
+**From the source code** (any platform with [Git](https://git-scm.com) and [Node.js](https://nodejs.org) 20 or later): always the newest code on `main`.
+
+```bash
+git clone https://github.com/AbdulmateenAderinto/SciCanvas.git
+cd SciCanvas
+npm install
+npm run setup
+npm start
+```
+
+To update a source copy later: `git pull && npm install`, then `npm start`. (`npm run setup` finishes Electron's install where newer npm versions block its download script; it's only needed once.) The icon libraries aren't in the repository: add them from **Insert › Icon Libraries…** or with `npm run icons`.
+
 ## Download
 
-Get the installer from the [latest release](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest) (also linked under **Releases** on the right of the GitHub page):
+Or get the installer from the [latest release](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest) (also linked under **Releases** on the right of the GitHub page):
 
 - **Windows**: `SciCanvas-Setup-<version>.exe`. Double-click to install. Windows may show "Windows protected your PC" because the app isn't signed with a paid certificate: click **More info → Run anyway**.
 - **Mac**: `SciCanvas-<version>-arm64.dmg` for Apple-silicon Macs (M1 and later) or `-x64.dmg` for Intel Macs. Open it and drag SciCanvas to Applications. The first time, right-click the app and choose **Open** (or allow it under System Settings › Privacy & Security), because it isn't notarised by Apple.
