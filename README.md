@@ -7,6 +7,10 @@ library → canvas → relationships → data → review → export.
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
 
+**New in 1.9.2**
+- **Updates itself**: installed copies check for new releases on launch and every few hours. On Windows (and on Macs once releases are signed with a Developer ID) the new version downloads in the background and installs when you quit, or straight away with *Restart now*; unsigned Mac copies say when a new version is out and open the download page. Help › *Check for Updates…* checks on demand.
+- Mac builds are signed with a Developer ID and notarized as soon as the signing secrets are added to the repository (see `.github/workflows/build.yml`).
+
 **New in 1.9.1**
 - **＋ Add images** and **Libraries…** are now at the top of the Library, under the search box (the Library keeps loading more icons as you scroll, so the buttons at the bottom couldn't be reached). Also in the menu: Insert › *Icon Libraries…* and *Add Images to Library…*.
 
