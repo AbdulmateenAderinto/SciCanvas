@@ -1,6 +1,15 @@
 name: Build installers
 
-# Builds the Windows installer (.exe) and the Mac disk images (.dmg), with all four icon libraries inside.
+# Builds the Windows installer (.exe) and the Mac disk images (.dmg), with all four icon libraries inside, plus the
+# files installed copies use to update themselves (latest.yml / latest-mac.yml, the Mac .zip, and .blockmap files
+# for smaller downloads; see updater.js).
+# Signing: the Mac app is signed with an Apple Developer ID and notarized when these repository secrets are set
+# (Settings › Secrets and variables › Actions); without them it's built unsigned, as before.
+#   MAC_CERT_P12_BASE64   the "Developer ID Application" certificate exported from Keychain as .p12, base64-encoded
+#   MAC_CERT_PASSWORD     the password chosen when exporting it
+#   APPLE_API_KEY_P8      an App Store Connect API key (.p8 file contents) for notarization
+#   APPLE_API_KEY_ID      that key's ID
+#   APPLE_API_ISSUER      the issuer ID shown above the keys list in App Store Connect
 # - When a version release (tag starting with "v", e.g. v1.1.0) is published, the installers are attached
 #   to that release page. Other releases (like "icon-libraries") are left alone.
 # - On pull requests that touch the build setup, and when run by hand from the Actions tab,
@@ -35,15 +44,18 @@ jobs:
           - os: windows-latest
             name: windows
             cmd: npx electron-builder --win nsis --x64 --publish never
-            files: dist/*.exe
+            installers: dist/*.exe
+            files: dist/*.exe dist/*.blockmap dist/latest.yml
           - os: macos-latest
             name: mac
-            cmd: npx electron-builder --mac dmg --arm64 --x64 --publish never
-            files: dist/*.dmg
+            cmd: npx electron-builder --mac dmg zip --arm64 --x64 --publish never
+            installers: dist/*.dmg
+            files: dist/*.dmg dist/*.zip dist/*.blockmap dist/latest-mac.yml
     runs-on: ${{ matrix.os }}
     env:
-      # No paid signing certificate: build unsigned (Mac uses an ad-hoc signature).
+      # Never pick up a certificate from the runner's keychain; the Mac one comes from the secrets below, if set.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      MAC_SIGNED: ${{ secrets.MAC_CERT_P12_BASE64 != '' && secrets.APPLE_API_KEY_P8 != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,10 +111,36 @@ jobs:
         run: |
           sudo sysctl -w kern.maxfiles=524288 kern.maxfilesperproc=262144
           sudo launchctl limit maxfiles 262144 524288 || true
+      # Developer ID signing and notarization (Mac, only when the secrets are set): the hardened runtime is required
+      # for notarization, and the certificate and API key are handed to electron-builder for this step only.
+      - name: Sign with Developer ID (Mac)
+        if: matrix.name == 'mac' && env.MAC_SIGNED == 'true'
+        run: |
+          node -e "const f='package.json',p=require('./'+f),m=p.build.mac;delete m.identity;m.hardenedRuntime=true;m.notarize=true;require('fs').writeFileSync(f,JSON.stringify(p,null,2))"
+          echo "::notice::Mac app will be signed with the Developer ID certificate and notarized"
       - run: |
-          if [ "${{ matrix.name }}" = mac ]; then ulimit -n 262144 || ulimit -n "$(ulimit -Hn)"; echo "Open-file limit: $(ulimit -n)"; fi
+          if [ "${{ matrix.name }}" = mac ]; then
+            ulimit -n 262144 || ulimit -n "$(ulimit -Hn)"; echo "Open-file limit: $(ulimit -n)"
+            if [ "$MAC_SIGNED" = true ]; then
+              printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+              export CSC_LINK="$MAC_CERT_P12_BASE64" CSC_KEY_PASSWORD="$MAC_CERT_PASSWORD" APPLE_API_KEY="$RUNNER_TEMP/AuthKey.p8"
+            fi
+          fi
           ${{ matrix.cmd }}
         shell: bash
+        env:
+          MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      - name: Check the signature (Mac)
+        if: matrix.name == 'mac' && env.MAC_SIGNED == 'true'
+        run: |
+          APP=$(ls -d dist/mac-arm64/*.app | head -1)
+          codesign --verify --deep --strict "$APP"
+          spctl --assess --type execute -vv "$APP"
+          xcrun stapler validate "$APP"
 
       # Smoke test: start the built app, give it 25 seconds, and fail if it crashed or the
       # page reported a script error while loading.
@@ -142,7 +180,7 @@ jobs:
         continue-on-error: true
         with:
           name: SciCanvas-${{ matrix.name }}
-          path: ${{ matrix.files }}
+          path: ${{ matrix.installers }}
           if-no-files-found: error
           retention-days: 1
       - name: Attach to the release

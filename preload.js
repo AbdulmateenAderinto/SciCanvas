@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('native', {
   copySvg: (svg) => ipcRenderer.invoke('copy-svg', svg),
   readClipboardText: () => ipcRenderer.invoke('read-clipboard-text'),
   checkUpdates: () => ipcRenderer.invoke('check-updates'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  onUpdate: (fn) => { ipcRenderer.on('update-ready', (_e, u) => fn({ ...u, ready: true })); ipcRenderer.on('update-available', (_e, u) => fn(u)); },
   pathForFile: (file) => { try { return webUtils.getPathForFile(file) || null; } catch { return null; } },
   autosaveFile: (text) => ipcRenderer.send('autosave-file', text),
   readAutosaveFile: () => ipcRenderer.invoke('read-autosave-file'),
