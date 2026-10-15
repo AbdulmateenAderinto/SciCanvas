@@ -236,6 +236,10 @@
     s += rr(16, 76, 40, 5, 2, '#2bb3c0', { oc: '#1d8090', w: 0.7 }) + rr(92, 76, 18, 5, 2, '#5b6168', { w: 0.7 });
     return s;
   }, '#4a5057');
+  // Thermal cycler with the lid open, traced from the author's reference illustration (tools/trace-icon.py; art in
+  // tracedart.js): the picture's exact outline and proportions in 16 grey tones, in its own 1312 x 1199 frame.
+  S('Thermal cycler (lid open)', CAT.seq, 'PCR machine thermocycler thermal cycler amplification 96-well block heated lid touchscreen', [1312, 1199],
+    () => (globalThis.TRACED_ART && globalThis.TRACED_ART.thermalCycler) || '', '#8d9196');
   // PromethION-style flow cell: long, narrow cartridge with the sensor chip and sample port.
   S('Nanopore flow cell (PromethION-style)', CAT.seq, 'PromethION flow cell FLO-PRO114M R10.4.1 nanopore cartridge sensor chip consumable', [140, 40], () => {
     let s = rr(4, 8, 132, 24, 5, '#3d4248', { oc: '#24282c', w: 1.3 });
@@ -309,6 +313,57 @@
     s += rr(14, 64, 82, 4, 2, '#7fd1b9', { w: 0.8 });
     return s;
   }, '#9aa6b2');
+
+  // Production-scale short-read sequencer (NovaSeq-style), traced from the author's illustration
+  // (tools/trace-icon.py, colour mode) with a sequencing-run screen on the monitor: flow-cell lanes, per-cycle
+  // quality bars with a Q30 line, and run progress.
+  S('Production sequencer (NovaSeq-style)', CAT.seq, 'Illumina NovaSeq production short-read sequencer sequencing by synthesis flow cell drawer touchscreen run quality instrument', [1974, 1540],
+    () => (globalThis.TRACED_ART && globalThis.TRACED_ART.productionSequencer) || '', '#3b3f45');
+
+  // Illumina flow cell with clusters: a flat glass plate in three-quarter view and, standing on it, three clusters
+  // of four clonal strands (one colour per cluster), each with purple adapter ends anchored in the surface and
+  // pale stripes for its bases; strands further back stand higher on the plate.
+  S('Flow-cell clusters (Illumina)', CAT.seq, 'Illumina flow cell clusters bridge amplification sequencing by synthesis clonal strands adapters short reads', [150, 80], () => {
+    const ADP = '#8b5cc6', ADPO = '#6340a0', SW = 6;
+    const CL = [['#3fae5a', '#2a7f3e'], ['#e8843b', '#b45f22'], ['#4a9be0', '#2f72b0']];
+    // plate: top face, front edge, right edge
+    let s = path(poly([[4, 64], [132, 64], [146, 54], [18, 54]]), '#e3e7eb', { oc: '#9aa6b2', w: 1.2 });
+    s += path(poly([[4, 64], [132, 64], [132, 72], [4, 72]]), '#c9d0d7', { oc: '#9aa6b2', w: 1.2 });
+    s += path(poly([[132, 64], [146, 54], [146, 62], [132, 72]]), '#b7c0c8', { oc: '#9aa6b2', w: 1.1 });
+    const strand = (x, base, h, [c, o]) => {
+      let t = `<ellipse cx="${f(x + SW / 2)}" cy="${f(base + 0.6)}" rx="5.5" ry="1.7" fill="#000" opacity="0.08"/>`;
+      t += rr(x, base - 8, SW, 8, 1.6, ADP, { oc: ADPO, w: 0.7 });
+      t += rr(x, base - h + 8, SW, h - 16, 1.2, c, { oc: o, w: 0.7 });
+      for (let y = base - h + 11.5; y < base - 9; y += 3.8) t += line(`M${f(x + 1.1)} ${f(y)} L${f(x + SW - 1.1)} ${f(y)}`, '#ffffff', 0.8, { op: 0.55 });
+      t += rr(x, base - h, SW, 8, 1.6, ADP, { oc: ADPO, w: 0.7 });
+      t += line(`M${f(x + 1.6)} ${f(base - h + 2)} L${f(x + 1.6)} ${f(base - h + 5.6)}`, '#ffffff', 0.8, { op: 0.45 });
+      return t;
+    };
+    // within a cluster: back strands first (higher base, drawn behind), heights varied
+    const LAY = [[-11.5, 57, 42], [-4, 61, 48], [3.5, 56, 46], [11, 62, 40]];
+    [[34, 0], [76, 1], [118, 2]].forEach(([cx, k]) => {
+      [...LAY].sort((a, b) => a[1] - b[1]).forEach(([dx, base, h], j) => { s += strand(cx + dx - SW / 2, base, h + (j % 2) * 3 + k * 2, CL[k]); });
+    });
+    return `<g transform="translate(0 -4)">${s}</g>`;
+  }, '#4a9be0');
+
+  // UMI-tagged PCR products: double-stranded amplicons, each carrying a unique molecular identifier (a short
+  // coloured block) at both ends, in the colours of three different molecules.
+  S('UMI-tagged PCR products', CAT.dna, 'UMI unique molecular identifier tagged amplicons PCR products barcoded molecules consensus', [140, 84], () => {
+    // tag colours kept apart from the flow-cell icon's strand colours (green, orange, blue, purple adapters)
+    const UMIS = [['#d6457a', '#a52a5a'], ['#e0b422', '#a8841a'], ['#2aa6a0', '#1d7a76']];
+    let s = '';
+    UMIS.forEach(([c, o], k) => {
+      const y = 14 + k * 24;
+      s += rr(30, y, 80, 5, 2.5, '#9fb4c8', { oc: '#6f8aa3', w: 0.9 }) + rr(30, y + 7, 80, 5, 2.5, '#c5d3e0', { oc: '#8aa1b7', w: 0.9 });
+      for (let x = 36; x < 108; x += 6) s += line(`M${x} ${y + 5} L${x} ${y + 7}`, '#8aa1b7', 0.7);
+      s += rr(10, y, 20, 12, 2.5, c, { oc: o, w: 1 }) + rr(110, y, 20, 12, 2.5, c, { oc: o, w: 1 });
+      // a short vertical barcode on each tag: the molecule's identifier
+      for (const x0 of [13, 113]) for (const [dx, w] of [[0, 1.4], [3, 0.8], [5.2, 1.8], [8.6, 0.8], [10.8, 1.4], [13.4, 0.8]])
+        s += rr(x0 + dx, y + 2.5, w, 7, 0, '#ffffff', { oc: 'none', w: 0, op: 0.7 });
+    });
+    return s;
+  }, '#d6457a');
 
   // Capillary (Sanger) sequencer: cabinet with a window onto the capillary array and buffer reservoirs.
   S('Capillary sequencer (Sanger)', CAT.seq, 'Sanger capillary electrophoresis sequencer ABI 3730 3500 genetic analyzer instrument', [100, 100], () => {
