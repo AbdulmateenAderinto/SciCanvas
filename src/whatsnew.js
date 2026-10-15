@@ -101,16 +101,35 @@
   window.addEventListener('keydown', (e) => { if (tourStep >= 0 && e.key === 'Escape') endTour(); }, true);
   const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
   globalThis.versionNewer = newer;
+  // Updates: an installed copy that can update itself downloads in the background, then offers a restart (or
+  // installs on quit); one that can't (an unsigned Mac build) links to the download page, once per new version.
+  function showUpdate(u) {
+    if (u.ready) {
+      openModal('Update ready', el('div', { style: 'max-width:420px' },
+        el('p', { textContent: `SciCanvas ${u.version || u.latest} has been downloaded (you have ${u.current}). Restart to use it, or keep working: it installs when you quit.` }),
+        el('div', { class: 'btnrow' }, el('button', { textContent: 'Later', onclick: closeModal }),
+          el('button', { class: 'primary', textContent: 'Restart now', onclick: () => window.native.installUpdate() }))));
+      return;
+    }
+    openModal('Update available', el('div', { style: 'max-width:420px' },
+      el('p', { textContent: `SciCanvas ${u.latest} is available (you have ${u.current}).` }),
+      el('div', { class: 'btnrow' }, el('button', { class: 'primary', textContent: 'Open the download page', onclick: () => { window.open(u.url); closeModal(); } }))));
+  }
+  if (window.native && window.native.onUpdate) {
+    window.native.onUpdate((u) => {
+      if (!u.ready) { try { if (localStorage.getItem('scicanvas:updateSeen') === u.latest) return; localStorage.setItem('scicanvas:updateSeen', u.latest); } catch { /* no storage */ } }
+      if (document.querySelector('#modal') && !document.querySelector('#modal').classList.contains('hidden')) { toast(u.ready ? `SciCanvas ${u.version} will install when you quit` : `SciCanvas ${u.latest} is available (Help › Check for Updates)`, 5000); return; }
+      showUpdate(u);
+    });
+  }
   ARRANGE_COMMANDS.checkUpdates = async () => {
     if (!window.native.checkUpdates) return;
     toast('Checking for updates…');
     try {
       const u = await window.native.checkUpdates();
-      if (u.latest && newer(u.latest, u.current)) {
-        openModal('Update available', el('div', { style: 'max-width:420px' },
-          el('p', { textContent: `SciCanvas ${u.latest} is available (you have ${u.current}).` }),
-          el('div', { class: 'btnrow' }, el('button', { class: 'primary', textContent: 'Open the download page', onclick: () => { window.open(u.url); closeModal(); } }))));
-      } else toast(`You have the latest version (${u.current})`);
+      if (!u.latest || !newer(u.latest, u.current)) toast(`You have the latest version (${u.current})`);
+      else if (!u.auto || u.ready) showUpdate(u);
+      else toast(`Downloading SciCanvas ${u.latest} in the background; you'll be asked to restart when it's ready`, 5000);
     } catch (e) { toast('Could not check for updates: ' + e.message); }
   };
   setTimeout(() => {
