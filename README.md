@@ -122,6 +122,21 @@ SciCanvas 1.0 brings together everything built so far: drawing and design tools 
 - **Layout grids**: per-page columns and rows with gutters and margins, including Nature / Cell, Science and PNAS column presets; objects snap to columns and whole-column widths. Never exported.
 - **More effects**: inner glow, halo outline (keeps labels readable over images), grain, depth-of-field blur, and background blur for frosted panels.
 
+## Code plots (Python and R)
+
+**Insert › Code Plot (Python / R)…** (⌘⌥G) runs matplotlib or ggplot2 / base-R code with your own Python or R and places the plot on the page as vector art you can keep editing in SciCanvas:
+
+- **Fast**: one Python and one R process stay running, so libraries load once; most plots redraw in tens of milliseconds as you type (a ggplot with a fitted line, about half a second).
+- **Your data**: attach CSV, TSV or Excel files and load them with `read("file.csv")`. The plot re-runs when a file changes.
+- **One style for the whole figure**: font, text size and colours (`PALETTE` in your code, and the default colours of matplotlib, seaborn, ggplot2 and base R) are shared by every code plot, so panels match. Empty palette = the figure's palette, or the colour-blind-safe Okabe–Ito set.
+- **Real sizes**: a plot is drawn at the size it takes on the page, so its text is the printed size. Resizing a plot re-runs it at the new size instead of stretching the text.
+- **Tweaks that survive re-runs**: edit labels under Properties › *Plot labels*, and recolour under *Colour layers*. Both are re-applied every time the code runs. *Ungroup into parts* turns a plot into ordinary shapes and text, which no longer re-run.
+- **Checks**: the Check tab flags plots whose code failed, whose data file is missing or changed, whose smallest text is below the journal's minimum, or that have been stretched.
+- **Reproducible**: the deposit bundle (File › *Export Deposit Bundle…*) includes each plot's code (runnable from the bundle), its data files, and the Python/R and package versions it ran with.
+- **Safe with shared figures**: code that arrives inside someone else's figure never runs until you open it and press **Run**.
+
+Needs Python 3 with matplotlib (pandas and seaborn optional), and/or R (ggplot2 optional; **svglite** keeps text editable and is required on Macs without XQuartz). The plot window finds them on their own, shows what's missing with an **Install** button, and lets you pick a specific interpreter (for example a conda environment).
+
 ## Install from the terminal
 
 One command downloads the latest release and installs it (run it again to update; installed copies also update themselves).
