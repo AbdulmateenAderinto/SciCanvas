@@ -1,6 +1,6 @@
-// What's new (v1.10; the 1.9, 1.8, 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
+// What's new (v2.0; the 1.9, 1.8, 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
 (() => {
-  const VERSION = '1.10';
+  const VERSION = '2.0';
   const ITEMS = [
     ['Code plots (Python and R)', 'Insert › Code Plot (⌘⌥G): write matplotlib or ggplot2 code with a live preview, using your own Python or R. The plot lands as editable vector art and re-runs when its data changes. Double-click it to edit the code.'],
     ['One plot style per figure', 'Every code plot shares the figure’s font, text size and colours (PALETTE in your code, and the default colours), so panels match. Plots are drawn at their real size; resizing one re-runs it rather than stretching the text.'],
