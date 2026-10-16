@@ -3,9 +3,15 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 2.0
+## Version 2.1
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 2.1**
+- **Code plots at printed size, with checks inside plots**: plots render at the size they print. The Check tab measures text and lines inside them (and flags overlapping labels), and undersized text and hairlines are raised to the journal minimum.
+- **Plot style per figure**: journal presets, tick/label/title/legend sizes, line widths, a minimum super/subscript size, shared code, and data files saved inside the figure.
+- **Panels that line up**: *Line up plot axes* and *Match plot y/x ranges*. Also: built-in plotting helpers (`sc.bracket`, `sc_bracket`, …), dense point clouds rasterised, a code editor with error lines, and data previews.
+- **Send from Jupyter / RStudio**: `scicanvas.send(fig)` / `scicanvas_send(p)` puts a figure on the open page. **Scripting API**: `SciCanvas.ready`, `renderPlot`, `addSvg`.
 
 **New in 2.0**
 - **Code plots**: Insert › *Code Plot (Python / R)…* (⌘⌥G) runs matplotlib or ggplot2 code with your own Python or R and places the plot as editable vector art. It re-runs when its data changes, and keeps one style across the figure. See *Code plots* below.
