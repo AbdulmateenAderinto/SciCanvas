@@ -88,7 +88,11 @@ async function worker(lang, exe) {
 }
 
 let seq = 0;
-// { lang, code, data: {name: path}, width, height (inches), fontSize (pt), family, palette (['#rrggbb']), interpreter?, timeout? (ms) }
+// { lang, code, prelude?, data: {name: path | {base64}}, width, height (inches, printed size), fontSize, tickSize, labelSize,
+//   titleSize, legendSize, minScriptPt (pt), family, palette (['#rrggbb']), margins? ({left, right, top, bottom} mm),
+//   interpreter?, timeout? (ms) } → { svg, axes, log, error, ms, interpreter, info }
+// Data given as {base64} (a copy carried inside the figure, used when the original file isn't on this computer) is
+// written to the run's folder and passed to the code as a path, like any other file.
 async function plot(req) {
   const lang = req.lang === 'r' ? 'r' : 'python';
   const exe = await interpreter(lang, req.interpreter);
@@ -97,11 +101,27 @@ async function plot(req) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scicanvas-plot-'));
   const t0 = Date.now(), id = String(++seq);
   try {
-    const data = req.data || {}, width = +req.width || 4, height = +req.height || 3, fontSize = +req.fontSize || 8;
+    const width = +req.width || 4, height = +req.height || 3, fontSize = +req.fontSize || 8, data = {};
+    const safe = (n) => String(n).replace(/[\\/:*?"<>|\t\n]/g, '_');
+    for (const [name, v] of Object.entries(req.data || {})) {
+      if (v && typeof v === 'object' && typeof v.base64 === 'string') {
+        fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
+        const f = path.join(dir, 'data', safe(name));
+        fs.writeFileSync(f, Buffer.from(v.base64, 'base64'));
+        data[name] = f;
+      } else data[name] = String(v);
+    }
     fs.writeFileSync(path.join(dir, lang === 'python' ? 'code.py' : 'code.R'), String(req.code || ''));
+    if (req.prelude && String(req.prelude).trim()) fs.writeFileSync(path.join(dir, lang === 'python' ? 'prelude.py' : 'prelude.R'), String(req.prelude));
     const palette = (req.palette || []).filter((c) => /^#[0-9a-f]{6}$/i.test(c)), family = String(req.family || 'Arial').replace(/[^\w .-]/g, '');
-    fs.writeFileSync(path.join(dir, 'params.json'), JSON.stringify({ width, height, fontSize, palette, family }));
-    fs.writeFileSync(path.join(dir, 'params.dcf'), `width: ${width}\nheight: ${height}\nfontsize: ${fontSize}\nfamily: ${family}\npalette: ${palette.join(',')}\n`);
+    const n = (v) => (Number.isFinite(+v) && +v > 0 ? +v : null);
+    const sizes = { tickSize: n(req.tickSize), labelSize: n(req.labelSize), titleSize: n(req.titleSize), legendSize: n(req.legendSize), minScriptPt: n(req.minScriptPt), axisLineWidth: n(req.axisLineWidth), lineWidth: n(req.lineWidth), markerSize: n(req.markerSize) };
+    const rasterizeAbove = Number.isFinite(+req.rasterizeAbove) ? Math.max(0, Math.round(+req.rasterizeAbove)) : 0;
+    const pair = (v) => (Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v.map(Number) : null);
+    const limits = req.limits ? { x: pair(req.limits.x), y: pair(req.limits.y) } : null;
+    const m = req.margins && ['left', 'right', 'top', 'bottom'].every((k) => Number.isFinite(+req.margins[k])) ? { left: +req.margins.left, right: +req.margins.right, top: +req.margins.top, bottom: +req.margins.bottom } : null;
+    fs.writeFileSync(path.join(dir, 'params.json'), JSON.stringify({ width, height, fontSize, ...sizes, rasterizeAbove, limits, palette, family, margins: m }));
+    fs.writeFileSync(path.join(dir, 'params.dcf'), [`width: ${width}`, `height: ${height}`, `fontsize: ${fontSize}`, `ticksize: ${sizes.tickSize ?? ''}`, `labelsize: ${sizes.labelSize ?? ''}`, `titlesize: ${sizes.titleSize ?? ''}`, `legendsize: ${sizes.legendSize ?? ''}`, `family: ${family}`, `palette: ${palette.join(',')}`, `margins: ${m ? [m.left, m.right, m.top, m.bottom].join(',') : ''}`, `axislw: ${sizes.axisLineWidth ?? ''}`, `linelw: ${sizes.lineWidth ?? ''}`, `markersize: ${sizes.markerSize ?? ''}`, `rasterize: ${rasterizeAbove}`, `xlim: ${limits && limits.x ? limits.x.join(',') : ''}`, `ylim: ${limits && limits.y ? limits.y.join(',') : ''}`].join('\n') + '\n');
     fs.writeFileSync(path.join(dir, 'data.json'), JSON.stringify(data));
     fs.writeFileSync(path.join(dir, 'data.tsv'), Object.entries(data).map(([k, v]) => `${k.replace(/[\t\n]/g, ' ')}\t${String(v).replace(/[\t\n]/g, ' ')}`).join('\n'));
     await new Promise((resolve, reject) => {
@@ -111,7 +131,9 @@ async function plot(req) {
     });
     const read = (f) => { try { return fs.readFileSync(path.join(dir, f), 'utf8'); } catch { return null; } };
     const error = read('error.txt'), svg = error ? null : read('out.svg');
-    return { svg, log: (read('log.txt') || '').trim(), error: error && error.trim(), ms: Date.now() - t0, interpreter: exe, info: w.info };
+    let axes = null, ranges = null; try { axes = JSON.parse(read('axes.json') || 'null'); } catch { /* none */ }
+    try { ranges = JSON.parse(read('ranges.json') || 'null'); } catch { /* none */ }
+    return { svg, axes, ranges, log: (read('log.txt') || '').trim(), error: error && error.trim(), ms: Date.now() - t0, interpreter: exe, info: w.info };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -134,7 +156,7 @@ module.exports = { plot, environment, stopAll };
 
 // Plot window › Install: a few packages the plots use, installed with the user's own Python / R (into the user's
 // R library, or the active Python environment). Only these names, whatever a figure file says.
-const INSTALLABLE = { r: ['svglite', 'ggplot2', 'readxl'], python: ['pandas', 'seaborn', 'openpyxl'] };
+const INSTALLABLE = { r: ['svglite', 'ggplot2', 'readxl', 'ggrastr'], python: ['pandas', 'seaborn', 'openpyxl'] };
 async function installPackage(lang, pkg, prefs = {}) {
   if (!(INSTALLABLE[lang] || []).includes(pkg)) throw new Error(`Not an installable package: ${pkg}`);
   const exe = await interpreter(lang, prefs[lang]);

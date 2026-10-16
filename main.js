@@ -376,6 +376,7 @@ function buildMenu() {
         { label: 'What’s New', click: send('whatsNew') },
         { label: 'Take the Tour', click: send('tour') },
         { label: 'Check for Updates…', click: send('checkUpdates') },
+        { label: 'Send Plots from Jupyter / RStudio…', click: send('plotBridge') },
         { role: 'toggleDevTools' },
         { role: 'togglefullscreen' },
       ],
@@ -753,6 +754,11 @@ const plotrunner = require('./plotrunner');
 ipcMain.handle('plot-run', (_e, req) => plotrunner.plot(req));
 ipcMain.handle('plot-env', (_e, prefs) => plotrunner.environment(prefs || {}));
 ipcMain.handle('plot-install', (_e, lang, pkg, prefs) => plotrunner.installPackage(lang, pkg, prefs || {}));
+// Plots sent from Jupyter / RStudio (see bridge.js).
+const bridge = require('./bridge');
+ipcMain.handle('bridge-info', () => bridge.info());
+ipcMain.handle('bridge-install-python', async (_e, exe) => bridge.installForPython(exe || (await plotrunner.environment({})).python.path));
+app.on('will-quit', () => bridge.stop());
 ipcMain.handle('pick-interpreter', async () => {
   const r = await dialog.showOpenDialog(win, { title: 'Choose python3 or Rscript', properties: ['openFile', 'showHiddenFiles'] });
   return r.canceled ? null : r.filePaths[0];
@@ -890,6 +896,7 @@ app.whenReady().then(() => {
   }
   createWindow();
   updater.setup((channel, info) => { if (win && !win.isDestroyed()) win.webContents.send(channel, info); });
+  if (process.env.SCICANVAS_NO_BRIDGE !== '1') bridge.start({ version: app.getVersion(), onSvg: (p) => { if (win && !win.isDestroyed()) { win.webContents.send('bridge-svg', p); if (win.isMinimized()) win.restore(); } } });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

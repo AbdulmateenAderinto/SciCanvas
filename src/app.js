@@ -57,6 +57,12 @@ function toast(msg, ms = 2200) {
   toast._t = setTimeout(() => t.classList.add('hidden'), ms);
 }
 
+// Startup (restoring the last session or opening a file, then refreshing linked data) replaces the document a
+// moment after the page loads. Scripts wait for SciCanvas.ready before adding anything (see codeplot.js).
+let appReadyResolve;
+const appReady = new Promise((r) => { appReadyResolve = r; });
+globalThis.SciCanvas = Object.assign(globalThis.SciCanvas || {}, { ready: appReady });
+
 // ---------- History ----------
 let lastCp = { key: null, t: 0 };
 // Undo snapshots keep big embedded images (photos, micrographs) once, in a shared pool, instead of a full copy in

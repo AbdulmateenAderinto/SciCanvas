@@ -507,3 +507,9 @@ body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user
 /* ＋ Add images / Libraries… at the top of the Library (mylibrary.js, 1.9.1) */
 #libtools { display: flex; gap: 6px; margin: -2px 0 8px; }
 #libtools button { flex: 1 1 0; font-size: 12px; padding: 4px 8px; border-radius: 12px; white-space: nowrap; }
+
+/* Code plot editor (CodeMirror) */
+#modalBody .CodeMirror { height: 300px; border: 1px solid var(--border); border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.45; }
+#modalBody .cm-prelude .CodeMirror { height: 130px; }
+#modalBody .CodeMirror .cm-error-line { background: rgba(214, 69, 69, .16); }
+@media (prefers-color-scheme: dark) { #modalBody .CodeMirror { background: #1e2228; color: #e6e6e6; } #modalBody .CodeMirror-gutters { background: #1a1d22; border-right-color: #333; } #modalBody .CodeMirror-cursor { border-left-color: #eee; } }

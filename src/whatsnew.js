@@ -1,7 +1,11 @@
-// What's new (v2.0; the 1.9, 1.8, 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
+// What's new (v2.1; 2.0, the 1.9, 1.8, 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
 (() => {
-  const VERSION = '2.0';
+  const VERSION = '2.1';
   const ITEMS = [
+    ['Plots at their printed size', 'Code plots now render at the size they print (journal width), so plot text sizes are true points. The Check tab measures text and lines inside plots and flags overlapping labels; undersized text and hairlines are raised to the journal minimum.'],
+    ['Journal presets and shared code', 'Plot style › Use the journal preset sets fonts, sizes and line widths in one click. Shared code for the figure runs before every plot, and attached data files are saved inside the figure.'],
+    ['Panels that line up', 'Select plots › right-click › Line up plot axes or Match plot y ranges, so side-by-side panels share axes positions and scales.'],
+    ['Send from Jupyter / RStudio', 'scicanvas.send(fig) in Python or scicanvas_send(p) in R puts a figure straight onto the open page (Help › Send Plots from Jupyter / RStudio).'],
     ['Code plots (Python and R)', 'Insert › Code Plot (⌘⌥G): write matplotlib or ggplot2 code with a live preview, using your own Python or R. The plot lands as editable vector art and re-runs when its data changes. Double-click it to edit the code.'],
     ['One plot style per figure', 'Every code plot shares the figure’s font, text size and colours (PALETTE in your code, and the default colours), so panels match. Plots are drawn at their real size; resizing one re-runs it rather than stretching the text.'],
     ['Plot tweaks that survive', 'Edit a plot’s labels under Properties › Plot labels and its colours under Colour layers: both are re-applied every time the code runs. The Check tab flags failed runs, changed data and text below the journal minimum.'],

@@ -142,7 +142,9 @@ function textSvg(text, { fontSize = 16, color = '#222', family = 'sans', bold, i
   const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
   const x = align === 'center' ? w / 2 : align === 'right' ? w - 2 : 2;
   const top = vcenter ? (h - lines.length * lh) / 2 : 0;
-  let s = `<text font-family='${FONT_STACK[family] || FONT_STACK.sans}' font-size="${fontSize}" fill="${color}"${bold ? ' font-weight="700"' : ''}${italic ? ' font-style="italic"' : ''}${underline || strike ? ` text-decoration="${[underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ')}"` : ''} text-anchor="${anchor}">`;
+  // xml:space="preserve": a space at the end of one styled run ("Wt / " then italic "Maea") is kept by every SVG
+  // renderer, not only browsers.
+  let s = `<text xml:space="preserve" font-family='${FONT_STACK[family] || FONT_STACK.sans}' font-size="${fontSize}" fill="${color}"${bold ? ' font-weight="700"' : ''}${italic ? ' font-style="italic"' : ''}${underline || strike ? ` text-decoration="${[underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ')}"` : ''} text-anchor="${anchor}">`;
   lines.forEach((line, i) => {
     const y = top + i * lh + fontSize;
     s += `<tspan x="${x}" y="${y}">`;

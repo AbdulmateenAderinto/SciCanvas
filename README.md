@@ -3,9 +3,15 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 2.0
+## Version 2.1
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 2.1**
+- **Code plots at printed size, with checks inside plots**: plots render at the size they print. The Check tab measures text and lines inside them (and flags overlapping labels), and undersized text and hairlines are raised to the journal minimum.
+- **Plot style per figure**: journal presets, tick/label/title/legend sizes, line widths, a minimum super/subscript size, shared code, and data files saved inside the figure.
+- **Panels that line up**: *Line up plot axes* and *Match plot y/x ranges*. Also: built-in plotting helpers (`sc.bracket`, `sc_bracket`, …), dense point clouds rasterised, a code editor with error lines, and data previews.
+- **Send from Jupyter / RStudio**: `scicanvas.send(fig)` / `scicanvas_send(p)` puts a figure on the open page. **Scripting API**: `SciCanvas.ready`, `renderPlot`, `addSvg`.
 
 **New in 2.0**
 - **Code plots**: Insert › *Code Plot (Python / R)…* (⌘⌥G) runs matplotlib or ggplot2 code with your own Python or R and places the plot as editable vector art. It re-runs when its data changes, and keeps one style across the figure. See *Code plots* below.
@@ -130,15 +136,45 @@ SciCanvas 1.0 brings together everything built so far: drawing and design tools 
 **Insert › Code Plot (Python / R)…** (⌘⌥G) runs matplotlib or ggplot2 / base-R code with your own Python or R and places the plot on the page as vector art you can keep editing in SciCanvas:
 
 - **Fast**: one Python and one R process stay running, so libraries load once; most plots redraw in tens of milliseconds as you type (a ggplot with a fitted line, about half a second).
-- **Your data**: attach CSV, TSV or Excel files and load them with `read("file.csv")`. The plot re-runs when a file changes.
-- **One style for the whole figure**: font, text size and colours (`PALETTE` in your code, and the default colours of matplotlib, seaborn, ggplot2 and base R) are shared by every code plot, so panels match. Empty palette = the figure's palette, or the colour-blind-safe Okabe–Ito set.
-- **Real sizes**: a plot is drawn at the size it takes on the page, so its text is the printed size. Resizing a plot re-runs it at the new size instead of stretching the text.
-- **Tweaks that survive re-runs**: edit labels under Properties › *Plot labels*, and recolour under *Colour layers*. Both are re-applied every time the code runs. *Ungroup into parts* turns a plot into ordinary shapes and text, which no longer re-run.
-- **Checks**: the Check tab flags plots whose code failed, whose data file is missing or changed, whose smallest text is below the journal's minimum, or that have been stretched.
-- **Reproducible**: the deposit bundle (File › *Export Deposit Bundle…*) includes each plot's code (runnable from the bundle), its data files, and the Python/R and package versions it ran with.
-- **Safe with shared figures**: code that arrives inside someone else's figure never runs until you open it and press **Run**.
+- **Printed sizes**: a plot is drawn at the size it *prints*: its width on the page × the journal width ÷ the page width (Check tab › journal). Sizes in the plot style are printed points on any page. Changing the size or the journal width re-runs the plot; it is never stretched.
+- **One style per figure**: font; text, tick, axis-label, title and legend sizes; the smallest size super- and subscripts may shrink to (matplotlib's maths, e.g. `$Aicda^{-/-}$` and log-axis exponents, shrinks them to 0.7×; by default they stop at the journal's minimum); colours (`PALETTE` in your code, and the default colours of matplotlib, seaborn, ggplot2 and base R); default axes margins. Your code sees `PALETTE`, `WIDTH`, `HEIGHT`, `FONT_SIZE`, `TICK_SIZE`, `LABEL_SIZE`, `TITLE_SIZE`, `LEGEND_SIZE` and `MARGINS`.
+- **Journal presets and line widths**: **Use the … preset** (plot style) sets font, every text size, axis and data line widths and marker size from the journal chosen in the Check tab. With *Raise text and lines below the journal minimum* (on by default), any text or line a plot still draws below the journal's minimum is raised to it after the code runs, including R's plotmath super/subscripts.
+- **Built-in helpers**: `sc.bracket(ax, x1, x2, y, sc.stars(p))`, `sc.n_labels(ax, xs, ns)` and `sc.bars_points(ax, {"WT": [...], "KO": [...]})` in Python; `sc_bracket(1, 2, y, sc_stars(p))` and `sc_n_labels(x, n)` (ggplot layers) in R.
+- **Dense data stays light**: point clouds above 5,000 points (set in the plot style) become a 600-dpi image inside the plot, while axes and text stay vector. This keeps 100,000-point scatters fast. In R this uses ggrastr.
+- **Shared code**: each figure has one block of Python and one of R (*Shared code for this figure*, in the plot window). It is stored once in the `.scifig` and runs before every plot, so helpers aren't copied into each plot.
+- **Data travels with the figure**: attached CSV, TSV or Excel files (`read("file.csv")`) are saved inside the `.scifig`, up to 25 MB each. The original file is used when it's there, and the figure's copy when it isn't (another computer, a moved file). Plots re-run when a file changes.
+- **Axes that line up**: give a plot fixed axes margins (mm from each edge), or select several plots › right-click › **Line up plot axes**. They get the same margins (the largest each side needs), so side-by-side panels' axes meet the same lines.
+- **Matched ranges**: select plots › right-click › **Match plot y ranges** (or x) gives them the same range, the union of theirs, so panels compare at a glance. **Free plot ranges** undoes it.
+- **A real code editor**: syntax highlighting, line numbers and bracket matching. The line an error points at is marked. Click an attached data file to preview its first rows and columns as `read()` will see them.
+- **Tweaks that survive re-runs**: edit labels under Properties › *Plot labels*, with rich text: `^{superscript}`, `_{subscript}`, `{i|italic}`, `{b|bold}`; superscripts keep the minimum script size. Recolour under *Colour layers*. Both are re-applied every time the code runs. *Ungroup into parts* turns a plot into ordinary shapes and text, which no longer re-run.
+- **Checks inside plots**: the Check tab measures every text run and line inside each plot at its printed size, and flags text below the journal's minimum, lines thinner than its minimum and labels that overlap. It also flags code that failed, data that's missing (with no saved copy) or changed, and plots drawn for a different size or print width.
+- **Reproducible**: the deposit bundle (File › *Export Deposit Bundle…*) includes each plot's code and the shared code (runnable from the bundle), the data, and the Python/R and package versions.
+- **Safe with shared figures**: code (including shared code) that arrives inside someone else's figure never runs until you open the plot and press **Run**.
 
-Needs Python 3 with matplotlib (pandas and seaborn optional), and/or R (ggplot2 optional; **svglite** keeps text editable and is required on Macs without XQuartz). The plot window finds them on their own, shows what's missing with an **Install** button, and lets you pick a specific interpreter (for example a conda environment).
+Needs Python 3 with matplotlib (pandas and seaborn optional), and/or R (ggplot2 optional). In R, **svglite** keeps text editable and is required on Macs without XQuartz. The plot window finds them on its own, shows what's missing with an **Install** button, and lets you pick a specific interpreter (for example a conda environment).
+
+**From Jupyter or RStudio** (Help › *Send Plots from Jupyter / RStudio…*): while SciCanvas is open, send the current figure straight onto the page, at its own size and with editable text:
+
+```python
+import scicanvas          # Help › Send Plots… › Set up for my Python (or sys.path.append("~/.scicanvas"))
+scicanvas.send(fig, name="Fig 2B")
+```
+```r
+source("~/.scicanvas/scicanvas.R")
+scicanvas_send(p, width = 3, height = 2.5, name = "Fig 2B")
+```
+SciCanvas listens on this computer only, and each send needs the key it keeps in `~/.scicanvas/bridge.json` (readable by you only).
+
+**Scripting** (DevTools, automation): wait for startup, then place plots and SVGs without touching internals:
+
+```js
+await SciCanvas.ready;                       // startup has restored or opened the document
+SciCanvas.plotStyle({ fontSize: 7, tickSize: 6, minScriptPt: 6 });
+const panel = await SciCanvas.renderPlot({ lang: 'python', code, wMM: 60, hMM: 45, x: 40, y: 40, files: ['/data/reads.csv'] });
+SciCanvas.addSvg(svgText, { x: 400, y: 40, wMM: 50 });   // ids and url(#…) made unique, styles inlined
+await SciCanvas.lineUpPlotAxes([panel, other]);
+await SciCanvas.matchPlotRanges('y', [panel, other]);
+```
 
 ## Install from the terminal
 
