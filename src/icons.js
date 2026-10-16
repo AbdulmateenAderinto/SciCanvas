@@ -233,10 +233,20 @@ const ICONS = [
 
 const ICON_MAP = Object.fromEntries(ICONS.map((i) => [i.id, i]));
 
+// Drawings are cached. Many built-in icons are drawn by code and then restyled (iconfinish.js, iconstyle.js) every
+// time they're asked for, which takes tens of milliseconds for a detailed one, and a figure asks for the same icon
+// over and over (each redraw, colour-preset thumbnails, the Layers and Properties panels). The same icon, colour
+// and icon style always give the same drawing; a new draw function (an icon redefined later) starts afresh.
+const ICON_DRAWINGS = new Map(), ICON_DRAWINGS_MAX = 600;
 function iconSvgInner(id, color) {
   const ic = ICON_MAP[id];
   if (!ic) return '';
-  return ic.draw(color || ic.color);
+  const c = color || ic.color, key = `${id}|${c}|${globalThis.IconStyle ? IconStyle.mode : ''}`;
+  const hit = ICON_DRAWINGS.get(key);
+  if (hit && hit.draw === ic.draw) { ICON_DRAWINGS.delete(key); ICON_DRAWINGS.set(key, hit); return hit.svg; } // most recently used last
+  const svg = ic.draw(c);
+  if (svg) { ICON_DRAWINGS.set(key, { draw: ic.draw, svg }); if (ICON_DRAWINGS.size > ICON_DRAWINGS_MAX) ICON_DRAWINGS.delete(ICON_DRAWINGS.keys().next().value); }
+  return svg;
 }
 
 function iconViewBox(id) {

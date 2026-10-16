@@ -171,11 +171,40 @@ function renderScene() {
   for (const [id, c] of elCache) if (!seen.has(id)) { c.el.remove(); elCache.delete(id); }
 }
 
-function applyViewport() {
+// Smooth navigation: while panning or zooming, the canvas as last drawn slides and scales as one picture (a GPU
+// transform of the whole <svg>, no redrawing), and is redrawn sharp at the new view once the gesture pauses, or
+// when it has moved or zoomed far enough that the picture's edges or blur would show. Redrawing every vector shape
+// on every frame made pages of detailed icons stutter. drawnView is the view the SVG was last drawn at.
+let drawnView = null;
+const v0 = (el) => (el._nav && el.style.transform ? el._nav.k : 1);
+const svgRect = (el) => Element.prototype.getBoundingClientRect.call(el); // the box including the slide
+function commitViewport() {
+  drawnView = null; svg._nav = null;
+  svg.style.transform = '';
+  delete svg.getBoundingClientRect; // back to the element's own
   $('#viewport').setAttribute('transform', `translate(${state.panX} ${state.panY}) scale(${state.zoom})`);
+}
+function applyViewport() {
+  if (typeof Element === 'undefined' || !svg.classList.contains('navigating')) commitViewport(); // (tests run without a DOM)
+  else {
+    if (!drawnView) {
+      const t = $('#viewport').transform.baseVal.consolidate(), m = t && t.matrix;
+      drawnView = m ? { panX: m.e, panY: m.f, zoom: m.a } : { panX: state.panX, panY: state.panY, zoom: state.zoom };
+      // Positions are worked out from the canvas's on-screen box; report the box as it is without the slide.
+      svg.getBoundingClientRect = function () {
+        const r = svgRect(this), v = this._nav || { tx: 0, ty: 0, k: 1 };
+        return new DOMRect(r.left - v.tx, r.top - v.ty, r.width / v.k, r.height / v.k);
+      };
+    }
+    const k = state.zoom / drawnView.zoom, tx = state.panX - drawnView.panX * k, ty = state.panY - drawnView.panY * k;
+    // far: an edge strip more than a fifth of the canvas would be empty, or the picture is noticeably blurred
+    const r = svgRect(svg), far = Math.abs(tx) > (r.width / v0(svg)) * 0.2 || Math.abs(ty) > (r.height / v0(svg)) * 0.2 || k > 1.5 || k < 0.8;
+    if (far) commitViewport();
+    else { svg._nav = { tx, ty, k }; svg.style.transformOrigin = '0 0'; svg.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`; }
+  }
   $('#zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
   if (typeof drawRulers === 'function') drawRulers();
-  if (typeof updateContextBar === 'function') updateContextBar();
+  if (typeof updateContextBar === 'function' && !drawnView) updateContextBar(); // hidden mid-gesture; placed again after
 }
 
 function renderOverlay(extra = '') {
@@ -236,7 +265,7 @@ function renderOverlay(extra = '') {
     s += '</g>';
   }
   ov.innerHTML = s + extra + (typeof nodeOverlay === 'function' ? nodeOverlay() : '');
-  if (typeof updateContextBar === 'function') updateContextBar();
+  if (typeof updateContextBar === 'function' && !drawnView) updateContextBar();
 }
 
 function render({ props = false, pages = false } = {}) {
@@ -288,7 +317,7 @@ let navTimer;
 function navigating() {
   svg.classList.add('navigating');
   clearTimeout(navTimer);
-  navTimer = setTimeout(() => svg.classList.remove('navigating'), 160);
+  navTimer = setTimeout(() => { svg.classList.remove('navigating'); if (drawnView) { commitViewport(); renderOverlay(); } }, 160);
 }
 svg.addEventListener('wheel', (e) => {
   e.preventDefault();
