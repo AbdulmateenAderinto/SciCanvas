@@ -43,9 +43,53 @@
     return {
       family: s.family || 'Arial', fontSize: fs, tickSize: +s.tickSize || fs - 1, labelSize: +s.labelSize || fs, titleSize: +s.titleSize || fs + 1, legendSize: +s.legendSize || fs - 1,
       minScriptPt: s.minScriptPt === 0 ? 0 : +s.minScriptPt || journalMin().pt, margins: validMargins(s.margins),
+      axisLineWidth: +s.axisLineWidth || 0.8, lineWidth: +s.lineWidth || 1.4, markerSize: +s.markerSize || 4,
+      rasterizeAbove: s.rasterizeAbove === 0 ? 0 : +s.rasterizeAbove || 5000, enforceMin: s.enforceMin !== false,
       palette: pal.filter((c) => /^#[0-9a-f]{6}$/i.test(c)),
     };
   }
+  // Journal presets for the plot style: sizes and line widths from the journal's figure guidelines (font, text 7 pt,
+  // nothing below the journal's minimum, axes at least its minimum line width ×2).
+  const JOURNAL_PLOT_PRESETS = {
+    nature: { family: 'Arial', fontSize: 7, tickSize: 6, labelSize: 7, titleSize: 8, legendSize: 6, minScriptPt: 5, axisLineWidth: 0.5, lineWidth: 1, markerSize: 3 },
+    cell: { family: 'Arial', fontSize: 7, tickSize: 6, labelSize: 7, titleSize: 8, legendSize: 6, minScriptPt: 6, axisLineWidth: 0.5, lineWidth: 1, markerSize: 3 },
+    science: { family: 'Helvetica', fontSize: 7, tickSize: 6, labelSize: 7, titleSize: 8, legendSize: 6, minScriptPt: 6, axisLineWidth: 0.5, lineWidth: 1, markerSize: 3 },
+    pnas: { family: 'Arial', fontSize: 7, tickSize: 6, labelSize: 7, titleSize: 8, legendSize: 6, minScriptPt: 6, axisLineWidth: 0.5, lineWidth: 1, markerSize: 3 },
+    elife: { family: 'Arial', fontSize: 7, tickSize: 6, labelSize: 7, titleSize: 8, legendSize: 6, minScriptPt: 6, axisLineWidth: 0.5, lineWidth: 1, markerSize: 3 },
+  };
+  function journalPreset() {
+    const jd = state.doc.journal, j = jd && typeof JOURNALS !== 'undefined' && JOURNALS.find((x) => x.id === jd.id);
+    if (!j) return null;
+    const base = JOURNAL_PLOT_PRESETS[j.id] || { family: 'Arial', fontSize: 7, tickSize: Math.max(6, j.minPt || 6), labelSize: 7, titleSize: 8, legendSize: Math.max(6, j.minPt || 6), axisLineWidth: 0.5, lineWidth: 1, markerSize: 3 };
+    return { name: j.name.split(' (')[0], style: { ...base, minScriptPt: j.minPt || base.minScriptPt || 6, axisLineWidth: Math.max(base.axisLineWidth, (j.minLine || 0.25) * 2) } };
+  }
+  // After a run: text below the journal's minimum is raised to it, and hairlines to its minimum line width (the
+  // plot's own SVG is kept; this is applied to what's placed, like label edits). ptPerUnit: printed pt per SVG unit.
+  function enforceMinimums(svgText, ptPerUnit) {
+    const st = plotStyle();
+    if (!st.enforceMin || !(ptPerUnit > 0)) return svgText;
+    const min = journalMin(), doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const minFont = min.pt / ptPerUnit, minLine = min.line / ptPerUnit;
+    const own = (e) => { const sty = e.getAttribute('style') || ''; const m = sty.match(/font-size\s*:\s*([\d.]+)/) || sty.match(/font\s*:[^;]*?([\d.]+)px/); return m ? parseFloat(m[1]) : e.hasAttribute('font-size') ? parseFloat(e.getAttribute('font-size')) : null; };
+    let changed = 0;
+    for (const e of doc.querySelectorAll('text, tspan')) {
+      if (e.closest('defs')) continue;
+      let size = own(e), up = e.parentElement;
+      while (size == null && up && up.nodeName !== 'svg') { size = own(up); up = up.parentElement; }
+      if (size == null || size >= minFont - 1e-6 || ![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+      const sty = (e.getAttribute('style') || '').replace(/font-size\s*:\s*[\d.]+(px)?\s*;?/g, '').replace(/(font\s*:[^;]*?)([\d.]+)px/, (m0, a) => `${a}${minFont.toFixed(2)}px`);
+      e.setAttribute('style', sty); e.setAttribute('font-size', minFont.toFixed(2)); changed++;
+    }
+    for (const e of doc.querySelectorAll('path, line, polyline, polygon, rect, circle, ellipse')) {
+      const sty = e.getAttribute('style') || '', m = sty.match(/stroke-width\s*:\s*([\d.]+)/), w = m ? parseFloat(m[1]) : e.hasAttribute('stroke-width') ? parseFloat(e.getAttribute('stroke-width')) : null;
+      if (w == null || w <= 0 || w >= minLine - 1e-6 || /stroke\s*:\s*none/.test(sty) || e.getAttribute('stroke') === 'none') continue;
+      if (m) e.setAttribute('style', sty.replace(/stroke-width\s*:\s*[\d.]+/, `stroke-width: ${minLine.toFixed(3)}`)); else e.setAttribute('stroke-width', minLine.toFixed(3));
+      changed++;
+    }
+    return changed ? new XMLSerializer().serializeToString(doc) : svgText;
+  }
+  const ptPerUnitOf = (svgText, spec) => { const m = String(svgText).match(/viewBox=["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)/); return m ? (spec.w * (spec.k || 1) * 0.75) / +m[1] : 0; };
+  const finishSvg = (svgText, spec) => enforceMinimums(inlineSvgliteDefaults(applyTextEdits(svgText, spec.textEdits, spec)), ptPerUnitOf(svgText, spec));
   const pageOf = (o) => {
     const has = (l) => (l || []).some((x) => x === o || (x.type === 'group' && has(x.children)));
     return state.doc.pages.find((p) => has(p.objects)) || page();
@@ -156,6 +200,7 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     const r = await nat().plotRun({
       lang: spec.lang, code: spec.code, prelude: pre, data, width: (spec.w * k) / PX_IN, height: (spec.h * k) / PX_IN,
       fontSize: st.fontSize, tickSize: st.tickSize, labelSize: st.labelSize, titleSize: st.titleSize, legendSize: st.legendSize, minScriptPt: st.minScriptPt,
+      axisLineWidth: st.axisLineWidth, lineWidth: st.lineWidth, markerSize: st.markerSize, rasterizeAbove: st.rasterizeAbove, limits: spec.limits || null,
       family: st.family, palette: st.palette, margins: marginsFor(spec, st), interpreter: prefs()[spec.lang],
     });
     approveKey(codeKey(spec, pre));
@@ -197,7 +242,10 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     return new XMLSerializer().serializeToString(doc);
   }
   // The plot's own labels, before any edits.
-  const plotTexts = (o) => { const a = getAsset(o.iconId); if (!a) return []; const d = new DOMParser().parseFromString(a.raw || `<svg xmlns="http://www.w3.org/2000/svg">${a.svg}</svg>`, 'image/svg+xml'); return [...new Set([...d.querySelectorAll('text')].map((t) => t.textContent.trim()).filter(Boolean))]; };
+  // (Labels with maths are drawn glyph by glyph, as positioned runs; they can't be edited as one text, so they're
+  // left to the code.)
+  const glyphRuns = (t) => [...t.children].filter((c) => c.nodeName === 'tspan' && (c.hasAttribute('x') || c.hasAttribute('dx'))).length > 1;
+  const plotTexts = (o) => { const a = getAsset(o.iconId); if (!a) return []; const d = new DOMParser().parseFromString(a.raw || `<svg xmlns="http://www.w3.org/2000/svg">${a.svg}</svg>`, 'image/svg+xml'); return [...new Set([...d.querySelectorAll('text')].filter((t) => !glyphRuns(t)).map((t) => t.textContent.trim()).filter(Boolean))]; };
   function dropAssetIfUnused(key) {
     if (!key || !state.doc.assets || !state.doc.assets[key]) return;
     let used = false;
@@ -222,14 +270,14 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
   }
   // The asset keeps the run's own SVG (raw), so label edits can be re-applied to it without re-running.
   function plotAsset(svgText, spec) {
-    const key = addSvgAsset(`${spec.lang === 'r' ? 'R' : 'Python'} plot`, inlineSvgliteDefaults(applyTextEdits(svgText, spec.textEdits, spec)));
+    const key = addSvgAsset(`${spec.lang === 'r' ? 'R' : 'Python'} plot`, finishSvg(svgText, spec));
     Object.assign(state.doc.assets[key], { pack: 'codeplot', raw: svgText });
     return key;
   }
   // Put a run's SVG on the page: a new plot object, or the existing one updated in place.
   function place(svgText, spec, existing, result) {
     const key = plotAsset(svgText, spec);
-    const meta = { ...spec, error: null, ranAt: Date.now(), versions: result.info || null, interpreter: result.interpreter || null, axes: result.axes || null };
+    const meta = { ...spec, error: null, ranAt: Date.now(), versions: result.info || null, interpreter: result.interpreter || null, axes: result.axes || null, ranges: result.ranges || null };
     let o = existing;
     if (o) { const old = o.iconId; o.iconId = key; o.w = spec.w; o.h = spec.h; o.plot = meta; dropAssetIfUnused(old); }
     else {
@@ -270,8 +318,25 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     const pre = noSpell(el('textarea', { value: prelude(spec.lang), placeholder: 'Helpers every plot in this figure can use (imports, functions, a theme). Runs before each plot’s own code.', style: `${mono};width:100%;height:120px;resize:vertical;white-space:pre;padding:8px;box-sizing:border-box` }));
     const preSummary = el('summary', { style: 'cursor:pointer' });
     const drawPreSummary = () => { const n = prelude(spec.lang).split('\n').filter((l) => l.trim()).length; preSummary.textContent = `Shared code for this figure (${spec.lang === 'r' ? 'R' : 'Python'}, runs before every plot)${n ? ` · ${n} line${n > 1 ? 's' : ''}` : ''}`; };
+    // Code editors: CodeMirror (highlighting, line numbers, brackets, the failing line marked), else plain text.
+    const editors = [];
+    const editor = (ta, mode, onChange) => {
+      const ed = { ta, cm: null, get: () => (ed.cm ? ed.cm.getValue() : ta.value), set: (v) => { if (ed.cm) ed.cm.setValue(v); else ta.value = v; }, mark: null };
+      ed.attach = () => {
+        if (ed.cm || typeof CodeMirror === 'undefined') return;
+        ed.cm = CodeMirror.fromTextArea(ta, { mode, lineNumbers: true, indentUnit: mode === 'r' ? 2 : 4, tabSize: 4, indentWithTabs: false, matchBrackets: true, lineWrapping: false, viewportMargin: Infinity, extraKeys: { Tab: (c) => c.replaceSelection(mode === 'r' ? '  ' : '    '), 'Cmd-Enter': () => run(true), 'Ctrl-Enter': () => run(true) } });
+        ed.cm.on('change', onChange);
+      };
+      ed.setMode = (m) => { mode = m; if (ed.cm) { ed.cm.setOption('mode', m); ed.cm.setOption('indentUnit', m === 'r' ? 2 : 4); } };
+      ed.markLine = (n) => { if (!ed.cm) return; if (ed.mark != null) ed.cm.removeLineClass(ed.mark, 'background', 'cm-error-line'); ed.mark = n == null ? null : n - 1; if (ed.mark != null && ed.mark < ed.cm.lineCount()) ed.cm.addLineClass(ed.mark, 'background', 'cm-error-line'); };
+      editors.push(ed);
+      return ed;
+    };
     const lang = el('select', {}, el('option', { value: 'python', textContent: 'Python (matplotlib)', selected: spec.lang === 'python' }), el('option', { value: 'r', textContent: 'R (ggplot2 / base)', selected: spec.lang === 'r' }));
     const tmpl = el('select', {});
+    const codeEd = editor(code, spec.lang === 'r' ? 'r' : 'python', () => schedule()), preEd = editor(pre, spec.lang === 'r' ? 'r' : 'python', () => onPrelude());
+    // The line an error points at: Python 'File "plot", line N'; R parse errors '<text>:N:M'.
+    const errorLine = (msg, file) => { const m = [...String(msg || '').matchAll(new RegExp(`${file === 'plot' ? 'File "plot"' : 'Shared plot code'}, line (\\d+)`, 'g'))].pop() || (file === 'plot' ? String(msg || '').match(/<text>:(\d+):\d+/) : null); return m ? +m[1] : null; };
     const fillTemplates = () => { tmpl.innerHTML = ''; tmpl.append(el('option', { value: '', textContent: 'Start from an example…' }), ...TEMPLATES[spec.lang].map(([n], i) => el('option', { value: i, textContent: n }))); };
     const filesBox = el('div', { style: 'display:flex;flex-wrap:wrap;gap:6px;align-items:center' });
     const pick = el('input', { type: 'file', multiple: true, accept: '.csv,.tsv,.txt,.xlsx,.xls,.json', style: 'display:none' });
@@ -291,7 +356,18 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     const sIn = {
       fontSize: num(plotStyle().fontSize, 4, 14, 0.5), tickSize: num(st0.tickSize || '', 4, 14, 0.5, 72), labelSize: num(st0.labelSize || '', 4, 14, 0.5, 72),
       titleSize: num(st0.titleSize || '', 4, 18, 0.5, 72), legendSize: num(st0.legendSize || '', 4, 14, 0.5, 72), minScriptPt: num(st0.minScriptPt ?? '', 0, 12, 0.5),
+      axisLineWidth: num(st0.axisLineWidth || '', 0.1, 3, 0.05), lineWidth: num(st0.lineWidth || '', 0.1, 6, 0.1), markerSize: num(st0.markerSize || '', 0.5, 20, 0.5),
+      rasterizeAbove: num(st0.rasterizeAbove ?? '', 0, 1e7, 1000, 80),
     };
+    sIn.axisLineWidth.placeholder = '0.8'; sIn.lineWidth.placeholder = '1.4'; sIn.markerSize.placeholder = '4'; sIn.rasterizeAbove.placeholder = '5000';
+    const enfIn = el('input', { type: 'checkbox', checked: st0.enforceMin !== false });
+    const preset = journalPreset();
+    const presetBtn = btn(preset ? `Use the ${preset.name} preset` : 'Journal preset (pick a journal in the Check tab)', () => {
+      const pr = journalPreset(); if (!pr) { toast('Pick a journal and column width in the Check tab first'); return; }
+      for (const [key, inp] of Object.entries(sIn)) if (pr.style[key] != null) inp.value = pr.style[key];
+      famIn.value = pr.style.family; saveStyle(); toast(`Plot style set for ${pr.name}`);
+    });
+    presetBtn.disabled = !preset;
     sIn.tickSize.placeholder = sIn.legendSize.placeholder = 'text −1'; sIn.labelSize.placeholder = 'text'; sIn.titleSize.placeholder = 'text +1'; sIn.minScriptPt.placeholder = `${journalMin().pt}`;
     const famIn = el('input', { value: plotStyle().family, style: 'width:100px' });
     const swatches = el('span', { style: 'display:inline-flex;gap:2px;vertical-align:middle' });
@@ -305,6 +381,7 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
       const s = { ...(state.doc.plotStyle || {}) };
       for (const [key, inp] of Object.entries(sIn)) { if (inp.value === '') delete s[key]; else s[key] = +inp.value; }
       s.family = famIn.value.trim() || 'Arial';
+      s.enforceMin = enfIn.checked;
       s.palette = palIn.value.split(/[\s,;]+/).filter(Boolean).map((c) => (c.startsWith('#') ? c : '#' + c).toLowerCase()).filter((c) => /^#[0-9a-f]{6}$/.test(c));
       palIn.value = s.palette.join(', ');
       s.margins = dmMode.value === 'fixed' ? Object.fromEntries(SIDES.map((x) => [x, +dmIn[x].value || 0])) : null;
@@ -321,9 +398,29 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     const runBtn = btn('Run ⌘↵', () => run(true), 'primary');
     const doneBtn = btn(existing ? 'Update plot' : 'Insert plot', () => finish(), 'primary');
 
+    // Data preview: the first rows of a file, as read() will see them.
+    const dataView = el('div', { style: 'margin-top:6px;max-height:170px;overflow:auto' });
+    async function previewFile(f) {
+      dataView.textContent = 'Reading…';
+      try {
+        let b64 = null;
+        try { const full = await nat().dataFile(f.path); if (!full.missing) b64 = full.base64; } catch { /* try the copy */ }
+        if (!b64 && f.sha1 && (state.doc.plotData || {})[f.sha1]) b64 = state.doc.plotData[f.sha1].base64;
+        if (!b64) throw new Error('not found, and no copy in the figure');
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), t = parseTable(await importDataFile(new File([bytes], f.name)));
+        const nRows = Math.max(0, ...t.raw.map((c) => c.length)), cols = t.headers.slice(0, 10);
+        const cell = (v, head) => el(head ? 'th' : 'td', { textContent: v ?? '', style: 'border-bottom:1px solid var(--border);padding:2px 8px;text-align:left;white-space:nowrap;font-weight:' + (head ? 600 : 400) });
+        dataView.innerHTML = '';
+        dataView.append(
+          el('div', { class: 'note', textContent: `read("${f.name}"): ${nRows} rows × ${t.headers.length} columns${t.headers.length > 10 ? ' (first 10 shown)' : ''}${spec.lang === 'python' ? ' · a pandas DataFrame' : ' · a data frame'}` }),
+          el('table', { style: 'border-collapse:collapse;font-size:11px' },
+            el('tr', {}, ...cols.map((h) => cell(h, true))),
+            ...Array.from({ length: Math.min(6, nRows) }, (_, r) => el('tr', {}, ...cols.map((_h, c) => cell(t.raw[c] && t.raw[c][r], false))))));
+      } catch (e) { dataView.textContent = `Couldn’t preview ${f.name}: ${e.message}`; }
+    }
     const drawFiles = () => {
       filesBox.innerHTML = '';
-      for (const f of spec.files) filesBox.append(el('span', { class: 'chip', title: `${f.path}${f.fromCopy ? ' (not found: using the copy saved in the figure)' : ''}`, style: 'display:inline-flex;gap:4px;align-items:center;padding:2px 8px;border:1px solid var(--border);border-radius:10px' }, `read("${f.name}")${f.fromCopy ? ' · saved copy' : ''}`, el('button', { textContent: '×', title: 'Remove', style: 'border:0;background:none;cursor:pointer', onclick: () => { spec.files = spec.files.filter((x) => x !== f); drawFiles(); schedule(); } })));
+      for (const f of spec.files) filesBox.append(el('span', { class: 'chip', title: `${f.path}${f.fromCopy ? ' (not found: using the copy saved in the figure)' : ''}\nClick to preview`, onclick: (e) => { if (e.target.tagName !== 'BUTTON') previewFile(f); }, style: 'display:inline-flex;gap:4px;align-items:center;padding:2px 8px;border:1px solid var(--border);border-radius:10px;cursor:pointer' }, `read("${f.name}")${f.fromCopy ? ' · saved copy' : ''}`, el('button', { textContent: '×', title: 'Remove', style: 'border:0;background:none;cursor:pointer', onclick: () => { spec.files = spec.files.filter((x) => x !== f); drawFiles(); schedule(); } })));
       filesBox.append(btn('Add data file…', () => pick.click()));
     };
     pick.onchange = async () => {
@@ -333,15 +430,17 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
         spec.files = spec.files.filter((x) => x.name !== f.name).concat({ name: f.name, path: p });
       }
       pick.value = ''; drawFiles(); schedule();
+      if (spec.files.length) previewFile(spec.files[spec.files.length - 1]);
     };
     const show = (r) => {
       last = r;
       preview.innerHTML = '';
       if (r.svg) {
-        const url = URL.createObjectURL(new Blob([inlineSvgliteDefaults(applyTextEdits(r.svg, spec.textEdits, spec))], { type: 'image/svg+xml' }));
+        const url = URL.createObjectURL(new Blob([finishSvg(r.svg, spec)], { type: 'image/svg+xml' }));
         preview.append(el('img', { src: url, style: 'max-width:100%;max-height:400px', onload: () => URL.revokeObjectURL(url) }));
       } else preview.append(el('pre', { textContent: r.error || 'No plot', style: `${mono};color:#c0392b;white-space:pre-wrap;padding:10px;margin:0;align-self:flex-start` }));
       out.textContent = r.log || '';
+      codeEd.markLine(r.svg ? null : errorLine(r.error, 'plot')); preEd.markLine(r.svg ? null : errorLine(r.error, 'prelude'));
       const st = plotStyle();
       status.textContent = r.svg ? `Rendered in ${r.ms} ms · prints ${wIn.value} × ${hIn.value} mm, text ${st.fontSize} pt, ticks ${st.tickSize} pt${r.axes ? ` · axes ${SIDES.map((s) => r.axes[s].toFixed(1)).join(' / ')} mm (L/R/T/B)` : ''}` : 'The code failed (see the message on the right).';
       doneBtn.disabled = !r.svg;
@@ -351,7 +450,7 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
       if (!trusted && !explicit) return;
       if (busy) { again = true; return; }
       busy = true; trusted = true;
-      spec.code = code.value; spec.lang = lang.value; spec.w = (+wIn.value * MM) / k; spec.h = (+hIn.value * MM) / k; readMargins();
+      spec.code = codeEd.get(); spec.lang = lang.value; spec.w = (+wIn.value * MM) / k; spec.h = (+hIn.value * MM) / k; readMargins();
       status.textContent = 'Running…';
       try { show(await runSpec(spec, k)); } catch (e) { show({ error: e.message }); }
       busy = false;
@@ -361,7 +460,7 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     async function finish() {
       if (!last || !last.svg) return;
       checkpoint('codeplot');
-      spec.code = code.value; spec.lang = lang.value; readMargins();
+      spec.code = codeEd.get(); spec.lang = lang.value; readMargins();
       if (spec.margins === undefined) delete spec.margins;
       const placed = place(last.svg, spec, existing, last);
       keep('scicanvas:plotLang', spec.lang);
@@ -383,16 +482,19 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
       else if (e.key === 'Tab') { e.preventDefault(); const s = code.selectionStart; code.setRangeText(spec.lang === 'r' ? '  ' : '    ', s, code.selectionEnd, 'end'); }
     });
     code.addEventListener('input', schedule);
-    pre.addEventListener('input', () => { state.doc.plotPrelude = { ...(state.doc.plotPrelude || {}), [spec.lang]: pre.value }; drawPreSummary(); markDirty(); schedule(); });
+    function onPrelude() { if (switching) return; state.doc.plotPrelude = { ...(state.doc.plotPrelude || {}), [spec.lang]: preEd.get() }; drawPreSummary(); markDirty(); schedule(); }
+    pre.addEventListener('input', onPrelude);
+    let switching = false;
     lang.onchange = () => {
-      spec.lang = lang.value; fillTemplates(); pre.value = prelude(spec.lang); drawPreSummary();
-      if (TEMPLATES[lang.value === 'r' ? 'python' : 'r'].some(([, c]) => c === code.value) || !code.value.trim()) code.value = TEMPLATES[spec.lang][0][1];
+      spec.lang = lang.value; fillTemplates(); switching = true; preEd.set(prelude(spec.lang)); switching = false; drawPreSummary();
+      codeEd.setMode(spec.lang); preEd.setMode(spec.lang);
+      if (TEMPLATES[lang.value === 'r' ? 'python' : 'r'].some(([, c]) => c === codeEd.get()) || !codeEd.get().trim()) codeEd.set(TEMPLATES[spec.lang][0][1]);
       checkEnv(); schedule();
     };
-    tmpl.onchange = () => { if (tmpl.value === '') return; code.value = TEMPLATES[spec.lang][+tmpl.value][1]; tmpl.value = ''; trusted = true; schedule(); };
+    tmpl.onchange = () => { if (tmpl.value === '') return; codeEd.set(TEMPLATES[spec.lang][+tmpl.value][1]); tmpl.value = ''; trusted = true; schedule(); };
     [wIn, hIn, ...Object.values(mIn)].forEach((i) => i.addEventListener('input', schedule));
     mMode.addEventListener('change', () => { readMargins(); schedule(); });
-    [...Object.values(sIn), famIn, palIn, dmMode, ...Object.values(dmIn)].forEach((i) => i.addEventListener('change', saveStyle));
+    [...Object.values(sIn), famIn, palIn, dmMode, enfIn, ...Object.values(dmIn)].forEach((i) => i.addEventListener('change', saveStyle));
 
     // Which Python / R is used, with buttons for packages that are missing.
     async function checkEnv() {
@@ -422,8 +524,8 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
         el('div', {},
           el('div', { style: 'display:flex;gap:8px;margin-bottom:6px' }, lang, tmpl),
           code,
-          el('details', { style: 'margin-top:6px' }, preSummary, pre),
-          el('div', { style: 'margin-top:6px' }, el('div', { class: 'note', textContent: 'Data files (saved in the figure; re-run when they change):' }), filesBox, pick),
+          el('details', { class: 'cm-prelude', style: 'margin-top:6px', ontoggle: () => { preEd.attach(); if (preEd.cm) preEd.cm.refresh(); } }, preSummary, pre),
+          el('div', { style: 'margin-top:6px' }, el('div', { class: 'note', textContent: 'Data files (saved in the figure; re-run when they change):' }), filesBox, pick, dataView),
           env),
         el('div', {},
           preview, status,
@@ -432,17 +534,21 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
           el('details', { style: 'margin-top:8px' }, el('summary', { textContent: 'Plot style for this figure (every code plot)', style: 'cursor:pointer' }),
             line(lab('Text', sIn.fontSize, 'pt'), lab('Ticks', sIn.tickSize), lab('Axis labels', sIn.labelSize), lab('Titles', sIn.titleSize), lab('Legend', sIn.legendSize)),
             line(lab('Super/subscripts at least', sIn.minScriptPt, 'pt'), lab('Font', famIn)),
+            line(lab('Axis lines', sIn.axisLineWidth, 'pt'), lab('Data lines', sIn.lineWidth, 'pt'), lab('Markers', sIn.markerSize, 'pt')),
+            line(lab('Points as an image above', sIn.rasterizeAbove, 'points'), lab(enfIn, 'Raise text and lines below the journal minimum')),
+            line(presetBtn),
             line(lab('Colours', palIn), swatches),
             line(lab('Default axes margins', dmMode), dmBox)),
           out)),
       el('div', { class: 'note', style: 'margin-top:8px', textContent: 'Code runs with your own Python / R. Available: PALETTE, WIDTH, HEIGHT (in), FONT_SIZE, TICK_SIZE, LABEL_SIZE, TITLE_SIZE, LEGEND_SIZE (pt), MARGINS, read("file"), data. Python also has plt, np, pd, sns; R loads ggplot2.' }),
       el('div', { class: 'actions' }, btn('Cancel', closeModal), runBtn, doneBtn));
     openModal(existing ? 'Edit code plot' : 'Code plot', body);
+    codeEd.attach();
     doneBtn.disabled = true;
     checkEnv();
     if (trusted) run(false);
     else preview.append(el('div', { class: 'note', style: 'padding:16px;text-align:center', textContent: 'This plot’s code (or the figure’s shared code) came with the figure and hasn’t been run on this computer. Read it, then press Run.' }));
-    setTimeout(() => code.focus(), 50);
+    setTimeout(() => (codeEd.cm ? codeEd.cm.focus() : code.focus()), 50);
   }
 
   // ---------- Commands, double-click, Properties ----------
@@ -465,13 +571,35 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     for (const o of list) o.plot.margins = m;
     await rerunMany(list.filter((o) => isApproved(o.plot)), 'Lined up axes');
   }
+  // Match ranges: the selected plots get the same y (or x) range, the union of their own, so values compare across
+  // panels. Free plot ranges goes back to each plot's own.
+  async function matchRanges(axis, list = selected().filter((o) => o.plot)) {
+    if (list.length < 2) { toast('Select two or more code plots to match their ranges'); return; }
+    const rs = list.map((o) => o.plot.ranges);
+    if (rs.some((r) => !r || !r[axis])) { toast('Re-run the plots first so SciCanvas knows their ranges'); return; }
+    const scales = new Set(rs.map((r) => r[axis + 'scale'] || 'linear'));
+    if (scales.size > 1) { toast(`The plots use different ${axis} scales (${[...scales].join(', ')}); match them in the code first`); return; }
+    const lo = Math.min(...rs.map((r) => Math.min(...r[axis]))), hi = Math.max(...rs.map((r) => Math.max(...r[axis])));
+    for (const o of list) o.plot.limits = { ...(o.plot.limits || {}), [axis]: [lo, hi] };
+    await rerunMany(list.filter((o) => isApproved(o.plot)), `Matched ${axis} ranges`);
+  }
+  async function freeRanges(list = selected().filter((o) => o.plot)) {
+    const had = list.filter((o) => o.plot.limits);
+    for (const o of had) delete o.plot.limits;
+    await rerunMany(had.filter((o) => isApproved(o.plot)), 'Freed plot ranges');
+  }
+  ARRANGE_COMMANDS.matchPlotY = () => matchRanges('y');
+  ARRANGE_COMMANDS.matchPlotX = () => matchRanges('x');
+  ARRANGE_COMMANDS.freePlotRanges = () => freeRanges();
   ARRANGE_COMMANDS.codePlot = () => { const s = selected(); openPlotDialog(s.length === 1 && s[0].plot ? s[0] : null); };
   ARRANGE_COMMANDS.rerunPlots = () => rerunMany(allPlots().filter((o) => isApproved(o.plot)), 'Figure plot style');
   ARRANGE_COMMANDS.lineUpPlotAxes = () => lineUpAxes();
   const prevMenu = contextMenuTemplate;
   contextMenuTemplate = function () {
     const t = prevMenu(), sel = selected();
-    if (sel.filter((o) => o.plot).length >= 2) t.push({ label: 'Line up plot axes', cmd: 'lineUpPlotAxes' });
+    const plots = sel.filter((o) => o.plot);
+    if (plots.length >= 2) t.push({ label: 'Line up plot axes', cmd: 'lineUpPlotAxes' }, { label: 'Match plot y ranges', cmd: 'matchPlotY' }, { label: 'Match plot x ranges', cmd: 'matchPlotX' });
+    if (plots.some((o) => o.plot.limits)) t.push({ label: 'Free plot ranges', cmd: 'freePlotRanges' });
     return t;
   };
 
@@ -500,7 +628,7 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     } })));
     const k = printScale(o), copies = (p.files || []).filter((f) => f.fromCopy).length;
     const mine = [sect(`Code plot (${p.lang === 'r' ? 'R' : 'Python'})`,
-      el('div', { class: 'note', textContent: `Prints ${((o.w * k) / MM).toFixed(0)} × ${((o.h * k) / MM).toFixed(0)} mm${(p.files || []).length ? ` · data: ${p.files.map((f) => f.name).join(', ')}${copies ? ' (saved copy)' : ''}` : ''}${p.ranAt ? ` · run ${new Date(p.ranAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}${stale(o) ? ' · size or print width changed: re-run to lay it out again' : ''}` }),
+      el('div', { class: 'note', textContent: `Prints ${((o.w * k) / MM).toFixed(0)} × ${((o.h * k) / MM).toFixed(0)} mm${(p.files || []).length ? ` · data: ${p.files.map((f) => f.name).join(', ')}${copies ? ' (saved copy)' : ''}` : ''}${p.ranAt ? ` · run ${new Date(p.ranAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}${p.limits ? ` · matched ${Object.keys(p.limits).filter((a) => p.limits[a]).join(' & ')} range` : ''}${stale(o) ? ' · size or print width changed: re-run to lay it out again' : ''}` }),
       p.error ? el('div', { class: 'note', style: 'color:#c0392b', textContent: 'Last run failed: ' + String(p.error).split('\n').pop() }) : '',
       el('div', { class: 'btnrow' }, btn('Edit code…', () => openPlotDialog(o)), btn('Re-run', async () => { checkpoint('codeplot'); if (await rerun(o, { force: true })) { render({ props: true }); markDirty(); } }), btn('Ungroup into parts', () => ungroupIcons([o])))),
     labels.length ? sect('Plot labels (kept when the plot re-runs)', el('div', { class: 'note', textContent: 'Rich text: ^{superscript}, _{subscript}, {i|italic}, {b|bold}.' }), ...rows) : ''].filter(Boolean);
@@ -706,7 +834,40 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     if (set && typeof set === 'object') { state.doc.plotStyle = { ...(state.doc.plotStyle || {}), ...set }; markDirty(); }
     return plotStyle();
   }
-  globalThis.SciCanvas = Object.assign(globalThis.SciCanvas || {}, { renderPlot, addSvg, plotStyle: stylePlots, lineUpPlotAxes: lineUpAxes, refreshPlots, inspectPlot });
+  // ---------- Plots sent from Jupyter / RStudio ----------
+  if (nat().onBridgeSvg) {
+    nat().onBridgeSvg(async (p) => {
+      await (globalThis.SciCanvas && globalThis.SciCanvas.ready);
+      try {
+        const o = addSvg(p.svg, { name: p.name, ...(p.widthIn ? { wMM: p.widthIn * 25.4 } : {}), ...(p.heightIn ? { hMM: p.heightIn * 25.4 } : {}) });
+        o.source = { from: p.source || 'script', receivedAt: Date.now() };
+        toast(`Received “${p.name}” from ${p.source || 'a script'}`);
+      } catch (e) { toast(`Couldn’t place the plot sent from ${p.source || 'a script'}: ${e.message}`, 6000); }
+    });
+  }
+  async function bridgeDialog() {
+    const i = nat().bridgeInfo ? await nat().bridgeInfo() : { running: false };
+    const mono = 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--hover,#f3f4f6);padding:8px;border-radius:6px;white-space:pre;overflow:auto;margin:4px 0 10px';
+    const code = (t) => el('pre', { style: mono, textContent: t });
+    const pyStatus = el('span', { class: 'note' });
+    const install = btn('Set up for my Python', async (ev) => {
+      ev.target.disabled = true; pyStatus.textContent = 'Setting up…';
+      try { const r = await nat().bridgeInstallPython(prefs().python || null); pyStatus.textContent = `Done: \`import scicanvas\` now works (${r.module}).`; } catch (e) { pyStatus.textContent = e.message; ev.target.disabled = false; }
+    });
+    openModal('Send plots from Jupyter / RStudio', el('div', { style: 'max-width:640px' },
+      el('p', { textContent: i.running ? `SciCanvas is listening for plots on this computer only (port ${i.port}). A plot you send lands on the open page at its own size, with editable text; it can be tweaked here but not re-run (use Insert › Code Plot for plots that re-run).` : `Not listening: ${i.error || 'the desktop app is needed'}.` }),
+      el('h4', { textContent: 'Python (Jupyter, scripts)' }),
+      el('div', { class: 'btnrow' }, install, pyStatus),
+      code('import scicanvas\nscicanvas.send()                    # the current figure\nscicanvas.send(fig, name="Fig 2B")  # a Figure, an Axes or a seaborn grid'),
+      el('div', { class: 'note', textContent: 'Without the setup: import sys, os; sys.path.append(os.path.expanduser("~/.scicanvas")); import scicanvas' }),
+      el('h4', { textContent: 'R (RStudio, scripts)' }),
+      code('source("~/.scicanvas/scicanvas.R")\nscicanvas_send(p, width = 3, height = 2.5, name = "Fig 2B")  # a ggplot\nscicanvas_send()   # the last ggplot, or the current base plot'),
+      el('div', { class: 'note', textContent: 'Only programs run by you on this computer can send: each send needs the key SciCanvas keeps in ~/.scicanvas/bridge.json.' }),
+      el('div', { class: 'actions' }, btn('Close', closeModal, 'primary'))));
+  }
+  ARRANGE_COMMANDS.plotBridge = bridgeDialog;
+
+  globalThis.SciCanvas = Object.assign(globalThis.SciCanvas || {}, { renderPlot, addSvg, plotStyle: stylePlots, lineUpPlotAxes: lineUpAxes, matchPlotRanges: matchRanges, freePlotRanges: freeRanges, refreshPlots, inspectPlot });
 
   Object.assign(globalThis, { openPlotDialog, plotStyle, applyPlotTextEdits: applyTextEdits, rerunPlot: rerun, refreshPlots, inspectPlot, printScale, PLOT_TEMPLATES: TEMPLATES });
 })();

@@ -7,11 +7,15 @@
 # "DONE <id>".
 #
 # params.dcf: width / height (inches, the size the plot PRINTS at), fontsize, ticksize, labelsize, titlesize,
-# legendsize (pt), family, palette (#rrggbb,...) and margins (left,right,top,bottom in mm; empty = automatic).
+# legendsize (pt), family, palette (#rrggbb,...), margins (left,right,top,bottom in mm; empty = automatic),
+# axislw, linelw, markersize (pt), rasterize (ggplot point layers with more rows than this become a 600-dpi image,
+# with ggrastr; 0 = never), xlim / ylim (lo,hi: axis ranges matched across panels). The worker also writes
+# ranges.json (the first panel's ranges and scales).
 #
 # The code runs with: data (a named list of file paths), read(name) (a data file as a data frame: CSV, TSV; Excel
 # with readxl), PALETTE (also ggplot2's and base R's default colours), WIDTH and HEIGHT (in), FONT_SIZE and the
-# other sizes (pt). Every value the code leaves visible is printed, as at the console, so a ggplot draws itself.
+# other sizes (pt), and helpers sc_stars(p), sc_bracket(x1, x2, y, label) and sc_n_labels(x, n) (ggplot layers).
+# Every value the code leaves visible is printed, as at the console, so a ggplot draws itself.
 # With svglite installed, text stays text in the SVG and can be edited in SciCanvas; R's built-in svg() device
 # (which needs XQuartz on a Mac) turns text into shapes.
 has_svglite <- requireNamespace("svglite", quietly = TRUE)
@@ -19,6 +23,17 @@ has_ggplot <- requireNamespace("ggplot2", quietly = TRUE)
 if (has_ggplot) suppressPackageStartupMessages(library(ggplot2))
 
 num <- function(p, k, default) if (k %in% colnames(p) && nzchar(p[1, k])) as.numeric(p[1, k]) else default
+PT <- 72.27 / 25.4 # ggplot2's .pt: sizes in mm × PT = points
+sc_stars <- function(p) ifelse(p < 1e-4, "****", ifelse(p < 1e-3, "***", ifelse(p < 0.01, "**", ifelse(p < 0.05, "*", "ns"))))
+sc_bracket <- function(x1, x2, y, label = "*", h = NULL, size = NULL, linewidth = NULL) {
+  h <- if (is.null(h)) abs(y) * 0.04 + 1e-9 else h
+  list(annotate("segment", x = c(x1, x1, x2), xend = c(x1, x2, x2), y = c(y, y + h, y + h), yend = c(y + h, y + h, y),
+                linewidth = if (is.null(linewidth)) getOption("sc.axislw", 0.8) / PT else linewidth),
+       annotate("text", x = (x1 + x2) / 2, y = y + h * 1.2, label = label, vjust = 0, size = (if (is.null(size)) getOption("sc.fontsize", 7) else size) / PT))
+}
+sc_n_labels <- function(x, n, y = -Inf, fmt = "n = %s", size = NULL)
+  annotate("text", x = x, y = y, label = sprintf(fmt, n), vjust = -0.4, size = (if (is.null(size)) getOption("sc.ticksize", 6) else size) / PT)
+
 mm_w <- function(u) grid::convertWidth(sum(u), "mm", valueOnly = TRUE)
 mm_h <- function(u) grid::convertHeight(sum(u), "mm", valueOnly = TRUE)
 
@@ -45,6 +60,10 @@ run_request <- function(dir) {
   ts <- num(p, "ticksize", fs - 1); ls <- num(p, "labelsize", fs); tt <- num(p, "titlesize", fs + 1); lg <- num(p, "legendsize", fs - 1)
   family <- if ("family" %in% colnames(p) && nzchar(p[1, "family"])) p[1, "family"] else "Arial"
   pal <- if ("palette" %in% colnames(p) && nzchar(p[1, "palette"])) strsplit(p[1, "palette"], ",", fixed = TRUE)[[1]] else character()
+  axislw <- num(p, "axislw", 0.8); linelw <- num(p, "linelw", 1.4); marker <- num(p, "markersize", 4); raster <- num(p, "rasterize", 0)
+  lim <- function(k) if (k %in% colnames(p) && nzchar(p[1, k])) as.numeric(strsplit(p[1, k], ",", fixed = TRUE)[[1]]) else NULL
+  xlim <- lim("xlim"); ylim <- lim("ylim")
+  options(sc.axislw = axislw, sc.fontsize = fs, sc.ticksize = ts)
   margins <- if ("margins" %in% colnames(p) && nzchar(p[1, "margins"])) as.numeric(strsplit(p[1, "margins"], ",", fixed = TRUE)[[1]]) else numeric()
   dfile <- file.path(dir, "data.tsv")
   paths <- if (file.exists(dfile) && file.info(dfile)$size > 0) read.delim(dfile, header = FALSE, stringsAsFactors = FALSE, quote = "", col.names = c("name", "path")) else data.frame(name = character(), path = character())
@@ -52,6 +71,7 @@ run_request <- function(dir) {
   env <- new.env(parent = globalenv())
   env$data <- data
   env$PALETTE <- pal; env$WIDTH <- w; env$HEIGHT <- h; env$FONT_SIZE <- fs
+  env$sc_stars <- sc_stars; env$sc_bracket <- sc_bracket; env$sc_n_labels <- sc_n_labels
   env$TICK_SIZE <- ts; env$LABEL_SIZE <- ls; env$TITLE_SIZE <- tt; env$LEGEND_SIZE <- lg; env$MARGINS <- margins
   options(ggplot2.discrete.colour = if (length(pal)) pal else NULL, ggplot2.discrete.fill = if (length(pal)) pal else NULL)
   if (length(pal) >= 2) grDevices::palette(pal) else grDevices::palette("default")
@@ -67,7 +87,7 @@ run_request <- function(dir) {
   }
   out <- file.path(dir, "out.svg")
   if (has_ggplot) theme_set(theme_classic(base_size = fs, base_family = family) + theme(
-    axis.line = element_line(linewidth = 0.4), axis.ticks = element_line(linewidth = 0.4),
+    axis.line = element_line(linewidth = axislw / PT), axis.ticks = element_line(linewidth = axislw / PT),
     axis.text = element_text(size = ts, colour = "black"), axis.title = element_text(size = ls),
     plot.title = element_text(size = tt), legend.text = element_text(size = lg), legend.title = element_text(size = ls),
     strip.text = element_text(size = ls), strip.background = element_blank()))
@@ -81,10 +101,27 @@ run_request <- function(dir) {
     return(invisible())
   }
   dev <- dev.cur()
+  if (has_ggplot) { # line and point sizes from the figure's style (set every run: the worker is shared)
+    for (g in c("line", "path", "step", "smooth", "segment", "hline", "vline", "abline")) try(update_geom_defaults(g, list(linewidth = linelw / PT)), silent = TRUE)
+    try(update_geom_defaults("point", list(size = marker / PT)), silent = TRUE)
+  }
+  par(lwd = axislw / 0.75) # base graphics: lwd 1 = 0.75 pt
   if (length(margins) == 4) par(mai = margins[c(4, 1, 3, 2)] / 25.4) # base graphics: bottom, left, top, right
-  box <- NULL
+  box <- NULL; ranges <- NULL
+  inv <- function(sc, r) { tr <- tryCatch(sc$get_transformation(), error = function(e) sc$trans); if (is.null(tr) || !is.function(tr$inverse)) r else tr$inverse(r) }
+  scale_name <- function(sc) { tr <- tryCatch(sc$get_transformation(), error = function(e) sc$trans); if (is.null(tr) || is.null(tr$name) || tr$name == "identity") "linear" else if (grepl("log", tr$name)) "log" else tr$name }
   show <- function(v) {
     if (has_ggplot && inherits(v, "ggplot")) {
+      if (!is.null(xlim) || !is.null(ylim)) v <- v + coord_cartesian(xlim = xlim, ylim = ylim, expand = FALSE)
+      if (raster > 0 && requireNamespace("ggrastr", quietly = TRUE)) {
+        built <- ggplot2::ggplot_build(v)
+        for (i in seq_along(v$layers)) if (inherits(v$layers[[i]]$geom, "GeomPoint") && nrow(built$data[[i]]) > raster) v$layers[[i]] <- ggrastr::rasterise(v$layers[[i]], dpi = 600)
+      }
+      gb <- tryCatch(ggplot2::ggplot_build(v), error = function(e) NULL)
+      if (!is.null(gb)) {
+        pp <- gb$layout$panel_params[[1]]; sx <- gb$layout$panel_scales_x[[1]]; sy <- gb$layout$panel_scales_y[[1]]
+        ranges <<- list(x = inv(sx, pp$x.range), y = inv(sy, pp$y.range), xscale = scale_name(sx), yscale = scale_name(sy))
+      }
       pt <- plot_table(v, margins)
       grid::grid.newpage(); grid::grid.draw(pt$g)
       box <<- pt$box
@@ -101,7 +138,8 @@ run_request <- function(dir) {
     capture.output(withCallingHandlers({
       tryCatch(run_file(file.path(dir, "prelude.R")), error = function(e) stop(paste("In the shared plot code:", conditionMessage(e)), call. = FALSE))
       run_file(file.path(dir, "code.R"))
-      if (is.null(box) && !is.null(dev.list())) { # base graphics: where the plot region sits
+      if (is.null(box) && !is.null(dev.list())) { # base graphics: where the plot region sits, and its ranges
+        u <- par("usr"); ranges <<- list(x = if (par("xlog")) 10^u[1:2] else u[1:2], y = if (par("ylog")) 10^u[3:4] else u[3:4], xscale = if (par("xlog")) "log" else "linear", yscale = if (par("ylog")) "log" else "linear")
         pl <- par("plt"); box <<- c(left = pl[1] * w * 25.4, right = (1 - pl[2]) * w * 25.4, top = (1 - pl[4]) * h * 25.4, bottom = pl[3] * h * 25.4)
       }
     }, message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") },
@@ -110,6 +148,7 @@ run_request <- function(dir) {
   if (dev %in% dev.list()) dev.off(dev)
   writeLines(c(printed, msgs), file.path(dir, "log.txt"))
   if (!is.null(box)) writeLines(sprintf('{"left":%.3f,"right":%.3f,"top":%.3f,"bottom":%.3f}', box[["left"]], box[["right"]], box[["top"]], box[["bottom"]]), file.path(dir, "axes.json"))
+  if (!is.null(ranges)) writeLines(sprintf('{"x":[%.10g,%.10g],"y":[%.10g,%.10g],"xscale":"%s","yscale":"%s"}', ranges$x[1], ranges$x[2], ranges$y[1], ranges$y[2], ranges$xscale, ranges$yscale), file.path(dir, "ranges.json"))
   if (!is.null(err)) writeLines(err, file.path(dir, "error.txt"))
 }
 

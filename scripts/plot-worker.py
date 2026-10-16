@@ -8,11 +8,15 @@
 #
 # params.json: width / height (inches, the size the plot PRINTS at), fontSize, tickSize, labelSize, titleSize,
 # legendSize (pt), minScriptPt (smallest size for super- and subscripts), family, palette (["#rrggbb"]), and
-# margins ({"left", "right", "top", "bottom"} in mm, or null for automatic layout).
+# margins ({"left", "right", "top", "bottom"} in mm, or null for automatic layout), axisLineWidth, lineWidth (pt),
+# markerSize (pt), rasterizeAbove (point clouds with more points than this become a 600-dpi image inside the SVG;
+# 0 = never), limits ({"x": [lo, hi], "y": [lo, hi]}: axis ranges matched across panels).
+# The worker also writes ranges.json (each axis's range and scale), for matching ranges across plots.
 #
 # The code runs with: plt, np, pd (or None), sns (or None), data (name -> path), read(name) (a data file as a pandas
 # DataFrame, CSV / TSV / Excel; a numpy structured array without pandas), PALETTE, WIDTH and HEIGHT (in), FONT_SIZE
-# and the other sizes (pt). The last figure made is the plot. Text stays text in the SVG (svg.fonttype = none), so
+# and the other sizes (pt), and sc (helpers: sc.bracket, sc.stars, sc.n_labels, sc.bars_points). The last figure made
+# is the plot. Text stays text in the SVG (svg.fonttype = none), so
 # labels can be edited in SciCanvas.
 import contextlib
 import io
@@ -84,10 +88,15 @@ def style(p):
         "mathtext.bf": f"{family}:bold",
         "axes.spines.top": False,
         "axes.spines.right": False,
-        "axes.linewidth": 0.8,
-        "xtick.major.width": 0.8,
-        "ytick.major.width": 0.8,
-        "lines.linewidth": 1.4,
+        "axes.linewidth": float(p.get("axisLineWidth") or 0.8),
+        "xtick.major.width": float(p.get("axisLineWidth") or 0.8),
+        "ytick.major.width": float(p.get("axisLineWidth") or 0.8),
+        "xtick.minor.width": float(p.get("axisLineWidth") or 0.8) * 0.75,
+        "ytick.minor.width": float(p.get("axisLineWidth") or 0.8) * 0.75,
+        "lines.linewidth": float(p.get("lineWidth") or 1.4),
+        "patch.linewidth": float(p.get("axisLineWidth") or 0.8),
+        "lines.markersize": float(p.get("markerSize") or 4),
+        "errorbar.capsize": 2,
         "figure.figsize": (width, height),
         "figure.constrained_layout.use": not margins,
         "savefig.transparent": True,
@@ -117,6 +126,87 @@ def make_reader(data):
             return pd.read_csv(path, sep="\t" if ext in (".tsv", ".txt") else ",", **kw)
         return np.genfromtxt(path, delimiter="\t" if ext in (".tsv", ".txt") else ",", names=True, dtype=None, encoding="utf-8", **kw)
     return read
+
+
+class Helpers:
+    """sc: small helpers for figure plots (available in every plot as `sc`)."""
+
+    @staticmethod
+    def stars(p):
+        """p-value → ****, ***, **, *, ns."""
+        return "****" if p < 1e-4 else "***" if p < 1e-3 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
+
+    @staticmethod
+    def bracket(ax, x1, x2, y, text="*", h=None, pad=None, lw=None, color="black", fontsize=None):
+        """A significance bracket from x1 to x2 at height y (data units), with text above it."""
+        lo, hi = ax.get_ylim()
+        h = (hi - lo) * 0.025 if h is None else h
+        lw = plt.rcParams["axes.linewidth"] if lw is None else lw
+        ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], color=color, lw=lw, clip_on=False, solid_capstyle="butt")
+        ax.text((x1 + x2) / 2, y + h + ((hi - lo) * 0.005 if pad is None else pad), text, ha="center", va="bottom",
+                color=color, fontsize=fontsize or plt.rcParams["font.size"])
+        if y + h * 3 > hi:
+            ax.set_ylim(lo, y + h * 4)
+
+    @staticmethod
+    def n_labels(ax, xs, ns, y=None, fmt="n = {}", fontsize=None):
+        """'n = 5' under each group at positions xs (below the axis unless y is given, in data units)."""
+        for x, n in zip(xs, ns):
+            if y is None:
+                ax.annotate(fmt.format(n), (x, 0), xycoords=("data", "axes fraction"), xytext=(0, -2 * plt.rcParams["xtick.labelsize"] - 2),
+                            textcoords="offset points", ha="center", va="top", fontsize=fontsize or plt.rcParams["xtick.labelsize"])
+            else:
+                ax.text(x, y, fmt.format(n), ha="center", va="top", fontsize=fontsize or plt.rcParams["xtick.labelsize"])
+
+    @staticmethod
+    def bars_points(ax, groups, colors=None, width=0.6, alpha=0.35, sd=True, jitter=0.12, size=None):
+        """Mean bars with error bars (SD, or SEM with sd=False) and every point, for {name: values}."""
+        colors = colors or plt.rcParams["axes.prop_cycle"].by_key().get("color", ["#333333"])
+        for i, (name, vals) in enumerate(groups.items()):
+            v = np.asarray(vals, dtype=float)
+            err = v.std(ddof=1) if sd else v.std(ddof=1) / np.sqrt(len(v))
+            c = colors[i % len(colors)]
+            ax.bar(i, v.mean(), yerr=err, width=width, color=c, alpha=alpha, capsize=2, error_kw={"linewidth": plt.rcParams["axes.linewidth"]})
+            ax.scatter(i + np.linspace(-jitter, jitter, len(v)), v, s=(size or plt.rcParams["lines.markersize"]) ** 2, color=c, zorder=3, linewidths=0)
+        ax.set_xticks(range(len(groups)), list(groups.keys()))
+
+
+sc = Helpers()
+
+
+def rasterize_dense(fig, above):
+    """Point clouds and very long lines above `above` points become an image inside the SVG (axes and text stay
+    vector), so a 100,000-point scatter doesn't make a huge, slow vector file."""
+    if not above:
+        return 0
+    n = 0
+    for ax in fig.axes:
+        for c in ax.collections:
+            off = c.get_offsets()
+            if off is not None and len(off) > above:
+                c.set_rasterized(True); n += 1
+        for ln in ax.lines:
+            if len(ln.get_xdata()) > above * 4:
+                ln.set_rasterized(True); n += 1
+    return n
+
+
+def apply_limits(fig, limits):
+    for ax in fig.axes:
+        if ax.get_label() == "<colorbar>":
+            continue
+        if limits.get("x"):
+            ax.set_xlim(*limits["x"])
+        if limits.get("y"):
+            ax.set_ylim(*limits["y"])
+
+
+def axis_ranges(fig):
+    axes = [a for a in fig.axes if a.get_label() != "<colorbar>" and a.get_visible()]
+    if not axes:
+        return None
+    a = axes[0]
+    return {"x": [float(v) for v in a.get_xlim()], "y": [float(v) for v in a.get_ylim()], "xscale": a.get_xscale(), "yscale": a.get_yscale(), "count": len(axes)}
 
 
 def axes_box(fig, p):
@@ -152,7 +242,7 @@ def run(folder):
     s = sizes(p)
     ns = {"plt": plt, "np": np, "pd": pd, "sns": sns, "data": data, "read": make_reader(data), "PALETTE": p.get("palette") or [],
           "WIDTH": p.get("width", 4), "HEIGHT": p.get("height", 3), "FONT_SIZE": s["font"], "TICK_SIZE": s["tick"],
-          "LABEL_SIZE": s["label"], "TITLE_SIZE": s["title"], "LEGEND_SIZE": s["legend"], "MARGINS": p.get("margins"), "__name__": "__plot__"}
+          "LABEL_SIZE": s["label"], "TITLE_SIZE": s["title"], "LEGEND_SIZE": s["legend"], "MARGINS": p.get("margins"), "sc": sc, "__name__": "__plot__"}
     log = io.StringIO()
     error = None
     try:
@@ -170,8 +260,15 @@ def run(folder):
                 fig.set_layout_engine("none")
                 fig.subplots_adjust(left=m["left"] / (p["width"] * MM), right=1 - m["right"] / (p["width"] * MM),
                                     bottom=m["bottom"] / (p["height"] * MM), top=1 - m["top"] / (p["height"] * MM))
+            if p.get("limits"):
+                apply_limits(fig, p["limits"])
+            raster = rasterize_dense(fig, int(p.get("rasterizeAbove") or 0))
             buf = io.StringIO()
-            fig.savefig(buf, format="svg")
+            fig.savefig(buf, format="svg", dpi=600 if raster else None)
+            rng = axis_ranges(fig)
+            if rng:
+                with open(os.path.join(folder, "ranges.json"), "w") as f:
+                    json.dump(rng, f)
             with open(os.path.join(folder, "out.svg"), "w", encoding="utf-8") as f:
                 f.write(buf.getvalue())
             box = axes_box(fig, p)

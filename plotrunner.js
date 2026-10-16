@@ -115,10 +115,13 @@ async function plot(req) {
     if (req.prelude && String(req.prelude).trim()) fs.writeFileSync(path.join(dir, lang === 'python' ? 'prelude.py' : 'prelude.R'), String(req.prelude));
     const palette = (req.palette || []).filter((c) => /^#[0-9a-f]{6}$/i.test(c)), family = String(req.family || 'Arial').replace(/[^\w .-]/g, '');
     const n = (v) => (Number.isFinite(+v) && +v > 0 ? +v : null);
-    const sizes = { tickSize: n(req.tickSize), labelSize: n(req.labelSize), titleSize: n(req.titleSize), legendSize: n(req.legendSize), minScriptPt: n(req.minScriptPt) };
+    const sizes = { tickSize: n(req.tickSize), labelSize: n(req.labelSize), titleSize: n(req.titleSize), legendSize: n(req.legendSize), minScriptPt: n(req.minScriptPt), axisLineWidth: n(req.axisLineWidth), lineWidth: n(req.lineWidth), markerSize: n(req.markerSize) };
+    const rasterizeAbove = Number.isFinite(+req.rasterizeAbove) ? Math.max(0, Math.round(+req.rasterizeAbove)) : 0;
+    const pair = (v) => (Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v.map(Number) : null);
+    const limits = req.limits ? { x: pair(req.limits.x), y: pair(req.limits.y) } : null;
     const m = req.margins && ['left', 'right', 'top', 'bottom'].every((k) => Number.isFinite(+req.margins[k])) ? { left: +req.margins.left, right: +req.margins.right, top: +req.margins.top, bottom: +req.margins.bottom } : null;
-    fs.writeFileSync(path.join(dir, 'params.json'), JSON.stringify({ width, height, fontSize, ...sizes, palette, family, margins: m }));
-    fs.writeFileSync(path.join(dir, 'params.dcf'), [`width: ${width}`, `height: ${height}`, `fontsize: ${fontSize}`, `ticksize: ${sizes.tickSize ?? ''}`, `labelsize: ${sizes.labelSize ?? ''}`, `titlesize: ${sizes.titleSize ?? ''}`, `legendsize: ${sizes.legendSize ?? ''}`, `family: ${family}`, `palette: ${palette.join(',')}`, `margins: ${m ? [m.left, m.right, m.top, m.bottom].join(',') : ''}`].join('\n') + '\n');
+    fs.writeFileSync(path.join(dir, 'params.json'), JSON.stringify({ width, height, fontSize, ...sizes, rasterizeAbove, limits, palette, family, margins: m }));
+    fs.writeFileSync(path.join(dir, 'params.dcf'), [`width: ${width}`, `height: ${height}`, `fontsize: ${fontSize}`, `ticksize: ${sizes.tickSize ?? ''}`, `labelsize: ${sizes.labelSize ?? ''}`, `titlesize: ${sizes.titleSize ?? ''}`, `legendsize: ${sizes.legendSize ?? ''}`, `family: ${family}`, `palette: ${palette.join(',')}`, `margins: ${m ? [m.left, m.right, m.top, m.bottom].join(',') : ''}`, `axislw: ${sizes.axisLineWidth ?? ''}`, `linelw: ${sizes.lineWidth ?? ''}`, `markersize: ${sizes.markerSize ?? ''}`, `rasterize: ${rasterizeAbove}`, `xlim: ${limits && limits.x ? limits.x.join(',') : ''}`, `ylim: ${limits && limits.y ? limits.y.join(',') : ''}`].join('\n') + '\n');
     fs.writeFileSync(path.join(dir, 'data.json'), JSON.stringify(data));
     fs.writeFileSync(path.join(dir, 'data.tsv'), Object.entries(data).map(([k, v]) => `${k.replace(/[\t\n]/g, ' ')}\t${String(v).replace(/[\t\n]/g, ' ')}`).join('\n'));
     await new Promise((resolve, reject) => {
@@ -128,8 +131,9 @@ async function plot(req) {
     });
     const read = (f) => { try { return fs.readFileSync(path.join(dir, f), 'utf8'); } catch { return null; } };
     const error = read('error.txt'), svg = error ? null : read('out.svg');
-    let axes = null; try { axes = JSON.parse(read('axes.json') || 'null'); } catch { /* none */ }
-    return { svg, axes, log: (read('log.txt') || '').trim(), error: error && error.trim(), ms: Date.now() - t0, interpreter: exe, info: w.info };
+    let axes = null, ranges = null; try { axes = JSON.parse(read('axes.json') || 'null'); } catch { /* none */ }
+    try { ranges = JSON.parse(read('ranges.json') || 'null'); } catch { /* none */ }
+    return { svg, axes, ranges, log: (read('log.txt') || '').trim(), error: error && error.trim(), ms: Date.now() - t0, interpreter: exe, info: w.info };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -152,7 +156,7 @@ module.exports = { plot, environment, stopAll };
 
 // Plot window › Install: a few packages the plots use, installed with the user's own Python / R (into the user's
 // R library, or the active Python environment). Only these names, whatever a figure file says.
-const INSTALLABLE = { r: ['svglite', 'ggplot2', 'readxl'], python: ['pandas', 'seaborn', 'openpyxl'] };
+const INSTALLABLE = { r: ['svglite', 'ggplot2', 'readxl', 'ggrastr'], python: ['pandas', 'seaborn', 'openpyxl'] };
 async function installPackage(lang, pkg, prefs = {}) {
   if (!(INSTALLABLE[lang] || []).includes(pkg)) throw new Error(`Not an installable package: ${pkg}`);
   const exe = await interpreter(lang, prefs[lang]);

@@ -66,3 +66,47 @@ test('the runner honours printed sizes, script minimum, shared code, fixed margi
     assert.match(bad.error, /Shared plot code/);
   } finally { runner.stopAll(); }
 });
+
+test('the runner applies line widths, matched ranges, helpers and rasterises dense points', { skip: !python && 'no Python with matplotlib' }, async () => {
+  const Module = require('module'), orig = Module._load, ud = fs.mkdtempSync(path.join(os.tmpdir(), 'sc-plot-'));
+  Module._load = function (r, ...a) { return r === 'electron' ? { app: { getPath: () => ud, on() {} } } : orig.call(this, r, ...a); };
+  delete require.cache[require.resolve('../plotrunner.js')];
+  const runner = require('../plotrunner.js');
+  Module._load = orig;
+  const exe = execFileSync(python, ['-c', 'import sys; print(sys.executable)']).toString().trim();
+  try {
+    const r = await runner.plot({ lang: 'python', interpreter: exe, width: 2.4, height: 1.8, axisLineWidth: 0.5, lineWidth: 1, limits: { y: [0, 100] },
+      code: 'fig, ax = plt.subplots()\nsc.bars_points(ax, {"WT": [1, 2, 3], "KO": [4, 5, 6]})\nsc.bracket(ax, 0, 1, 7, sc.stars(0.003))' });
+    assert.equal(r.error, null);
+    assert.deepEqual(r.ranges.y, [0, 100]);
+    assert.match(r.svg, /\*\*/);                                  // the bracket's stars
+    assert.match(r.svg, /stroke-width:\s*0\.5\b/);                // axis lines from the style
+    const big = await runner.plot({ lang: 'python', interpreter: exe, width: 2, height: 2, rasterizeAbove: 1000, code: 'fig, ax = plt.subplots()\nax.scatter(np.arange(5000), np.arange(5000), s=1)' });
+    assert.match(big.svg, /<image/);
+  } finally { runner.stopAll(); }
+});
+
+test('the plot bridge listens on localhost only and needs its token', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sc-home-')), oldHome = process.env.HOME, oldProfile = process.env.USERPROFILE;
+  process.env.HOME = home; process.env.USERPROFILE = home;
+  delete require.cache[require.resolve('../bridge.js')];
+  const bridge = require('../bridge.js');
+  const got = [];
+  try {
+    bridge.start({ version: 'test', onSvg: (p) => got.push(p) });
+    for (let i = 0; i < 50 && !bridge.info().port; i++) await new Promise((r) => setTimeout(r, 20));
+    const cfg = JSON.parse(fs.readFileSync(path.join(home, '.scicanvas', 'bridge.json'), 'utf8'));
+    assert.ok(fs.existsSync(path.join(home, '.scicanvas', 'scicanvas.py')) && fs.existsSync(path.join(home, '.scicanvas', 'scicanvas.R')));
+    if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(home, '.scicanvas', 'bridge.json')).mode & 0o077, 0); // this user only
+    const post = (token, body) => fetch(`http://127.0.0.1:${cfg.port}/svg?name=T&width=2`, { method: 'POST', headers: { 'X-SciCanvas-Token': token }, body });
+    assert.equal((await post('nope', '<svg/>')).status, 403);
+    assert.equal((await post(cfg.token, 'not svg')).status, 400);
+    assert.equal((await post(cfg.token, '<svg xmlns="http://www.w3.org/2000/svg"/>')).status, 200);
+    assert.equal(got.length, 1);
+    assert.equal(got[0].name, 'T');
+    assert.equal(got[0].widthIn, 2);
+  } finally {
+    bridge.stop();
+    process.env.HOME = oldHome; if (oldProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = oldProfile;
+  }
+});
