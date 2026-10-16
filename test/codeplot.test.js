@@ -38,3 +38,31 @@ test('the runner draws a matplotlib plot as SVG with text kept as text', { skip:
     assert.match(bad.error, /NameError/);
   } finally { runner.stopAll(); }
 });
+
+test('rich text keeps a space at the end of a styled run (xml:space="preserve")', () => {
+  assert.match(A.globals.textSvg('Wt / {i|Maea}', { fontSize: 10 }), /<text xml:space="preserve"/);
+});
+
+test('the runner honours printed sizes, script minimum, shared code, fixed margins and data carried as base64', { skip: !python && 'no Python with matplotlib' }, async () => {
+  const Module = require('module'), orig = Module._load, ud = fs.mkdtempSync(path.join(os.tmpdir(), 'sc-plot-'));
+  Module._load = function (r, ...a) { return r === 'electron' ? { app: { getPath: () => ud, on() {} } } : orig.call(this, r, ...a); };
+  delete require.cache[require.resolve('../plotrunner.js')];
+  const runner = require('../plotrunner.js');
+  Module._load = orig;
+  const exe = execFileSync(python, ['-c', 'import sys; print(sys.executable)']).toString().trim();
+  const sizes = (svg) => [...svg.matchAll(/font(?:-size)?:\s*([\d.]+)px/g)].map((m) => +m[1]);
+  try {
+    const r = await runner.plot({
+      lang: 'python', interpreter: exe, width: 2.4, height: 1.8, fontSize: 7, tickSize: 6, minScriptPt: 6,
+      prelude: 'def label(ax):\n    ax.set_ylabel(r"$Aicda^{-/-}$")', margins: { left: 12, right: 2, top: 2, bottom: 9 },
+      data: { 'd.csv': { base64: Buffer.from('x,y\n1,10\n2,1000\n').toString('base64') } },
+      code: 'd = read("d.csv")\nfig, ax = plt.subplots()\nax.plot(d["x"], d["y"])\nax.set_yscale("log")\nlabel(ax)\nprint(TICK_SIZE)',
+    });
+    assert.equal(r.error, null);
+    assert.ok(Math.min(...sizes(r.svg)) >= 6 - 1e-6, `smallest text ${Math.min(...sizes(r.svg))}`); // superscripts too
+    assert.deepEqual(Object.fromEntries(Object.entries(r.axes).filter(([k]) => k !== 'count').map(([k, v]) => [k, +v.toFixed(2)])), { left: 12, right: 2, top: 2, bottom: 9 });
+    assert.match(r.log, /^6(\.0)?$/m);
+    const bad = await runner.plot({ lang: 'python', interpreter: exe, prelude: 'x = 1/0', code: 'fig, ax = plt.subplots()', width: 2, height: 2 });
+    assert.match(bad.error, /Shared plot code/);
+  } finally { runner.stopAll(); }
+});

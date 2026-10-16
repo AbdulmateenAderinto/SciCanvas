@@ -643,4 +643,8 @@ function insertObjectsGrouped(list, replace) {
   if (!restored) loadDoc(newDoc());
   await openPendingFile();
   requestAnimationFrame(zoomFit);
+  // Linked charts, values and code plots refresh after a document loads; scripts may start once that's done.
+  await new Promise((r) => setTimeout(r, 250));
+  await Promise.allSettled([typeof refreshLinked === 'function' && refreshLinked({ quiet: true }), typeof refreshValues === 'function' && refreshValues(), typeof refreshPlots === 'function' && refreshPlots()]);
+  appReadyResolve(state.doc);
 })();
