@@ -79,6 +79,14 @@ function normalizeColors(markup) {
     .replace(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi, (_, r, g, b) => Color.rgbToHex(+r, +g, +b))
     .replace(/((?:fill|stroke|stop-color)\s*[:=]\s*["']?)(black|white|red|green|blue|yellow|gr[ae]y|orange|purple)\b/gi, (_, pre, n) => pre + NAMED[n.toLowerCase()]);
 }
+// normalizeColors on a cached drawing (iconSvgInner returns the same string each time, so it's a cheap key).
+const NORMALIZED = new Map();
+function normalizedIcon(id, color) {
+  const raw = iconSvgInner(id, color);
+  let n = NORMALIZED.get(raw);
+  if (n === undefined) { n = normalizeColors(raw); NORMALIZED.set(raw, n); if (NORMALIZED.size > 600) NORMALIZED.delete(NORMALIZED.keys().next().value); }
+  return n;
+}
 function colorsIn(markup) {
   const counts = {};
   for (const m of markup.matchAll(/#[0-9a-f]{6}(?![0-9a-f])/g)) counts[m[0]] = (counts[m[0]] || 0) + 1;
@@ -210,7 +218,7 @@ function embedBuiltinIcons(doc) {
       const key = `builtin:${o.iconId}|${o.color || ''}`;
       if (assets[key]) continue;
       const v = iconViewBox(o.iconId);
-      assets[key] = { svg: normalizeColors(iconSvgInner(o.iconId, o.color)), vb: `0 0 ${v.w} ${v.h}`, vw: v.w, vh: v.h, name: ICON_MAP[o.iconId].name, pack: 'builtin' };
+      assets[key] = { svg: normalizedIcon(o.iconId, o.color), vb: `0 0 ${v.w} ${v.h}`, vw: v.w, vh: v.h, name: ICON_MAP[o.iconId].name, pack: 'builtin' };
     }
   };
   for (const p of doc.pages || []) walk(p.objects);
@@ -226,7 +234,7 @@ function iconMarkup(o) {
   let markup, vb;
   if (ICON_MAP[o.iconId]) {
     const v = iconViewBox(o.iconId);
-    markup = normalizeColors(iconSvgInner(o.iconId, o.color));
+    markup = normalizedIcon(o.iconId, o.color);
     vb = `0 0 ${v.w} ${v.h}`;
   } else {
     const a = getAsset(o.iconId) || builtinCopy(o);
@@ -254,7 +262,7 @@ function layerStyleCss(o) {
 }
 // Colours before any per-layer edits (what the layer panel lists).
 function iconBaseColors(o) {
-  if (ICON_MAP[o.iconId]) return colorsIn(normalizeColors(iconSvgInner(o.iconId, o.color)));
+  if (ICON_MAP[o.iconId]) return colorsIn(normalizedIcon(o.iconId, o.color));
   const a = getAsset(o.iconId);
   if (!a) return [];
   return colorsIn(o.tint ? applyTint(a.svg, o.tint) : a.svg);

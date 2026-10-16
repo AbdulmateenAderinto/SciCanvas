@@ -307,10 +307,21 @@ svg.addEventListener('pointerdown', (e) => {
 
 // ---------- Colour presets for icons and text ----------
 const ICON_PRESETS = ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4db6ac', '#81c784', '#aed581', '#ffd54f', '#ffb74d', '#a1887f', '#90a4ae'];
+// Each thumbnail is a picture of the icon in that colour, made once and kept: drawing them as live SVG put 15 more
+// copies of the icon on screen every time Properties redrew, which made selecting a detailed icon slow.
+const presetThumbs = new Map();
 function iconPresetThumb(o, c) {
   const native = !!ICON_MAP[o.iconId];
-  const { markup, vb } = iconMarkup({ ...o, id: 'pv', color: native ? c || ICON_MAP[o.iconId].color : o.color, tint: native ? o.tint : c, colorMap: null, layerStyle: null });
-  return `<svg viewBox="${vb}" width="30" height="30" preserveAspectRatio="xMidYMid meet" overflow="hidden">${markup}</svg>`;
+  const color = native ? c || ICON_MAP[o.iconId].color : o.color, tint = native ? o.tint : c;
+  const key = `${o.iconId}|${color}|${tint || ''}|${globalThis.IconStyle ? IconStyle.mode : ''}|${native ? '' : (getAsset(o.iconId) || {}).svg?.length}`;
+  let url = presetThumbs.get(key);
+  if (!url) {
+    const { markup, vb } = iconMarkup({ ...o, id: 'pv', color, tint, colorMap: null, layerStyle: null });
+    url = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${vb}" width="60" height="60" preserveAspectRatio="xMidYMid meet">${markup}</svg>`], { type: 'image/svg+xml' }));
+    presetThumbs.set(key, url);
+    if (presetThumbs.size > 300) { const [k0, u0] = presetThumbs.entries().next().value; URL.revokeObjectURL(u0); presetThumbs.delete(k0); }
+  }
+  return `<img src="${url}" width="30" height="30" alt="" draggable="false">`;
 }
 function applyIconPreset(list, c) {
   checkpoint();
