@@ -122,6 +122,7 @@ function buildMenu() {
       label: 'Insert',
       submenu: [
         { label: 'Graph…', click: send('graph') },
+        { label: 'Code Plot (Python / R)…', accelerator: 'CmdOrCtrl+Alt+G', click: send('codePlot') },
         { label: 'Linked Value…', click: send('insertValue') },
         { label: 'Refresh Linked Data', click: send('refreshData') },
         { label: 'Protocol Diagram…', click: send('protocol') },
@@ -747,6 +748,15 @@ ipcMain.handle('delete-user-icon', (_e, file) => {
 // ---------- Clipboard ----------
 // SVG markup as text: Figma, Illustrator and Inkscape paste it as editable vectors.
 ipcMain.handle('read-clipboard-text', () => clipboard.readText());
+// Insert › Code Plot: matplotlib / ggplot2 code run with the user's Python and R (see plotrunner.js).
+const plotrunner = require('./plotrunner');
+ipcMain.handle('plot-run', (_e, req) => plotrunner.plot(req));
+ipcMain.handle('plot-env', (_e, prefs) => plotrunner.environment(prefs || {}));
+ipcMain.handle('plot-install', (_e, lang, pkg, prefs) => plotrunner.installPackage(lang, pkg, prefs || {}));
+ipcMain.handle('pick-interpreter', async () => {
+  const r = await dialog.showOpenDialog(win, { title: 'Choose python3 or Rscript', properties: ['openFile', 'showHiddenFiles'] });
+  return r.canceled ? null : r.filePaths[0];
+});
 // Help › Check for Updates, and updates for installed copies (see updater.js).
 const updater = require('./updater');
 ipcMain.handle('check-updates', () => updater.checkNow());

@@ -3,9 +3,12 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.9.3
+## Version 1.10
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
+
+**New in 1.10**
+- **Code plots**: Insert › *Code Plot (Python / R)…* (⌘⌥G) runs matplotlib or ggplot2 code with your own Python or R and places the plot as editable vector art. It re-runs when its data changes, and keeps one style across the figure. See *Code plots* below.
 
 **New in 1.9.3**
 - **Faster with detailed icons**: icon drawings are cached instead of rebuilt on every redraw, the colour-preset thumbnails in Properties are light pictures instead of 15 live copies of the icon, and panning and zooming slide the canvas as one picture and redraw it sharp when you pause. On a page of 48 detailed icons, selecting one went from 186 to 67 ms and recolouring from 52 to 26 ms; zooming stays at full frame rate.
@@ -121,6 +124,21 @@ SciCanvas 1.0 brings together everything built so far: drawing and design tools 
 - **Selection and navigation**: lasso (Q), ⌥⌘-click to select the object behind, select same fill / outline / effects / font / graphic style, View › Zoom to Selection (⌘2) and a mini-map.
 - **Layout grids**: per-page columns and rows with gutters and margins, including Nature / Cell, Science and PNAS column presets; objects snap to columns and whole-column widths. Never exported.
 - **More effects**: inner glow, halo outline (keeps labels readable over images), grain, depth-of-field blur, and background blur for frosted panels.
+
+## Code plots (Python and R)
+
+**Insert › Code Plot (Python / R)…** (⌘⌥G) runs matplotlib or ggplot2 / base-R code with your own Python or R and places the plot on the page as vector art you can keep editing in SciCanvas:
+
+- **Fast**: one Python and one R process stay running, so libraries load once; most plots redraw in tens of milliseconds as you type (a ggplot with a fitted line, about half a second).
+- **Your data**: attach CSV, TSV or Excel files and load them with `read("file.csv")`. The plot re-runs when a file changes.
+- **One style for the whole figure**: font, text size and colours (`PALETTE` in your code, and the default colours of matplotlib, seaborn, ggplot2 and base R) are shared by every code plot, so panels match. Empty palette = the figure's palette, or the colour-blind-safe Okabe–Ito set.
+- **Real sizes**: a plot is drawn at the size it takes on the page, so its text is the printed size. Resizing a plot re-runs it at the new size instead of stretching the text.
+- **Tweaks that survive re-runs**: edit labels under Properties › *Plot labels*, and recolour under *Colour layers*. Both are re-applied every time the code runs. *Ungroup into parts* turns a plot into ordinary shapes and text, which no longer re-run.
+- **Checks**: the Check tab flags plots whose code failed, whose data file is missing or changed, whose smallest text is below the journal's minimum, or that have been stretched.
+- **Reproducible**: the deposit bundle (File › *Export Deposit Bundle…*) includes each plot's code (runnable from the bundle), its data files, and the Python/R and package versions it ran with.
+- **Safe with shared figures**: code that arrives inside someone else's figure never runs until you open it and press **Run**.
+
+Needs Python 3 with matplotlib (pandas and seaborn optional), and/or R (ggplot2 optional; **svglite** keeps text editable and is required on Macs without XQuartz). The plot window finds them on their own, shows what's missing with an **Install** button, and lets you pick a specific interpreter (for example a conda environment).
 
 ## Install from the terminal
 

@@ -1,7 +1,10 @@
-// What's new (v1.9; the 1.8, 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
+// What's new (v1.10; the 1.9, 1.8, 1.7 and 1.6 items follow): a short tour of the newest features, shown once after updating and from Help.
 (() => {
-  const VERSION = '1.9';
+  const VERSION = '1.10';
   const ITEMS = [
+    ['Code plots (Python and R)', 'Insert › Code Plot (⌘⌥G): write matplotlib or ggplot2 code with a live preview, using your own Python or R. The plot lands as editable vector art and re-runs when its data changes. Double-click it to edit the code.'],
+    ['One plot style per figure', 'Every code plot shares the figure’s font, text size and colours (PALETTE in your code, and the default colours), so panels match. Plots are drawn at their real size; resizing one re-runs it rather than stretching the text.'],
+    ['Plot tweaks that survive', 'Edit a plot’s labels under Properties › Plot labels and its colours under Colour layers: both are re-applied every time the code runs. The Check tab flags failed runs, changed data and text below the journal minimum.'],
     ['Live values in text', 'Type {=range(reads.csv:Passed)} and the text shows the numbers straight from the data file (also min, max, mean, median, sum, count, sd, or one cell); they update when the file changes. Insert › Linked Value… builds one with a preview.'],
     ['Data-linked charts', 'A chart imported from a CSV, Excel or Prism file stays linked to it and refreshes when the file changes; Properties › Data source shows where its data came from.'],
     ['Deposit bundle', 'File › Export Deposit Bundle… saves the figure, SVG and 300-dpi PNG of each page, its data files and provenance (fingerprints, versions, credits) in one zip.'],
