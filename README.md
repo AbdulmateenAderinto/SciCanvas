@@ -3,11 +3,11 @@
 A desktop app (Electron) for building scientific figures, modelled on BioRender's workflow:
 library → canvas → relationships → data → review → export.
 
-## Version 1.10
+## Version 2.0
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
 
-**New in 1.10**
+**New in 2.0**
 - **Code plots**: Insert › *Code Plot (Python / R)…* (⌘⌥G) runs matplotlib or ggplot2 code with your own Python or R and places the plot as editable vector art. It re-runs when its data changes, and keeps one style across the figure. See *Code plots* below.
 
 **New in 1.9.3**
