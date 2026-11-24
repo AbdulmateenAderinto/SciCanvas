@@ -314,7 +314,7 @@ function panelLayout() {
     const k = Math.min(cellW / o.w, cellH / o.h);
     if (o.type === 'text') { if (k < 1) { o.fontSize *= k; postEdit(o); } } else { o.w *= k; o.h *= k; if (o.type === 'protocol') postEdit(o); }
     o.x = x0 + (cellW - o.w) / 2; o.y = y0 + (cellH - o.h) / 2; o.rot = 0;
-    labels.push(Make.text(String.fromCharCode(65 + i), x0 - 4, y0 - label, { fontSize: 22, bold: true, name: `Panel ${String.fromCharCode(65 + i)}` }));
+    labels.push(Make.text(String.fromCharCode(65 + i), x0 - 4, y0 - label, { fontSize: 22, bold: true, name: `Panel ${String.fromCharCode(65 + i)}`, panelLetter: { target: o.id } }));
   });
   objs().push(...labels);
   state.sel = [...items.map((x) => x.o.id), ...labels.map((l) => l.id)];

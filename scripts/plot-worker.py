@@ -11,7 +11,9 @@
 # margins ({"left", "right", "top", "bottom"} in mm, or null for automatic layout), axisLineWidth, lineWidth (pt),
 # markerSize (pt), rasterizeAbove (point clouds with more points than this become a 600-dpi image inside the SVG;
 # 0 = never), limits ({"x": [lo, hi], "y": [lo, hi]}: axis ranges matched across panels).
-# The worker also writes ranges.json (each axis's range and scale), for matching ranges across plots.
+# The worker also writes ranges.json (each axis's range and scale), for matching ranges across plots, and
+# legend.json (the entries of the legends the plot drew). hideLegend: true takes those legends out of the picture, so
+# SciCanvas can draw one shared legend for several plots.
 #
 # The code runs with: plt, np, pd (or None), sns (or None), data (name -> path), read(name) (a data file as a pandas
 # DataFrame, CSV / TSV / Excel; a numpy structured array without pandas), PALETTE, WIDTH and HEIGHT (in), FONT_SIZE
@@ -220,6 +222,61 @@ def axes_box(fig, p):
     return {"left": x0 * w, "right": (1 - x1) * w, "bottom": y0 * h, "top": (1 - y1) * h, "count": len(boxes)}
 
 
+def _hex(c):
+    from matplotlib.colors import to_hex
+    try:
+        return to_hex(c, keep_alpha=False)
+    except (ValueError, TypeError):
+        return None
+
+
+def _entry(h):
+    """A legend handle as {kind, color, ...}, or None for kinds SciCanvas can't redraw."""
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    from matplotlib.collections import Collection
+    from matplotlib.container import Container
+    if isinstance(h, Container) and len(h):
+        h = h[0]
+    if isinstance(h, Line2D):
+        ls, mk = h.get_linestyle(), h.get_marker()
+        line = ls not in ("None", "none", "", " ")
+        marker = mk not in (None, "None", "none", "", " ")
+        if not line and not marker:
+            return None
+        return {"kind": "line" if line else "marker", "color": _hex(h.get_color()), "marker": str(mk) if marker else None,
+                "dash": ls in ("--", ":", "-.", "dashed", "dotted", "dashdot")}
+    if isinstance(h, Patch):
+        fc, ec = h.get_facecolor(), h.get_edgecolor()
+        fill = fc if (len(fc) < 4 or fc[3] > 0) else ec
+        return {"kind": "patch", "color": _hex(fill), "edge": _hex(ec) if len(ec) == 4 and ec[3] > 0 else None}
+    if isinstance(h, Collection):
+        fc = h.get_facecolor()
+        c = fc[0] if len(fc) else (h.get_edgecolor()[0] if len(h.get_edgecolor()) else None)
+        return {"kind": "marker", "color": _hex(c)} if c is not None else None
+    return None
+
+
+def legends(fig):
+    """The legends the figure shows (on its axes and on the figure), each distinct label once."""
+    out, seen, found = [], set(), []
+    for lg in [a.get_legend() for a in fig.axes] + list(getattr(fig, "legends", [])):
+        if lg is None:
+            continue
+        found.append(lg)
+        handles = getattr(lg, "legend_handles", None) or getattr(lg, "legendHandles", None) or []
+        for h, t in zip(handles, lg.get_texts()):
+            label = t.get_text()
+            if not label or label.startswith("_") or label in seen:
+                continue
+            e = _entry(h)
+            if e and e["color"]:
+                seen.add(label)
+                e["label"] = label
+                out.append(e)
+    return out, found
+
+
 def user_error():
     tb = traceback.format_exc().splitlines()
     # keep the user's lines only (frames in "plot" or "prelude"), not the worker's
@@ -255,6 +312,13 @@ def run(folder):
             error = "The code didn't make a figure (use plt.subplots() or plt.figure())."
         else:
             fig = plt.figure(nums[-1])
+            entries, shown = legends(fig)
+            if entries:
+                with open(os.path.join(folder, "legend.json"), "w") as f:
+                    json.dump(entries, f)
+            if p.get("hideLegend"):
+                for lg in shown:
+                    lg.remove()
             m = p.get("margins")
             if m:  # fixed margins win over a layout the code chose, so panels line up
                 fig.set_layout_engine("none")

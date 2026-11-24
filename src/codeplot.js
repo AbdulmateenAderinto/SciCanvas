@@ -200,7 +200,7 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
     const r = await nat().plotRun({
       lang: spec.lang, code: spec.code, prelude: pre, data, width: (spec.w * k) / PX_IN, height: (spec.h * k) / PX_IN,
       fontSize: st.fontSize, tickSize: st.tickSize, labelSize: st.labelSize, titleSize: st.titleSize, legendSize: st.legendSize, minScriptPt: st.minScriptPt,
-      axisLineWidth: st.axisLineWidth, lineWidth: st.lineWidth, markerSize: st.markerSize, rasterizeAbove: st.rasterizeAbove, limits: spec.limits || null,
+      axisLineWidth: st.axisLineWidth, lineWidth: st.lineWidth, markerSize: st.markerSize, rasterizeAbove: st.rasterizeAbove, limits: spec.limits || null, hideLegend: !!spec.hideLegend,
       family: st.family, palette: st.palette, margins: marginsFor(spec, st), interpreter: prefs()[spec.lang],
     });
     approveKey(codeKey(spec, pre));
@@ -277,7 +277,7 @@ legend("topright", c("sin", "cos"), col = PALETTE[1:2], lwd = 1.5, bty = "n")`],
   // Put a run's SVG on the page: a new plot object, or the existing one updated in place.
   function place(svgText, spec, existing, result) {
     const key = plotAsset(svgText, spec);
-    const meta = { ...spec, error: null, ranAt: Date.now(), versions: result.info || null, interpreter: result.interpreter || null, axes: result.axes || null, ranges: result.ranges || null };
+    const meta = { ...spec, error: null, ranAt: Date.now(), versions: result.info || null, interpreter: result.interpreter || null, axes: result.axes || null, ranges: result.ranges || null, legend: result.legend || null };
     let o = existing;
     if (o) { const old = o.iconId; o.iconId = key; o.w = spec.w; o.h = spec.h; o.plot = meta; dropAssetIfUnused(old); }
     else {
