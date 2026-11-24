@@ -7,6 +7,11 @@ library → canvas → relationships → data → review → export.
 
 **Latest: [SciCanvas](https://github.com/AbdulmateenAderinto/SciCanvas/releases/latest)**: ready-made installers for Windows, Apple-silicon Macs and Intel Macs (see *Download* below).
 
+**New in the next release (2.2)**
+- **Panel letters that keep themselves in order**: select panels › Arrange › Panel Letters › *Letter Selected Panels* (or right-click). Letters follow their panels and re-letter in reading order whenever panels move, are added or deleted. *Panel Letter Style…* sets one style for the whole figure (A / a / (a) / a. / 1 / i…, size, bold, colour), can adopt letters already on the page, and turns automatic re-lettering off. Type another text into a letter (A′) to keep it.
+- **Plot grids with one shared legend**: Arrange › *Arrange as Plot Grid…* lays plots out in equal cells, re-runs code plots at their cell size, lines up their axes, letters the panels and, for Python plots, takes the legends out and draws each entry once at the right or bottom (as editable shapes and text). Right-click › *Separate legends again* undoes it.
+- **Dark version for talks**: View › *Dark Version of Page* (⌥⌘D) adds a copy of the page on black: black and grey text, lines and fills turn light while colours stay, and code plots and charts stay dark when they re-run. Run it again to update the copy from the original.
+
 **New in 2.1**
 - **Code plots at printed size, with checks inside plots**: plots render at the size they print. The Check tab measures text and lines inside them (and flags overlapping labels), and undersized text and hairlines are raised to the journal minimum.
 - **Plot style per figure**: journal presets, tick/label/title/legend sizes, line widths, a minimum super/subscript size, shared code, and data files saved inside the figure.

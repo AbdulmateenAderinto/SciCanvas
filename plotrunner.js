@@ -90,7 +90,9 @@ async function worker(lang, exe) {
 let seq = 0;
 // { lang, code, prelude?, data: {name: path | {base64}}, width, height (inches, printed size), fontSize, tickSize, labelSize,
 //   titleSize, legendSize, minScriptPt (pt), family, palette (['#rrggbb']), margins? ({left, right, top, bottom} mm),
-//   interpreter?, timeout? (ms) } → { svg, axes, log, error, ms, interpreter, info }
+//   hideLegend?, interpreter?, timeout? (ms) } → { svg, axes, ranges, legend, log, error, ms, interpreter, info }
+// legend: the entries of the legends the plot drew ([{ label, kind: line | marker | patch, color, … }], Python only);
+// hideLegend takes them out of the picture, for one shared legend drawn by SciCanvas.
 // Data given as {base64} (a copy carried inside the figure, used when the original file isn't on this computer) is
 // written to the run's folder and passed to the code as a path, like any other file.
 async function plot(req) {
@@ -120,7 +122,7 @@ async function plot(req) {
     const pair = (v) => (Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v.map(Number) : null);
     const limits = req.limits ? { x: pair(req.limits.x), y: pair(req.limits.y) } : null;
     const m = req.margins && ['left', 'right', 'top', 'bottom'].every((k) => Number.isFinite(+req.margins[k])) ? { left: +req.margins.left, right: +req.margins.right, top: +req.margins.top, bottom: +req.margins.bottom } : null;
-    fs.writeFileSync(path.join(dir, 'params.json'), JSON.stringify({ width, height, fontSize, ...sizes, rasterizeAbove, limits, palette, family, margins: m }));
+    fs.writeFileSync(path.join(dir, 'params.json'), JSON.stringify({ width, height, fontSize, ...sizes, rasterizeAbove, limits, palette, family, margins: m, hideLegend: !!req.hideLegend }));
     fs.writeFileSync(path.join(dir, 'params.dcf'), [`width: ${width}`, `height: ${height}`, `fontsize: ${fontSize}`, `ticksize: ${sizes.tickSize ?? ''}`, `labelsize: ${sizes.labelSize ?? ''}`, `titlesize: ${sizes.titleSize ?? ''}`, `legendsize: ${sizes.legendSize ?? ''}`, `family: ${family}`, `palette: ${palette.join(',')}`, `margins: ${m ? [m.left, m.right, m.top, m.bottom].join(',') : ''}`, `axislw: ${sizes.axisLineWidth ?? ''}`, `linelw: ${sizes.lineWidth ?? ''}`, `markersize: ${sizes.markerSize ?? ''}`, `rasterize: ${rasterizeAbove}`, `xlim: ${limits && limits.x ? limits.x.join(',') : ''}`, `ylim: ${limits && limits.y ? limits.y.join(',') : ''}`].join('\n') + '\n');
     fs.writeFileSync(path.join(dir, 'data.json'), JSON.stringify(data));
     fs.writeFileSync(path.join(dir, 'data.tsv'), Object.entries(data).map(([k, v]) => `${k.replace(/[\t\n]/g, ' ')}\t${String(v).replace(/[\t\n]/g, ' ')}`).join('\n'));
@@ -133,7 +135,8 @@ async function plot(req) {
     const error = read('error.txt'), svg = error ? null : read('out.svg');
     let axes = null, ranges = null; try { axes = JSON.parse(read('axes.json') || 'null'); } catch { /* none */ }
     try { ranges = JSON.parse(read('ranges.json') || 'null'); } catch { /* none */ }
-    return { svg, axes, ranges, log: (read('log.txt') || '').trim(), error: error && error.trim(), ms: Date.now() - t0, interpreter: exe, info: w.info };
+    let legend = null; try { legend = JSON.parse(read('legend.json') || 'null'); } catch { /* none */ }
+    return { svg, axes, ranges, legend, log: (read('log.txt') || '').trim(), error: error && error.trim(), ms: Date.now() - t0, interpreter: exe, info: w.info };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -149,7 +149,7 @@ async function checkFigure(p = page()) {
   const letters = p.objects.filter((o) => o.type === 'text' && /^\(?[A-Za-z]\)?\.?$/.test((o.text || '').trim()) && !o.hidden)
     .map((o) => ({ o, ch: o.text.trim().replace(/[().]/g, '') }));
   const panels = p.objects.filter((o) => ['chart', 'image', 'group', 'protocol', 'table'].includes(o.type)).length;
-  if (!letters.length && panels >= 2) add('info', 'Panels', `${panels} panels but no panel letters (A, B, C…). Arrange › Figure Panels adds them.`);
+  if (!letters.length && panels >= 2) add('info', 'Panels', `${panels} panels but no panel letters (A, B, C…). Arrange › Panel Letters › Letter Selected Panels adds them, and keeps them in order.`);
   if (letters.length) {
     const order = [...letters].sort((a, b) => (Math.abs(a.o.y - b.o.y) > 40 ? a.o.y - b.o.y : a.o.x - b.o.x));
     const up = order[0].ch === order[0].ch.toUpperCase(), base = (up ? 'A' : 'a').charCodeAt(0);
